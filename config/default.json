@@ -1,0 +1,88 @@
+{
+  "version": 2,
+  "storage_path": "data/crypto_screener.sqlite3",
+  "universe": {
+    "quote_asset": "USDT",
+    "contract_type": "PERPETUAL",
+    "top_symbols_by_volume": 80,
+    "min_quote_volume_usd": 20000000,
+    "max_spread_bps": 15,
+    "exclude_base_assets": [
+      "USDT",
+      "USDC",
+      "FDUSD",
+      "TUSD",
+      "BUSD",
+      "DAI",
+      "USDE",
+      "USDP",
+      "PYUSD",
+      "USD1",
+      "USD"
+    ]
+  },
+  "providers": {
+    "binance": {
+      "enabled": true,
+      "base_url": "https://fapi.binance.com",
+      "depth_symbols": 20,
+      "depth_limit": 500,
+      "oi_period": "1h",
+      "oi_limit": 25,
+      "request_timeout_seconds": 12,
+      "per_symbol_delay_seconds": 0.05
+    },
+    "coinglass": {
+      "enabled": true,
+      "base_url": "https://open-api-v4.coinglass.com",
+      "api_key_env": "COINGLASS_API_KEY",
+      "max_symbols": 30,
+      "request_delay_seconds": 2.1,
+      "request_timeout_seconds": 12,
+      "exchanges": [
+        "Binance",
+        "OKX",
+        "Bybit",
+        "Bitget",
+        "Gate",
+        "Hyperliquid"
+      ]
+    },
+    "coingecko": {
+      "enabled": true,
+      "base_url": "https://api.coingecko.com/api/v3",
+      "api_key_env": "COINGECKO_API_KEY",
+      "categories_limit": 12,
+      "request_timeout_seconds": 12
+    },
+    "sosovalue": {
+      "enabled": false,
+      "api_key_env": "SOSOVALUE_API_KEY",
+      "note": "reserved for ETF flows and sector indexes if official API access exposes them"
+    }
+  },
+  "factors": {
+    "forward_return_hours": 24,
+    "ic_window_days": 30,
+    "min_observations": 30,
+    "min_abs_ic": 0.02,
+    "max_abs_weight": 0.35,
+    "priors": {
+      "momentum_24h": 0.18,
+      "reversal_1d": 0.08,
+      "oi_price_signal": 0.2,
+      "funding_rate_contrarian": 0.16,
+      "ls_ratio_contrarian": 0.12,
+      "liquidation_imbalance": 0.1,
+      "btc_relative_strength": 0.16
+    }
+  },
+  "report": {
+    "limit": 12,
+    "core_symbols": [
+      "BTC",
+      "ETH",
+      "SOL"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+data/*.sqlite3
+data/*.sqlite3-*
+data/*.db
+reports/*.json
+reports/*.csv
+reports/*.md
+!reports/.gitkeep
