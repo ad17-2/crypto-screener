@@ -59,6 +59,25 @@ Each run writes timestamped files into `reports/`:
 
 Snapshots are stored in `data/crypto_screener.sqlite3`. The first runs use prior factor weights. After enough labeled snapshots exist, the report switches factor weights toward rolling Spearman IC against the configured forward-return horizon.
 
+## Dashboard
+
+Run the local SQLite-backed dashboard:
+
+```bash
+python3 -m crypto_screener.dashboard
+```
+
+Runtime environment:
+
+- `PORT`: web port, default `8080`
+- `CRYPTO_SCREENER_CONFIG`: config path, default `config/default.json`
+- `CRYPTO_SCREENER_DB_PATH`: SQLite path, default from config
+- `CRYPTO_SCREENER_REPORT_DIR`: report output path, default `reports`
+- `CRYPTO_DASHBOARD_AUTO_REFRESH_SECONDS`: when set above `0`, the web process refreshes the screener whenever the latest SQLite run is older than this many seconds
+- `CRYPTO_DASHBOARD_REFRESH_TOKEN`: optional token for protected manual refresh calls
+
+Railway uses `railway.json` to start `python -m crypto_screener.dashboard`. For persistent cloud history, mount a Railway volume and point `CRYPTO_SCREENER_DB_PATH` and `CRYPTO_SCREENER_REPORT_DIR` at that mount.
+
 ## Factors
 
 Directional factors:
