@@ -95,7 +95,7 @@ def pearson_corr(x_values: list[float], y_values: list[float]) -> float | None:
         return None
     x_avg = mean(x_values)
     y_avg = mean(y_values)
-    numerator = sum((x - x_avg) * (y - y_avg) for x, y in zip(x_values, y_values, strict=True))
+    numerator = sum((x - x_avg) * (y - y_avg) for x, y in zip(x_values, y_values))
     x_den = math.sqrt(sum((x - x_avg) ** 2 for x in x_values))
     y_den = math.sqrt(sum((y - y_avg) ** 2 for y in y_values))
     if x_den == 0 or y_den == 0:

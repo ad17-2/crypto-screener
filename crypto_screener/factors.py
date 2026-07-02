@@ -44,7 +44,7 @@ def score_snapshot(
     normalized = _normalize_factors(raw_factors)
     weights = factor_weights(history_records, config)
 
-    for row, raw, factors in zip(trusted_rows, raw_factors, normalized, strict=True):
+    for row, raw, factors in zip(trusted_rows, raw_factors, normalized):
         row["raw_factors"] = raw
         row["factors"] = factors
         _apply_scores(row, factors, weights)
