@@ -555,7 +555,7 @@ def _loads_json(raw: str | None, default: Any) -> Any:
         return default
 
 
-def latest_run_age_seconds(db_path: Path) -> float | None:
+def latest_run_generated_at(db_path: Path) -> datetime | None:
     if not db_path.exists():
         return None
     with connect(db_path) as conn:
@@ -568,4 +568,11 @@ def latest_run_age_seconds(db_path: Path) -> float | None:
         return None
     if generated_at.tzinfo is None:
         generated_at = generated_at.replace(tzinfo=timezone.utc)
+    return generated_at
+
+
+def latest_run_age_seconds(db_path: Path) -> float | None:
+    generated_at = latest_run_generated_at(db_path)
+    if generated_at is None:
+        return None
     return max(0.0, (datetime.now(generated_at.tzinfo) - generated_at).total_seconds())

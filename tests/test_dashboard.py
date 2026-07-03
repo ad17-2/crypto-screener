@@ -3,9 +3,11 @@ import json
 import tempfile
 import threading
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 from urllib.request import urlopen
+from zoneinfo import ZoneInfo
 
 from crypto_screener.dashboard import (
     DASHBOARD_STATIC_DIR,
@@ -13,9 +15,11 @@ from crypto_screener.dashboard import (
     DashboardServer,
     DashboardSettings,
     RefreshRuntime,
+    _daily_refresh_due,
+    _parse_daily_refresh_time,
     build_dashboard_payload,
 )
-from crypto_screener.storage import connect, save_snapshot
+from crypto_screener.storage import connect, prune_old_runs, save_snapshot
 
 
 class DashboardTests(unittest.TestCase):
@@ -101,6 +105,53 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(dashboard["watchlists"][1]["rows"][0]["history"]), 2)
         self.assertEqual(dashboard["runs"][0]["coinglass_status"], "ok")
 
+    def test_prune_old_runs_keeps_only_latest_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "screener.sqlite3"
+            config = {"storage_path": str(db_path)}
+            for run_id, generated_at, symbol in (
+                ("run-1", "2026-07-01T06:00:00+07:00", "BTC"),
+                ("run-2", "2026-07-02T06:00:00+07:00", "ETH"),
+            ):
+                save_snapshot(
+                    {
+                        "run_id": run_id,
+                        "generated_at": generated_at,
+                        "rows": [{"symbol": symbol, "price_usd": 100}],
+                    },
+                    config,
+                )
+
+            result = prune_old_runs(db_path, keep=1)
+            dashboard = build_dashboard_payload(db_path, limit=5)
+
+        self.assertEqual(result["kept_runs"], 1)
+        self.assertEqual(result["deleted_runs"], 1)
+        self.assertEqual(dashboard["run"]["run_id"], "run-2")
+        self.assertEqual([run["run_id"] for run in dashboard["runs"]], ["run-2"])
+
+    def test_daily_refresh_due_after_scheduled_time_only_once_per_day(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "screener.sqlite3"
+            refresh_time = _parse_daily_refresh_time("06:00")
+            zone = ZoneInfo("Asia/Jakarta")
+
+            self.assertIsNotNone(refresh_time)
+            self.assertFalse(_daily_refresh_due(db_path, datetime(2026, 7, 3, 5, 59, tzinfo=zone), refresh_time))
+            self.assertTrue(_daily_refresh_due(db_path, datetime(2026, 7, 3, 6, 0, tzinfo=zone), refresh_time))
+
+            save_snapshot(
+                {
+                    "run_id": "today",
+                    "generated_at": "2026-07-03T06:05:00+07:00",
+                    "rows": [{"symbol": "BTC", "price_usd": 100}],
+                },
+                {"storage_path": str(db_path)},
+            )
+
+            self.assertFalse(_daily_refresh_due(db_path, datetime(2026, 7, 3, 12, 0, tzinfo=zone), refresh_time))
+            self.assertTrue(_daily_refresh_due(db_path, datetime(2026, 7, 4, 6, 0, tzinfo=zone), refresh_time))
+
     def test_dashboard_static_assets_keep_watchlist_ui_contract(self):
         index = (DASHBOARD_STATIC_DIR / "index.html").read_text()
         css = (DASHBOARD_STATIC_DIR / "dashboard.css").read_text()
@@ -150,6 +201,9 @@ class DashboardTests(unittest.TestCase):
                 port=0,
                 limit=5,
                 auto_refresh_seconds=0,
+                daily_refresh_time=None,
+                refresh_timezone="Asia/Jakarta",
+                retain_runs=0,
                 refresh_token=None,
             )
             handler = type(
@@ -198,6 +252,9 @@ class DashboardTests(unittest.TestCase):
                 port=0,
                 limit=5,
                 auto_refresh_seconds=0,
+                daily_refresh_time=None,
+                refresh_timezone="Asia/Jakarta",
+                retain_runs=1,
                 refresh_token=None,
             )
             runtime = RefreshRuntime(settings)
@@ -212,6 +269,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(status["state"], "ok")
         self.assertEqual(status["run_id"], "run-refresh")
         self.assertEqual(status["paths"], {})
+        self.assertEqual(status["retention"], {"kept_runs": 0, "deleted_runs": 0, "deleted_rows": 0})
         run_pipeline.assert_called_once()
         self.assertIs(run_pipeline.call_args.kwargs["save"], True)
         self.assertIs(run_pipeline.call_args.kwargs["write_report_files"], False)

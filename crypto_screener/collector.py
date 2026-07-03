@@ -100,6 +100,11 @@ def collect_coingecko_context(config: dict[str, Any], status: dict[str, Any]) ->
         base_url=provider_cfg.get("base_url", "https://api.coingecko.com/api/v3"),
         api_key=api_key or None,
         timeout_seconds=float(provider_cfg.get("request_timeout_seconds", 12)),
+        retry_429=bool(provider_cfg.get("retry_429", True)),
+        retry_429_initial_delay_seconds=float(provider_cfg.get("retry_429_initial_delay_seconds", 30)),
+        retry_429_max_delay_seconds=float(provider_cfg.get("retry_429_max_delay_seconds", 300)),
+        retry_429_jitter_seconds=float(provider_cfg.get("retry_429_jitter_seconds", 15)),
+        retry_429_max_attempts=int(provider_cfg.get("retry_429_max_attempts", 0)),
     )
     context: dict[str, Any] = {}
     errors: list[str] = []

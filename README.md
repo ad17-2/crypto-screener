@@ -156,6 +156,8 @@ CoinGecko is optional. The public endpoint often works without a key, but a Demo
 export COINGECKO_API_KEY="..."
 ```
 
+HTTP 429 rate limits are retried with exponential backoff and jitter. In the default config, `retry_429_max_attempts` is `0`, which means retry 429 responses until CoinGecko succeeds.
+
 ### SoSoValue
 
 SoSoValue is currently reserved in config for future ETF-flow and sector-index integration. The code does not currently call it.
@@ -419,6 +421,9 @@ Side modules:
 | `CRYPTO_SCREENER_REPORT_DIR` | `reports` | Runtime work directory; dashboard refresh skips report files |
 | `CRYPTO_DASHBOARD_LIMIT` | Config `report.limit` | Rows per watchlist |
 | `CRYPTO_DASHBOARD_AUTO_REFRESH_SECONDS` | `0` | Auto-run screener when latest run is older than this many seconds |
+| `CRYPTO_DASHBOARD_DAILY_REFRESH_TIME` | unset | Daily refresh time in `HH:MM`; takes precedence over interval refresh |
+| `CRYPTO_DASHBOARD_REFRESH_TZ` | `Asia/Jakarta` | Timezone for daily refresh scheduling |
+| `CRYPTO_DASHBOARD_RETAIN_RUNS` | `0` | Keep only this many newest SQLite runs after each successful refresh; `0` disables pruning |
 | `CRYPTO_DASHBOARD_REFRESH_TOKEN` | unset | Enables protected manual refresh API |
 
 ### Dashboard API
@@ -482,13 +487,15 @@ CRYPTO_SCREENER_DB_PATH=/data/crypto_screener.sqlite3
 CRYPTO_SCREENER_REPORT_DIR=/data/reports
 ```
 
-To let Railway refresh itself without report artifacts, set:
+To let Railway refresh itself once per day at 06:00 Asia/Jakarta, keeping only the latest saved run, set:
 
 ```bash
-CRYPTO_DASHBOARD_AUTO_REFRESH_SECONDS=43200
+CRYPTO_DASHBOARD_DAILY_REFRESH_TIME=06:00
+CRYPTO_DASHBOARD_REFRESH_TZ=Asia/Jakarta
+CRYPTO_DASHBOARD_RETAIN_RUNS=1
 ```
 
-That runs the screener when the latest SQLite snapshot is older than 12 hours. The dashboard refresh path saves SQLite only and does not write Markdown, JSON, or CSV files.
+The daily scheduler runs the screener after the configured local time when the latest SQLite snapshot is older than that day's scheduled run. The dashboard refresh path saves SQLite only and does not write Markdown, JSON, or CSV files. If CoinGecko returns HTTP 429 during refresh, the CoinGecko client backs off with jitter and keeps retrying until the market and sector context request succeeds.
 
 ### Local Backend, Railway Frontend Pattern
 

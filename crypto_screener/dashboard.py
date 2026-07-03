@@ -5,16 +5,18 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, time as local_time, timedelta, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 from .cli import load_config
-from .dashboard_payload import build_dashboard_payload, latest_run_age_seconds
+from .dashboard_payload import build_dashboard_payload, latest_run_age_seconds, latest_run_generated_at
 from .pipeline import run_pipeline
+from .storage import prune_old_runs
 
 
 DEFAULT_CONFIG_PATH = Path("config/default.json")
@@ -35,6 +37,9 @@ class DashboardSettings:
     port: int
     limit: int
     auto_refresh_seconds: int
+    daily_refresh_time: local_time | None
+    refresh_timezone: str
+    retain_runs: int
     refresh_token: str | None
 
 
@@ -56,6 +61,9 @@ class RefreshRuntime:
             }
             config = _load_runtime_config(self.settings)
             payload, paths = run_pipeline(config, self.settings.report_dir, save=True, write_report_files=False)
+            retention = None
+            if self.settings.retain_runs > 0:
+                retention = prune_old_runs(self.settings.db_path, self.settings.retain_runs)
             finished_at = datetime.now(timezone.utc)
             self.status = {
                 "state": "ok",
@@ -65,6 +73,7 @@ class RefreshRuntime:
                 "finished_at": finished_at.isoformat(timespec="seconds"),
                 "duration_seconds": round((finished_at - started_at).total_seconds(), 2),
                 "paths": {key: str(path) for key, path in paths.items()},
+                "retention": retention,
             }
             return self.status
         except Exception as exc:  # pragma: no cover - exercised in deployed runtime
@@ -99,6 +108,13 @@ def settings_from_env() -> DashboardSettings:
         port=int(os.environ.get("PORT", "8080")),
         limit=int(os.environ.get("CRYPTO_DASHBOARD_LIMIT", config.get("report", {}).get("limit", 12))),
         auto_refresh_seconds=int(os.environ.get("CRYPTO_DASHBOARD_AUTO_REFRESH_SECONDS", "0")),
+        daily_refresh_time=_parse_daily_refresh_time(
+            os.environ.get("CRYPTO_DASHBOARD_DAILY_REFRESH_TIME")
+            or os.environ.get("CRYPTO_DASHBOARD_REFRESH_TIME")
+            or ""
+        ),
+        refresh_timezone=os.environ.get("CRYPTO_DASHBOARD_REFRESH_TZ", "Asia/Jakarta"),
+        retain_runs=int(os.environ.get("CRYPTO_DASHBOARD_RETAIN_RUNS", "0")),
         refresh_token=os.environ.get("CRYPTO_DASHBOARD_REFRESH_TOKEN") or None,
     )
 
@@ -110,6 +126,10 @@ def _load_runtime_config(settings: DashboardSettings) -> dict[str, Any]:
 
 
 def start_auto_refresh(runtime: RefreshRuntime) -> None:
+    if runtime.settings.daily_refresh_time is not None:
+        _start_daily_refresh(runtime)
+        return
+
     seconds = runtime.settings.auto_refresh_seconds
     if seconds <= 0:
         return
@@ -122,6 +142,54 @@ def start_auto_refresh(runtime: RefreshRuntime) -> None:
             time.sleep(max(60, min(seconds, 1800)))
 
     threading.Thread(target=loop, daemon=True).start()
+
+
+def _start_daily_refresh(runtime: RefreshRuntime) -> None:
+    zone = ZoneInfo(runtime.settings.refresh_timezone)
+    refresh_time = runtime.settings.daily_refresh_time
+    if refresh_time is None:
+        return
+
+    def loop() -> None:
+        while True:
+            now = datetime.now(zone)
+            if _daily_refresh_due(runtime.settings.db_path, now, refresh_time):
+                status = runtime.refresh("daily")
+                if status.get("state") != "ok":
+                    time.sleep(300)
+                    continue
+            time.sleep(_seconds_until_next_daily_check(datetime.now(zone), refresh_time))
+
+    threading.Thread(target=loop, daemon=True).start()
+
+
+def _parse_daily_refresh_time(raw: str) -> local_time | None:
+    value = raw.strip()
+    if not value:
+        return None
+    hour_text, minute_text = value.split(":", 1)
+    return local_time(hour=int(hour_text), minute=int(minute_text))
+
+
+def _daily_refresh_due(db_path: Path, now: datetime, refresh_time: local_time) -> bool:
+    target = _scheduled_datetime(now, refresh_time)
+    if now < target:
+        return False
+    latest = latest_run_generated_at(db_path)
+    if latest is None:
+        return True
+    return latest.astimezone(now.tzinfo) < target
+
+
+def _seconds_until_next_daily_check(now: datetime, refresh_time: local_time) -> float:
+    target = _scheduled_datetime(now, refresh_time)
+    if now >= target:
+        target += timedelta(days=1)
+    return max(60.0, min((target - now).total_seconds(), 1800.0))
+
+
+def _scheduled_datetime(now: datetime, refresh_time: local_time) -> datetime:
+    return datetime.combine(now.date(), refresh_time, tzinfo=now.tzinfo)
 
 
 class DashboardHandler(BaseHTTPRequestHandler):

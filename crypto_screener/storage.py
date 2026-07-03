@@ -106,6 +106,42 @@ def save_snapshot(payload: dict[str, Any], config: dict[str, Any]) -> None:
         conn.commit()
 
 
+def prune_old_runs(db_path: Path, keep: int) -> dict[str, int]:
+    if keep <= 0 or not db_path.exists():
+        return {"kept_runs": 0, "deleted_runs": 0, "deleted_rows": 0}
+
+    with connect(db_path) as conn:
+        keep_rows = conn.execute(
+            """
+            SELECT run_id
+            FROM runs
+            ORDER BY generated_at DESC
+            LIMIT ?
+            """,
+            (keep,),
+        ).fetchall()
+        keep_run_ids = [row["run_id"] for row in keep_rows]
+        total_runs = conn.execute("SELECT COUNT(*) AS count FROM runs").fetchone()["count"]
+        if total_runs <= len(keep_run_ids):
+            return {"kept_runs": len(keep_run_ids), "deleted_runs": 0, "deleted_rows": 0}
+
+        placeholders = ",".join("?" for _ in keep_run_ids)
+        row_delete = conn.execute(
+            f"DELETE FROM market_rows WHERE run_id NOT IN ({placeholders})",
+            keep_run_ids,
+        )
+        run_delete = conn.execute(
+            f"DELETE FROM runs WHERE run_id NOT IN ({placeholders})",
+            keep_run_ids,
+        )
+        conn.commit()
+        return {
+            "kept_runs": len(keep_run_ids),
+            "deleted_runs": run_delete.rowcount,
+            "deleted_rows": row_delete.rowcount,
+        }
+
+
 def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
     db_path = Path(config.get("storage_path", "data/crypto_screener.sqlite3"))
     if not db_path.exists():
