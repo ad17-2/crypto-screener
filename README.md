@@ -32,9 +32,12 @@ The dashboard is designed around this workflow:
 - CoinGlass OHLC price-history enrichment for 4h technical indicators.
 - CoinGlass 4h historical OI, funding, liquidation, and taker buy/sell features for stronger derivatives confirmation.
 - Compact historical backfill into `factor_history` without creating fake dashboard runs.
-- CoinGecko global market context and sector/category rotation.
+- CoinGecko global market context, sector/category rotation, and breadth summaries.
 - Data-quality guards for suspicious provider rows and extreme outliers.
-- Confidence scoring that combines factor strength, liquidity, data quality, and 4h technical alignment.
+- Regime-aware scoring that adjusts factor emphasis for momentum, reversal, crowding, and broad market tape.
+- Signal conflict labels for rows where technicals, derivatives, breadth, or regime disagree with model direction.
+- Validation metrics from labeled factor history, including rolling model/factor hit-rate context.
+- Confidence scoring that combines factor strength, liquidity, data quality, 4h technical alignment, derivatives, breadth, and conflicts.
 - SQLite storage with full latest-run dashboard rows plus compact factor history for IC learning and sparklines.
 - Markdown, JSON, and CSV report artifacts.
 - Local and Railway-hosted dashboard.
@@ -53,6 +56,7 @@ The dashboard is designed around this workflow:
 |   |-- coingecko.py                 # CoinGecko API client
 |   |-- quality.py                   # Sanity filters and trust scoring
 |   |-- factors.py                   # Factor construction, IC weighting, regime inference
+|   |-- market.py                    # Market breadth and sector-rotation summaries
 |   |-- scoring.py                   # Shared numeric helpers and scoring primitives
 |   |-- report.py                    # Markdown/JSON/CSV report writer
 |   |-- storage.py                   # SQLite schema, snapshots, labeled history records
@@ -339,6 +343,45 @@ After enough labeled SQLite history exists, it can switch individual factor weig
 
 The report and dashboard show whether the run used prior or IC-informed factor weighting.
 
+### Regime And Conflict Layer
+
+Each run also derives market breadth from the trusted futures universe:
+
+- Advancers versus decliners.
+- Average and volume-weighted 24h return.
+- Open-interest expansion breadth.
+- CoinGecko category momentum when available.
+
+That breadth is folded into the market bias and stored in `market_context.breadth`. CoinGecko category leaders and laggards are also summarized in `market_context.sector_rotation`.
+
+Before scoring rows, the model applies conservative regime multipliers:
+
+- Momentum regimes emphasize price/OI confirmation, 4h trend, technical momentum, taker flow, and OI acceleration.
+- Reversal regimes emphasize reversal, funding contrarian, long/short contrarian, and liquidation pressure.
+- Crowding-contrarian regimes emphasize funding persistence, long/short crowding, and liquidation imbalance.
+- Risk-on/risk-off bias adjusts trend-sensitive factors without replacing the factor model.
+
+Rows also receive:
+
+- `signal_conflict_label`: `aligned`, `minor-conflict`, `mixed-signals`, `high-conflict`, `neutral`, or `excluded`.
+- `signal_conflict_score`: 0 to 100 conflict severity.
+- `regime_alignment_score`: whether the row direction agrees with market bias.
+- `breadth_alignment_score`: whether the row direction agrees with market breadth.
+
+These fields are additive and are stored inside existing SQLite JSON columns.
+
+### Validation Metrics
+
+When `factor_history` has enough labeled forward-return observations, the model reports validation context under `factor_weights.validation`:
+
+- Observation count.
+- Forward-return horizon.
+- Model directional hit rate.
+- Per-factor directional hit rates.
+- Long-side and short-side hit-rate splits when available.
+
+This is diagnostic only. It helps judge whether current weighting has historical support; it is not an execution rule.
+
 ## Watchlists
 
 The model creates five base lists:
@@ -355,7 +398,7 @@ The dashboard also builds:
 
 Chart priority combines the relevant score with data quality and trust state. It is not an entry signal; it is a workflow sort for manual review.
 
-Each row also has a `confidence_score` from 0 to 100. It rewards stronger directional factors, better liquidity, clean data, and alignment between the factor side and 4h technical trend/momentum. Treat confidence as a sorting aid, not a trade trigger.
+Each row also has a `confidence_score` from 0 to 100. It rewards stronger directional factors, better liquidity, clean data, and alignment between the factor side, 4h technical trend/momentum, derivatives, and market breadth. It penalizes conflicting signals. Treat confidence as a sorting aid, not a trade trigger.
 
 ## Historical Backfill
 
@@ -426,6 +469,7 @@ The top strip shows:
 
 - Market bias.
 - Factor regime.
+- Market breadth.
 - Market cap 24h.
 - BTC dominance.
 - Trusted/excluded row count.
@@ -461,6 +505,7 @@ Selecting a row opens the detail rail with:
 - Volume and open interest.
 - 4h technical setup, RSI, MACD histogram, ATR, Bollinger state, EMA20 distance, trend score, and momentum score.
 - Reason chips.
+- Signal conflict label when the setup has meaningful disagreement.
 - Factor breakdown bars.
 - SQLite history sparklines.
 
@@ -468,7 +513,7 @@ Side modules:
 
 - Providers.
 - Data Quality.
-- Sector Rotation.
+- Sector Rotation, including breadth and sector-tape labels.
 - Recent Runs.
 
 ### Dashboard Environment

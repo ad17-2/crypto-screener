@@ -32,7 +32,7 @@ def run_pipeline(
         "run_id": run_id,
         "generated_at": generated_at.isoformat(timespec="seconds"),
         "rows": scored["rows"],
-        "market_context": collected.get("market_context", {}),
+        "market_context": scored.get("market_context", collected.get("market_context", {})),
         "provider_status": collected.get("provider_status", {}),
         "factor_weights": scored["factor_weights"],
         "regime": scored["regime"],

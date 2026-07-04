@@ -53,6 +53,10 @@ REPORT_FIELDS = [
     "short_score",
     "crowded_long_score",
     "squeeze_risk_score",
+    "signal_conflict_label",
+    "signal_conflict_score",
+    "regime_alignment_score",
+    "breadth_alignment_score",
     "is_trusted",
     "data_quality_score",
     "data_quality_flags",
@@ -176,6 +180,8 @@ def _market_bias_block(regime: dict[str, Any], context: dict[str, Any]) -> str:
         f"- BTC dominance: `{format_pct(context.get('btc_dominance_pct'), signed=False)}`",
         f"- ETH dominance: `{format_pct(context.get('eth_dominance_pct'), signed=False)}`",
         f"- Avg futures funding: `{format_pct(regime.get('avg_funding_rate_pct'), digits=4)}`",
+        f"- Breadth: `{regime.get('breadth_label', 'unknown')}` (`{regime.get('breadth_score', '-')}`)",
+        f"- Sector rotation: `{regime.get('sector_rotation_label', 'unknown')}`",
     ]
     return "\n".join(lines)
 
@@ -202,6 +208,7 @@ def _factor_weights_table(weights: dict[str, Any]) -> str:
         return "_No factor weights._"
     lines = [
         f"History records: `{weights.get('history_records', 0)}`. Weight mode: `{weights.get('mode', 'prior')}`.",
+        _validation_summary(weights.get("validation", {})),
         "",
         "| Factor | Weight | IC | Obs | Mode |",
         "|---|---:|---:|---:|---|",
@@ -222,12 +229,19 @@ def _factor_weights_table(weights: dict[str, Any]) -> str:
 
 def _rotation_block(context: dict[str, Any]) -> str:
     categories = context.get("categories", {})
+    breadth = context.get("breadth", {})
+    sector_rotation = context.get("sector_rotation", {})
     leaders = categories.get("leaders", [])[:5]
     laggards = categories.get("laggards", [])[:5]
-    if not leaders and not laggards:
+    if not leaders and not laggards and not breadth:
         return "_No category data available._"
 
-    lines = ["Top category leaders:"]
+    lines = [
+        f"Market breadth: `{breadth.get('label', 'unknown')}` score `{breadth.get('score', '-')}`, advancers `{breadth.get('advancer_pct', '-')}%`.",
+        f"Sector tape: `{sector_rotation.get('label', 'unknown')}`.",
+        "",
+        "Top category leaders:",
+    ]
     lines.extend(_category_lines(leaders))
     lines.append("")
     lines.append("Top category laggards:")
@@ -242,6 +256,22 @@ def _category_lines(categories: list[dict[str, Any]]) -> list[str]:
         f"- {item.get('name', item.get('id', '-'))}: {format_pct(item.get('market_cap_change_24h_pct'))}, volume {format_usd(item.get('volume_24h_usd'))}"
         for item in categories
     ]
+
+
+def _validation_summary(validation: dict[str, Any]) -> str:
+    if not validation:
+        return "Validation: `unavailable`."
+    model = validation.get("model", {})
+    hit_rate = model.get("hit_rate")
+    hit_text = "-" if hit_rate is None else f"{hit_rate:.2f}%"
+    return (
+        "Validation: `{status}`, observations `{observations}`, horizon `{horizon}h`, model hit rate `{hit}`."
+    ).format(
+        status=validation.get("status", "unknown"),
+        observations=validation.get("observations", 0),
+        horizon=validation.get("horizon_hours", "-"),
+        hit=hit_text,
+    )
 
 
 def _candidate_table(rows: list[dict[str, Any]], score_field: str, side: str) -> str:

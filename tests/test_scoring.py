@@ -29,6 +29,31 @@ class ScoringTests(unittest.TestCase):
         weights = factor_weights([], config)
         self.assertEqual(weights["mode"], "prior")
         self.assertGreater(weights["directional"]["momentum_24h"], 0)
+        self.assertEqual(weights["validation"]["status"], "insufficient")
+
+    def test_factor_weights_include_validation_metrics(self):
+        records = [
+            {
+                "forward_return_pct": 2,
+                "factors": {"momentum_24h": 1, "reversal_1d": -1},
+                "scores": {"factor_score": 0.4},
+            },
+            {
+                "forward_return_pct": -3,
+                "factors": {"momentum_24h": -1, "reversal_1d": 1},
+                "scores": {"factor_score": -0.5},
+            },
+            {
+                "forward_return_pct": 1,
+                "factors": {"momentum_24h": -1, "reversal_1d": 1},
+                "scores": {"factor_score": -0.2},
+            },
+        ]
+        weights = factor_weights(records, {"factors": {"min_observations": 3, "min_abs_ic": 0.0}})
+
+        self.assertEqual(weights["validation"]["observations"], 3)
+        self.assertAlmostEqual(weights["validation"]["model"]["hit_rate"], 66.67)
+        self.assertIn("momentum_24h", weights["validation"]["factors"])
 
     def test_score_snapshot_ranks_long_and_short(self):
         rows = [
@@ -82,6 +107,64 @@ class ScoringTests(unittest.TestCase):
         self.assertIn("oi_acceleration_signal", long_row["factors"])
         self.assertIn("taker_flow_24h", long_row["factors"])
         self.assertGreater(long_row["confidence_score"], 0)
+        self.assertIn("breadth", score_snapshot(rows, {}, [], {"factors": {}})["market_context"])
+
+    def test_score_snapshot_adds_regime_adjustments_and_conflict_labels(self):
+        rows = [
+            {
+                "symbol": "BTC",
+                "price_usd": 100,
+                "price_change_24h_pct": 3,
+                "oi_change_24h_pct": 2,
+                "funding_rate_pct": 0.01,
+                "quote_volume_usd": 200_000_000,
+                "technical_trend_score": 0.8,
+                "technical_momentum_score": 0.7,
+                "derivatives_confirmation_score": 0.8,
+            },
+            {
+                "symbol": "ALT",
+                "price_usd": 10,
+                "price_change_24h_pct": 5,
+                "oi_change_24h_pct": 4,
+                "funding_rate_pct": 0.01,
+                "quote_volume_usd": 100_000_000,
+                "technical_trend_score": -0.8,
+                "technical_momentum_score": -0.7,
+                "derivatives_confirmation_score": -0.8,
+                "taker_imbalance_24h_pct": -8,
+            },
+            {
+                "symbol": "WEAK",
+                "price_usd": 10,
+                "price_change_24h_pct": -4,
+                "oi_change_24h_pct": 3,
+                "funding_rate_pct": 0.03,
+                "quote_volume_usd": 80_000_000,
+                "technical_trend_score": 0.5,
+                "technical_momentum_score": 0.4,
+                "derivatives_confirmation_score": 0.5,
+                "taker_imbalance_24h_pct": 6,
+            },
+        ]
+        context = {
+            "market_cap_change_24h_pct": 2,
+            "categories": {
+                "leaders": [{"name": "Layer 1", "market_cap_change_24h_pct": 3}],
+                "laggards": [{"name": "Meme", "market_cap_change_24h_pct": -1}],
+            },
+        }
+
+        scored = score_snapshot(rows, context, [], {"factors": {}})
+        alt = next(row for row in scored["rows"] if row["symbol"] == "ALT")
+
+        self.assertTrue(scored["factor_weights"]["regime_adjusted"])
+        self.assertIn("base_directional", scored["factor_weights"])
+        self.assertEqual(scored["market_context"]["breadth"]["status"], "ok")
+        self.assertIn(scored["regime"]["breadth_label"], {"selective-risk-on", "broad-risk-on", "mixed"})
+        self.assertEqual(alt["signal_conflict_label"], "high-conflict")
+        self.assertGreater(alt["signal_conflict_score"], 0)
+        self.assertTrue(alt["signal_conflicts"])
 
 
 if __name__ == "__main__":

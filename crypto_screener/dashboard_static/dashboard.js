@@ -452,8 +452,12 @@
     function sectorList(context) {
       const leaders = context?.categories?.leaders || [];
       const laggards = context?.categories?.laggards || [];
+      const breadth = context?.breadth || {};
+      const rotation = context?.sector_rotation || {};
       const line = (item) => `<div class="list-row"><strong>${esc(item.name || item.id)}</strong><span class="${clsFor(item.market_cap_change_24h_pct)}">${fmtPct(item.market_cap_change_24h_pct)}</span></div>`;
       return `<div class="list">
+        <div class="list-row"><strong>Breadth</strong><span>${esc(breadth.label || "unknown")} / ${fmtNum(breadth.score, 2)}</span></div>
+        <div class="list-row"><strong>Sector Tape</strong><span>${esc(rotation.label || "unknown")}</span></div>
         <div class="label">Leaders</div>${leaders.slice(0, 5).map(line).join("") || `<div class="empty">No leaders</div>`}
         <div class="label">Laggards</div>${laggards.slice(0, 5).map(line).join("") || `<div class="empty">No laggards</div>`}
       </div>`;
@@ -490,6 +494,7 @@
       $("metrics").innerHTML = [
         metric("Bias", r.bias || "unknown", "accent"),
         metric("Factor Regime", r.label || "unknown", "small"),
+        metric("Breadth", c.breadth?.label || "unknown", "small"),
         metric("Market Cap 24h", fmtPct(c.market_cap_change_24h_pct), clsFor(c.market_cap_change_24h_pct)),
         metric("BTC Dominance", fmtPct(c.btc_dominance_pct, 2).replace("+", "")),
         metric("Trusted / Excluded", `${data.quality.trusted_count} / ${data.quality.excluded_count}`, data.quality.excluded_count ? "warn" : "good"),

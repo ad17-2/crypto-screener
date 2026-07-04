@@ -34,10 +34,19 @@ class DashboardTests(unittest.TestCase):
                     "market_cap_change_24h_pct": 1.2,
                     "btc_dominance_pct": 55.5,
                     "categories": {"leaders": [], "laggards": []},
+                    "breadth": {"status": "ok", "label": "selective-risk-on", "score": 0.31},
+                    "sector_rotation": {"status": "ok", "label": "selective-sector-bid"},
                 },
                 "provider_status": {"coinglass": {"status": "ok", "rows": 2}},
-                "regime": {"bias": "risk-on", "label": "momentum"},
-                "factor_weights": {"mode": "prior"},
+                "regime": {"bias": "risk-on", "label": "momentum", "breadth_label": "selective-risk-on"},
+                "factor_weights": {
+                    "mode": "prior",
+                    "validation": {
+                        "status": "limited",
+                        "observations": 8,
+                        "model": {"hit_rate": 62.5},
+                    },
+                },
                 "rows": [
                     {
                         "symbol": "BTC",
@@ -63,6 +72,11 @@ class DashboardTests(unittest.TestCase):
                         "atr_14_pct": 2.1,
                         "technical_trend_score": 0.8,
                         "technical_momentum_score": 0.5,
+                        "signal_conflict_label": "minor-conflict",
+                        "signal_conflict_score": 24,
+                        "signal_conflicts": [{"code": "market_breadth", "label": "market breadth", "severity": 0.3}],
+                        "regime_alignment_score": 0.5,
+                        "breadth_alignment_score": -0.3,
                         "scores": {"factor_score": 0.2, "long_score": 30, "confidence_score": 72},
                         "factors": {"momentum_24h": 1.0, "technical_trend_4h": 0.8},
                     },
@@ -100,6 +114,8 @@ class DashboardTests(unittest.TestCase):
 
         self.assertEqual(dashboard["status"], "ok")
         self.assertEqual(dashboard["regime"]["bias"], "risk-on")
+        self.assertEqual(dashboard["market_context"]["breadth"]["label"], "selective-risk-on")
+        self.assertEqual(dashboard["validation"]["status"], "limited")
         self.assertEqual(dashboard["quality"]["trusted_count"], 1)
         self.assertEqual(dashboard["quality"]["excluded_count"], 1)
         self.assertEqual(dashboard["sections"]["long"][0]["symbol"], "BTC")
@@ -110,6 +126,9 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(dashboard["watchlists"][1]["rows"][0]["setup"], "Trend Continuation Long")
         self.assertGreater(dashboard["watchlists"][1]["rows"][0]["priority"], 0)
         self.assertEqual(dashboard["watchlists"][1]["rows"][0]["confidence_score"], 72)
+        self.assertEqual(dashboard["watchlists"][1]["rows"][0]["signal_conflict_label"], "minor-conflict")
+        self.assertEqual(dashboard["watchlists"][1]["rows"][0]["signal_conflict_score"], 24)
+        self.assertIn("Signals", [part["label"] for part in dashboard["watchlists"][1]["rows"][0]["reason_parts"]])
         self.assertEqual(dashboard["watchlists"][1]["rows"][0]["technical_state"]["rsi_14"], 61)
         self.assertTrue(dashboard["watchlists"][1]["rows"][0]["factor_parts"])
         self.assertEqual(len(dashboard["watchlists"][1]["rows"][0]["history"]), 2)
@@ -191,6 +210,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("filterValues", js)
         self.assertIn("factorBars", js)
         self.assertIn("module-panel", css)
+        self.assertIn("Breadth", js)
+        self.assertIn("sector_rotation", js)
         self.assertIn('class="watch-row', js)
         self.assertIn('class="watch-cell', js)
         self.assertIn('class="detail-rail"', index)

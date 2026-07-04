@@ -228,7 +228,7 @@ def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
         if not rows:
             rows = conn.execute(
                 """
-                SELECT generated_at, symbol, price_usd, factors_json
+                SELECT generated_at, symbol, price_usd, factors_json, scores_json
                 FROM market_rows
                 WHERE generated_at >= ?
                 ORDER BY generated_at ASC
@@ -248,6 +248,7 @@ def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
             "symbol": db_row["symbol"],
             "price_usd": float(price),
             "factors": json.loads(db_row["factors_json"]),
+            "scores": json.loads(db_row["scores_json"] or "{}") if "scores_json" in db_row.keys() else {},
         }
         by_symbol.setdefault(item["symbol"], []).append(item)
 
@@ -310,6 +311,10 @@ def _history_metrics(row: dict[str, Any]) -> dict[str, Any]:
         "taker_buy_sell_ratio_24h",
         "taker_imbalance_24h_pct",
         "derivatives_confirmation_score",
+        "signal_conflict_label",
+        "signal_conflict_score",
+        "regime_alignment_score",
+        "breadth_alignment_score",
     ]
     return {key: row.get(key) for key in keys if row.get(key) is not None}
 
@@ -317,7 +322,7 @@ def _history_metrics(row: dict[str, Any]) -> dict[str, Any]:
 def _load_factor_history_rows(conn: sqlite3.Connection, cutoff: str) -> list[sqlite3.Row]:
     return conn.execute(
         """
-        SELECT generated_at, symbol, price_usd, factors_json
+        SELECT generated_at, symbol, price_usd, factors_json, scores_json
         FROM factor_history
         WHERE generated_at >= ?
         ORDER BY generated_at ASC

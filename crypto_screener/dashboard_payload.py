@@ -96,6 +96,7 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
         "market_context": context,
         "provider_status": provider_status,
         "factor_weights": factor_weights,
+        "validation": factor_weights.get("validation", {}),
         "quality": _quality_summary(rows),
         "sections": sections,
         "watchlists": _watchlists(sections, limit),
@@ -271,6 +272,11 @@ def _dashboard_row(row: dict[str, Any], score_field: str, side: str, history: li
         "open_interest_usd": row.get("open_interest_usd"),
         "technical_setup": row.get("technical_setup"),
         "technical_state": _technical_state(row),
+        "signal_conflict_label": row.get("signal_conflict_label"),
+        "signal_conflict_score": row.get("signal_conflict_score"),
+        "signal_conflicts": row.get("signal_conflicts", []),
+        "regime_alignment_score": row.get("regime_alignment_score"),
+        "breadth_alignment_score": row.get("breadth_alignment_score"),
         "data_source": row.get("data_source"),
         "is_trusted": row.get("is_trusted", True),
         "data_quality_flags": row.get("data_quality_flags", []),
@@ -283,6 +289,9 @@ def _dashboard_row(row: dict[str, Any], score_field: str, side: str, history: li
                 "crowded_long_score",
                 "squeeze_risk_score",
                 "confidence_score",
+                "signal_conflict_score",
+                "regime_alignment_score",
+                "breadth_alignment_score",
             )
         },
         "factor_parts": _factor_parts(factors),
@@ -335,6 +344,7 @@ def _history_by_symbol(conn, symbols: list[str], generated_at: str, limit: int =
                 "short_score": scores.get("short_score"),
                 "crowded_long_score": scores.get("crowded_long_score"),
                 "squeeze_risk_score": scores.get("squeeze_risk_score"),
+                "signal_conflict_score": scores.get("signal_conflict_score") or item.get("signal_conflict_score"),
             }
         )
     if not any(by_symbol.values()):
@@ -479,6 +489,16 @@ def _reason_parts(row: dict[str, Any], side: str) -> list[dict[str, Any]]:
                 "value": row.get("technical_setup"),
                 "tone": _technical_tone(row),
                 "help": "4h CoinGlass OHLC technical state used as confirmation context.",
+            }
+        )
+    if row.get("signal_conflict_label") and row.get("signal_conflict_label") not in {"aligned", "neutral"}:
+        parts.append(
+            {
+                "kind": "context",
+                "label": "Signals",
+                "value": row.get("signal_conflict_label"),
+                "tone": "warn" if row.get("signal_conflict_label") != "high-conflict" else "bad",
+                "help": "Signal conflict label: highlights when technicals, derivatives, breadth, or regime disagree with the model direction.",
             }
         )
     if row.get("rsi_14") is not None:
