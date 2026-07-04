@@ -264,6 +264,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("validationPanel", index)
         self.assertIn("module-grid", index)
         self.assertIn("sparkline", js)
+        self.assertNotIn("<div>Trend</div>", js)
+        self.assertNotIn('data-label="Trend"', js)
         self.assertIn("filterValues", js)
         self.assertIn("factorBars", js)
         self.assertIn("validationBlock", js)

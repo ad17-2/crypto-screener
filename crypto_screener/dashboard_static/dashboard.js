@@ -301,7 +301,7 @@
         return;
       }
       $("watchTable").innerHTML = `<div class="watch-head">
-        <div>Symbol</div><div>Setup</div><div>Score</div><div>Q</div><div>24h</div><div>OI 24h</div><div>Funding</div><div>L/S</div><div>Volume</div><div>Trend</div><div>Source</div>
+        <div>Symbol</div><div>Setup</div><div>Score</div><div>Q</div><div>24h</div><div>OI 24h</div><div>Funding</div><div>L/S</div><div>Volume</div><div>Source</div>
       </div>${rows.map((row) => {
         const key = rowKey(row);
         const active = key === state.selectedKey ? " active" : "";
@@ -315,7 +315,6 @@
           <div class="watch-cell ${clsFor(row.funding_rate_pct)}" data-label="Funding">${fmtPct(row.funding_rate_pct, 4)}</div>
           <div class="watch-cell" data-label="L/S">${row.long_short_ratio == null ? "-" : fmtNum(row.long_short_ratio)}</div>
           <div class="watch-cell" data-label="Volume">${fmtUsd(row.quote_volume_usd)}</div>
-          <div class="watch-cell" data-label="Trend">${sparkline(row.history, row.score_field || "factor_score")}</div>
           <div class="watch-cell" data-label="Source"><div class="source-stack">${sourceTags(row.data_source)}</div></div>
         </div>`;
       }).join("")}`;

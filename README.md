@@ -492,6 +492,8 @@ Filters:
 - OI positive only.
 - Negative funding only.
 
+Historical sparklines stay in the detail rail, so newly rotating symbols do not fill the main watchlist table with missing-history states.
+
 Selecting a row opens the detail rail with:
 
 - TradingView link using the row's primary CoinGlass venue where possible.

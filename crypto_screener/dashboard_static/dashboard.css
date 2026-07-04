@@ -267,7 +267,7 @@
     .watch-table { width: 100%; overflow: hidden; }
     .watch-head, .watch-row {
       display: grid;
-      grid-template-columns: minmax(96px, 1.05fr) minmax(130px, 1.25fr) minmax(74px, .65fr) minmax(44px, .4fr) minmax(62px, .55fr) minmax(70px, .6fr) minmax(76px, .68fr) minmax(50px, .45fr) minmax(84px, .78fr) minmax(96px, .82fr) minmax(84px, .78fr);
+      grid-template-columns: minmax(96px, 1.05fr) minmax(130px, 1.3fr) minmax(74px, .68fr) minmax(44px, .4fr) minmax(62px, .58fr) minmax(70px, .62fr) minmax(76px, .7fr) minmax(50px, .45fr) minmax(84px, .8fr) minmax(84px, .78fr);
       gap: 8px;
       align-items: center;
     }
