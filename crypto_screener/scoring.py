@@ -24,7 +24,7 @@ def safe_log10(value: float | None) -> float:
 
 
 def pct_change(old: float | None, new: float | None) -> float | None:
-    if old in (None, 0) or new is None:
+    if old is None or old == 0 or new is None:
         return None
     return ((new - old) / old) * 100.0
 
@@ -89,7 +89,7 @@ def pearson_corr(x_values: list[float], y_values: list[float]) -> float | None:
         return None
     x_avg = mean(x_values)
     y_avg = mean(y_values)
-    numerator = sum((x - x_avg) * (y - y_avg) for x, y in zip(x_values, y_values))
+    numerator = sum((x - x_avg) * (y - y_avg) for x, y in zip(x_values, y_values, strict=True))
     x_den = math.sqrt(sum((x - x_avg) ** 2 for x in x_values))
     y_den = math.sqrt(sum((y - y_avg) ** 2 for y in y_values))
     if x_den == 0 or y_den == 0:
@@ -101,108 +101,3 @@ def spearman_corr(x_values: list[float], y_values: list[float]) -> float | None:
     if len(x_values) != len(y_values) or len(x_values) < 2:
         return None
     return pearson_corr(average_ranks(x_values), average_ranks(y_values))
-
-
-def liquidity_score(row: dict[str, Any], min_quote_volume_usd: float) -> float:
-    volume = row.get("quote_volume_usd") or 0.0
-    if volume <= 0:
-        return 0.0
-    volume_component = clamp(math.log10(max(volume / min_quote_volume_usd, 1.0)) / 2.0)
-
-    spread = row.get("spread_bps")
-    spread_component = 0.5 if spread is None else clamp(1.0 - (spread / 15.0))
-
-    depth = row.get("depth_0_5pct_usd")
-    if depth is None:
-        depth_component = 0.5
-    else:
-        depth_component = clamp(math.log10(max(depth / 1_000_000.0, 1.0)) / 2.0)
-
-    return (volume_component * 0.45) + (spread_component * 0.35) + (depth_component * 0.20)
-
-
-def add_scores(rows: list[dict[str, Any]], min_quote_volume_usd: float) -> list[dict[str, Any]]:
-    for row in rows:
-        price_24h = row.get("price_change_24h_pct") or 0.0
-        oi_24h = row.get("oi_change_24h_pct")
-        funding = row.get("funding_rate_pct")
-        liq = liquidity_score(row, min_quote_volume_usd)
-
-        oi_up = clamp((oi_24h or 0.0) / 12.0)
-        oi_down = clamp(abs(oi_24h or 0.0) / 12.0)
-        funding_positive = clamp((funding or 0.0) / 0.05)
-        funding_negative = clamp(abs(min(funding or 0.0, 0.0)) / 0.05)
-        neutral_funding = 1.0 - clamp(abs(funding or 0.0) / 0.08)
-
-        long_score = 0.0
-        if price_24h > 0:
-            long_score = (
-                42.0 * clamp(price_24h / 8.0)
-                + 22.0 * oi_up
-                + 20.0 * liq
-                + 16.0 * neutral_funding
-            )
-
-        short_score = 0.0
-        if price_24h < 0:
-            short_score = (
-                42.0 * clamp(abs(price_24h) / 8.0)
-                + 24.0 * oi_up
-                + 20.0 * liq
-                + 14.0 * (1.0 - funding_negative)
-            )
-
-        crowded_long_score = 0.0
-        if (funding or 0.0) > 0.015:
-            crowded_long_score = (
-                40.0 * funding_positive
-                + 22.0 * oi_up
-                + 18.0 * clamp(max(price_24h, 0.0) / 10.0)
-                + 20.0 * liq
-            )
-
-        squeeze_risk_score = 0.0
-        if (funding or 0.0) < -0.015:
-            squeeze_risk_score = (
-                42.0 * funding_negative
-                + 20.0 * oi_up
-                + 18.0 * clamp(max(price_24h, 0.0) / 8.0)
-                + 10.0 * oi_down
-                + 10.0 * liq
-            )
-
-        row["liquidity_score"] = round(liq * 100.0, 2)
-        row["long_score"] = round(long_score, 2)
-        row["short_score"] = round(short_score, 2)
-        row["crowded_long_score"] = round(crowded_long_score, 2)
-        row["squeeze_risk_score"] = round(squeeze_risk_score, 2)
-
-    return rows
-
-
-def reason_for(row: dict[str, Any], side: str) -> str:
-    parts: list[str] = []
-    price = row.get("price_change_24h_pct")
-    oi = row.get("oi_change_24h_pct")
-    funding = row.get("funding_rate_pct")
-    spread = row.get("spread_bps")
-
-    if price is not None:
-        parts.append(f"24h {price:+.2f}%")
-    if oi is not None:
-        parts.append(f"OI {oi:+.2f}%")
-    if funding is not None:
-        parts.append(f"funding {funding:+.4f}%")
-    if spread is not None:
-        parts.append(f"spread {spread:.2f} bps")
-
-    if side == "short" and oi is not None and oi > 0 and price is not None and price < 0:
-        parts.append("price down + OI up")
-    if side == "long" and oi is not None and oi > 0 and price is not None and price > 0:
-        parts.append("price up + OI up")
-    if side == "fade-long" and funding is not None and funding > 0.03:
-        parts.append("positive funding crowding")
-    if side == "squeeze-risk" and funding is not None and funding < -0.03:
-        parts.append("negative funding crowding")
-
-    return "; ".join(parts)

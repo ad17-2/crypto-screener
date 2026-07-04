@@ -4,7 +4,6 @@ from typing import Any
 
 from .scoring import clamp, mean, pct_change, stdev, to_float
 
-
 INTERVAL_HOURS = {
     "1m": 1.0 / 60.0,
     "3m": 3.0 / 60.0,
@@ -55,9 +54,7 @@ def derivatives_snapshot(
     oi_change_window = _pct_change_steps(oi_closes, window)
     oi_previous_change = _pct_change_steps(oi_closes[:-1], 1)
     oi_acceleration = (
-        oi_change_1 - oi_previous_change
-        if oi_change_1 is not None and oi_previous_change is not None
-        else None
+        oi_change_1 - oi_previous_change if oi_change_1 is not None and oi_previous_change is not None else None
     )
     oi_zscore = _latest_zscore(oi_closes, 30)
 

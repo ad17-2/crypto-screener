@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from .collector import collect_market
 from .factors import score_snapshot
+from .models import RunPayload
 from .report import now_jakarta, write_reports
 from .storage import load_labeled_factor_records, save_snapshot
 
@@ -28,15 +29,15 @@ def run_pipeline(
         config,
     )
 
-    payload = {
-        "run_id": run_id,
-        "generated_at": generated_at.isoformat(timespec="seconds"),
-        "rows": scored["rows"],
-        "market_context": scored.get("market_context", collected.get("market_context", {})),
-        "provider_status": collected.get("provider_status", {}),
-        "factor_weights": scored["factor_weights"],
-        "regime": scored["regime"],
-    }
+    payload = RunPayload(
+        run_id=run_id,
+        generated_at=generated_at.isoformat(timespec="seconds"),
+        rows=scored["rows"],
+        market_context=scored.get("market_context", collected.get("market_context", {})),
+        provider_status=collected.get("provider_status", {}),
+        factor_weights=scored["factor_weights"],
+        regime=scored["regime"],
+    ).to_runtime_dict()
     if save:
         save_snapshot(payload, config)
     paths = write_reports(payload, config, out_dir) if write_report_files else {}

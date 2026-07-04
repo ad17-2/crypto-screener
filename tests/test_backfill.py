@@ -54,9 +54,11 @@ class BackfillTests(unittest.TestCase):
             "storage_path": "local.sqlite3",
             "providers": {"coinglass": {"api_key_env": "MISSING_TEST_KEY"}},
         }
-        with patch.dict("os.environ", {"CRYPTO_SCREENER_DB_PATH": "/data/crypto.sqlite3"}, clear=False):
-            with self.assertRaises(ProviderError):
-                run_backfill(config, argparse_namespace())
+        with (
+            patch.dict("os.environ", {"CRYPTO_SCREENER_DB_PATH": "/data/crypto.sqlite3"}, clear=False),
+            self.assertRaises(ProviderError),
+        ):
+            run_backfill(config, argparse_namespace())
 
         self.assertEqual(config["storage_path"], "/data/crypto.sqlite3")
 

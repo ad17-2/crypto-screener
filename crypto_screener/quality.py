@@ -4,7 +4,6 @@ from typing import Any
 
 from .scoring import pct_change, to_float
 
-
 DEFAULT_QUALITY_CONFIG = {
     "max_abs_price_change_24h_pct": 300,
     "max_abs_oi_change_24h_pct": 300,

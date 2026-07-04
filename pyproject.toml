@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crypto-screener"
+version = "0.1.0"
+description = "Signal-only crypto futures screener and dashboard for manual chart review."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Ari Stifandi" }]
+dependencies = [
+    "httpx>=0.27,<1",
+    "pydantic>=2,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.11,<2",
+    "ruff>=0.6,<1",
+]
+
+[project.scripts]
+crypto-screener = "crypto_screener.cli:main"
+crypto-screener-backfill = "crypto_screener.backfill:main"
+crypto-screener-dashboard = "crypto_screener.dashboard:main"
+
+[tool.setuptools.packages.find]
+include = ["crypto_screener*"]
+
+[tool.setuptools.package-data]
+crypto_screener = ["dashboard_static/*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+pretty = true

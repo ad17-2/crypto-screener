@@ -20,20 +20,20 @@ class PipelineTests(unittest.TestCase):
             "regime": {"bias": "risk-on"},
         }
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with (
-                patch("crypto_screener.pipeline.collect_market", return_value=collected),
-                patch("crypto_screener.pipeline.load_labeled_factor_records", return_value=[]),
-                patch("crypto_screener.pipeline.score_snapshot", return_value=scored),
-                patch("crypto_screener.pipeline.save_snapshot") as save_snapshot,
-                patch("crypto_screener.pipeline.write_reports") as write_reports,
-            ):
-                payload, paths = run_pipeline(
-                    config,
-                    Path(tmpdir),
-                    save=True,
-                    write_report_files=False,
-                )
+        with (
+            tempfile.TemporaryDirectory() as tmpdir,
+            patch("crypto_screener.pipeline.collect_market", return_value=collected),
+            patch("crypto_screener.pipeline.load_labeled_factor_records", return_value=[]),
+            patch("crypto_screener.pipeline.score_snapshot", return_value=scored),
+            patch("crypto_screener.pipeline.save_snapshot") as save_snapshot,
+            patch("crypto_screener.pipeline.write_reports") as write_reports,
+        ):
+            payload, paths = run_pipeline(
+                config,
+                Path(tmpdir),
+                save=True,
+                write_report_files=False,
+            )
 
         self.assertEqual(payload["rows"], scored["rows"])
         self.assertEqual(paths, {})

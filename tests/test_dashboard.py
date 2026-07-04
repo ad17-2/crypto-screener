@@ -249,8 +249,8 @@ class DashboardTests(unittest.TestCase):
         js = (DASHBOARD_STATIC_DIR / "dashboard.js").read_text()
         combined = "\n".join([index, css, js])
 
-        self.assertIn('/assets/dashboard.css', index)
-        self.assertIn('/assets/dashboard.js', index)
+        self.assertIn("/assets/dashboard.css", index)
+        self.assertIn("/assets/dashboard.js", index)
         self.assertNotIn("<style>", index)
         self.assertIn("reasonTooltip", js)
         self.assertIn("help-tip", css)
@@ -291,14 +291,14 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("${tradingViewExchange(row?.primary_exchange)}:${base}USDT.P", js)
         self.assertIn("GATEIO", js)
         self.assertIn("https://www.tradingview.com/chart/?symbol=", js)
-        self.assertIn("rel=\"noopener noreferrer\"", js)
+        self.assertIn('rel="noopener noreferrer"', js)
         self.assertIn("qualityFlagChip", js)
         self.assertNotIn("table-wrap", combined)
         self.assertNotIn("<table>", combined)
         self.assertNotIn('class="row-cell"', combined)
         self.assertNotIn('colspan="9"', combined)
         self.assertNotIn("function rowsTable", combined)
-        self.assertNotIn("<th class=\"reason\">", combined)
+        self.assertNotIn('<th class="reason">', combined)
         self.assertNotIn('class="reason-row"', combined)
 
     def test_dashboard_serves_index_assets_and_empty_api(self):
@@ -329,8 +329,8 @@ class DashboardTests(unittest.TestCase):
                 status, content_type, body = self._get(server, "/")
                 self.assertEqual(status, 200)
                 self.assertEqual(content_type, "text/html; charset=utf-8")
-                self.assertIn('/assets/dashboard.css', body)
-                self.assertIn('/assets/dashboard.js', body)
+                self.assertIn("/assets/dashboard.css", body)
+                self.assertIn("/assets/dashboard.js", body)
 
                 status, content_type, body = self._get(server, "/assets/dashboard.css")
                 self.assertEqual(status, 200)

@@ -5,7 +5,8 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, time as local_time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
+from datetime import time as local_time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,11 +14,10 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
-from .cli import load_config
+from .config import load_config_dict
 from .dashboard_payload import build_dashboard_payload, latest_run_age_seconds, latest_run_generated_at
 from .pipeline import run_pipeline
 from .storage import prune_old_runs
-
 
 DEFAULT_CONFIG_PATH = Path("config/default.json")
 
@@ -97,8 +97,10 @@ class RefreshRuntime:
 
 def settings_from_env() -> DashboardSettings:
     config_path = Path(os.environ.get("CRYPTO_SCREENER_CONFIG", DEFAULT_CONFIG_PATH))
-    config = load_config(config_path)
-    db_path = Path(os.environ.get("CRYPTO_SCREENER_DB_PATH", config.get("storage_path", "data/crypto_screener.sqlite3")))
+    config = load_config_dict(config_path)
+    db_path = Path(
+        os.environ.get("CRYPTO_SCREENER_DB_PATH", config.get("storage_path", "data/crypto_screener.sqlite3"))
+    )
     report_dir = Path(os.environ.get("CRYPTO_SCREENER_REPORT_DIR", "reports"))
     return DashboardSettings(
         config_path=config_path,
@@ -120,7 +122,7 @@ def settings_from_env() -> DashboardSettings:
 
 
 def _load_runtime_config(settings: DashboardSettings) -> dict[str, Any]:
-    config = load_config(settings.config_path)
+    config = load_config_dict(settings.config_path)
     config["storage_path"] = str(settings.db_path)
     return config
 
@@ -247,7 +249,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_json(self.runtime.refresh_async("manual"), HTTPStatus.ACCEPTED)
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
-        print("%s - %s" % (self.address_string(), format % args))
+        print(f"{self.address_string()} - {format % args}")
 
     def _refresh_allowed(self) -> bool:
         token = self.settings.refresh_token

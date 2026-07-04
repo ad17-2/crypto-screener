@@ -243,12 +243,13 @@ def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
         price = db_row["price_usd"]
         if price is None or price <= 0:
             continue
+        row_keys = set(db_row.keys())
         item = {
             "generated_at": datetime.fromisoformat(db_row["generated_at"]),
             "symbol": db_row["symbol"],
             "price_usd": float(price),
             "factors": json.loads(db_row["factors_json"]),
-            "scores": json.loads(db_row["scores_json"] or "{}") if "scores_json" in db_row.keys() else {},
+            "scores": json.loads(db_row["scores_json"] or "{}") if "scores_json" in row_keys else {},
         }
         by_symbol.setdefault(item["symbol"], []).append(item)
 

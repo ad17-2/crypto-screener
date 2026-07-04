@@ -16,7 +16,9 @@ def market_structure_summary(rows: list[dict[str, Any]], market_context: dict[st
 
 
 def breadth_summary(rows: list[dict[str, Any]], market_context: dict[str, Any]) -> dict[str, Any]:
-    price_changes = [value for value in (to_float(row.get("price_change_24h_pct")) for row in rows) if value is not None]
+    price_changes = [
+        value for value in (to_float(row.get("price_change_24h_pct")) for row in rows) if value is not None
+    ]
     oi_changes = [value for value in (to_float(row.get("oi_change_24h_pct")) for row in rows) if value is not None]
     funding_values = [value for value in (to_float(row.get("funding_rate_pct")) for row in rows) if value is not None]
     weighted_return = _volume_weighted_return(rows)
@@ -37,7 +39,7 @@ def breadth_summary(rows: list[dict[str, Any]], market_context: dict[str, Any]) 
     unchanged = len(price_changes) - advancers - decliners
     advancer_pct = (advancers / len(price_changes)) * 100.0
     decliner_pct = (decliners / len(price_changes)) * 100.0
-    price_breadth_score = ((advancer_pct - decliner_pct) / 100.0)
+    price_breadth_score = (advancer_pct - decliner_pct) / 100.0
     avg_return = sum(price_changes) / len(price_changes)
     avg_return_score = clamp(avg_return / 4.0, -1.0, 1.0)
     weighted_return_score = clamp((weighted_return if weighted_return is not None else avg_return) / 4.0, -1.0, 1.0)
@@ -126,9 +128,7 @@ def _category_momentum_score(market_context: dict[str, Any]) -> float | None:
 
 def _category_changes(categories: list[dict[str, Any]]) -> list[float]:
     return [
-        value
-        for value in (to_float(item.get("market_cap_change_24h_pct")) for item in categories)
-        if value is not None
+        value for value in (to_float(item.get("market_cap_change_24h_pct")) for item in categories) if value is not None
     ]
 
 

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import urllib.error
-import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from typing import Any
+
+import httpx
 
 from .providers import ProviderError
 
@@ -21,31 +20,33 @@ class CoinGlassClient:
         if not self.api_key:
             raise ProviderError("CoinGlass API key is not set")
 
-        query = ""
-        if params:
-            query = "?" + urllib.parse.urlencode(params)
-        url = self.base_url.rstrip("/") + "/" + path.lstrip("/") + query
-        request = urllib.request.Request(
-            url,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "CG-API-KEY": self.api_key,
-                "User-Agent": self.user_agent,
-            },
-        )
-
+        url = self.base_url.rstrip("/") + "/" + path.lstrip("/")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
-                payload = json.load(response)
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")[:500]
-            exc.close()
-            raise ProviderError(f"{path} returned HTTP {exc.code}: {body}") from exc
-        except urllib.error.URLError as exc:
-            raise ProviderError(f"{path} failed: {exc.reason}") from exc
-        except TimeoutError as exc:
+            response = httpx.get(
+                url,
+                params=params,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "CG-API-KEY": self.api_key,
+                    "User-Agent": self.user_agent,
+                },
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            body = exc.response.text[:500]
+            raise ProviderError(f"{path} returned HTTP {exc.response.status_code}: {body}") from exc
+        except httpx.TimeoutException as exc:
             raise ProviderError(f"{path} timed out after {self.timeout_seconds}s") from exc
+        except httpx.HTTPError as exc:
+            raise ProviderError(f"{path} failed: {exc}") from exc
+        except json.JSONDecodeError as exc:
+            raise ProviderError(f"{path} returned invalid JSON") from exc
+
+        if not isinstance(payload, dict):
+            raise ProviderError(f"{path} returned non-object JSON payload")
 
         code = str(payload.get("code", "0"))
         if code not in {"0", "200"}:
@@ -87,11 +88,7 @@ class CoinGlassClient:
         data = self.get_json("/api/futures/supported-exchange-pairs", params)
         if not isinstance(data, dict):
             return {}
-        return {
-            str(exchange_name): pairs
-            for exchange_name, pairs in data.items()
-            if isinstance(pairs, list)
-        }
+        return {str(exchange_name): pairs for exchange_name, pairs in data.items() if isinstance(pairs, list)}
 
     def open_interest_aggregated_history(
         self,

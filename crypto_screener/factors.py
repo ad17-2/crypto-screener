@@ -1,50 +1,12 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import Any
 
+from .factor_definitions import DEFAULT_PRIORS, DIRECTIONAL_FACTORS, QUALITY_FACTORS
 from .market import market_structure_summary
 from .scoring import clamp, safe_log10, spearman_corr, to_float, zscore_by_key
-
-
-DIRECTIONAL_FACTORS = [
-    "momentum_24h",
-    "reversal_1d",
-    "oi_price_signal",
-    "funding_rate_contrarian",
-    "ls_ratio_contrarian",
-    "liquidation_imbalance",
-    "btc_relative_strength",
-    "technical_trend_4h",
-    "technical_momentum_4h",
-    "oi_acceleration_signal",
-    "funding_persistence_contrarian",
-    "taker_flow_24h",
-    "liquidation_pressure_24h",
-]
-
-QUALITY_FACTORS = [
-    "liquidity_30d",
-    "volume_expansion_24h",
-    "volatility_expansion_4h",
-]
-
-
-DEFAULT_PRIORS = {
-    "momentum_24h": 0.18,
-    "reversal_1d": 0.08,
-    "oi_price_signal": 0.20,
-    "funding_rate_contrarian": 0.16,
-    "ls_ratio_contrarian": 0.12,
-    "liquidation_imbalance": 0.10,
-    "btc_relative_strength": 0.16,
-    "technical_trend_4h": 0.12,
-    "technical_momentum_4h": 0.08,
-    "oi_acceleration_signal": 0.08,
-    "funding_persistence_contrarian": 0.08,
-    "taker_flow_24h": 0.07,
-    "liquidation_pressure_24h": 0.07,
-}
 
 
 def score_snapshot(
@@ -63,7 +25,7 @@ def score_snapshot(
     weights = apply_regime_weighting(base_weights, base_regime, config)
     regime = infer_regime(weights, trusted_rows, enriched_context)
 
-    for row, raw, factors in zip(trusted_rows, raw_factors, normalized):
+    for row, raw, factors in zip(trusted_rows, raw_factors, normalized, strict=True):
         row["raw_factors"] = raw
         row["factors"] = factors
         _apply_scores(row, factors, weights, regime, enriched_context, config)
@@ -134,7 +96,9 @@ def _raw_factors(
         "funding_rate_contrarian": -funding if funding is not None else None,
         "ls_ratio_contrarian": ls_contrarian,
         "liquidation_imbalance": ((short_liq - long_liq) / liq_total) * 100.0 if liq_total > 0 else None,
-        "btc_relative_strength": price_change - btc_change if price_change is not None and btc_change is not None else None,
+        "btc_relative_strength": price_change - btc_change
+        if price_change is not None and btc_change is not None
+        else None,
         "technical_trend_4h": technical_trend,
         "technical_momentum_4h": technical_momentum,
         "oi_acceleration_signal": oi_acceleration_signal,
@@ -206,11 +170,7 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
 def validation_metrics(history_records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
     factor_cfg = config.get("factors", {})
     horizon_hours = float(factor_cfg.get("forward_return_hours", 24))
-    records = [
-        record
-        for record in history_records
-        if to_float(record.get("forward_return_pct")) is not None
-    ]
+    records = [record for record in history_records if to_float(record.get("forward_return_pct")) is not None]
     if not records:
         return {
             "status": "insufficient",
@@ -286,8 +246,10 @@ def apply_regime_weighting(
     return result
 
 
-def _directional_validation(pairs: list[tuple[float | None, float | None]]) -> dict[str, Any]:
-    valid = [(signal, forward) for signal, forward in pairs if signal is not None and forward is not None and signal != 0]
+def _directional_validation(pairs: Sequence[tuple[float | None, float | None]]) -> dict[str, Any]:
+    valid = [
+        (signal, forward) for signal, forward in pairs if signal is not None and forward is not None and signal != 0
+    ]
     if not valid:
         return {
             "observations": 0,
@@ -506,44 +468,6 @@ def _apply_excluded_scores(row: dict[str, Any]) -> None:
     row.update(row["scores"])
 
 
-def reason_for(row: dict[str, Any], side: str) -> str:
-    parts: list[str] = []
-    factors = row.get("factors", {})
-    scores = row.get("scores", {})
-    quality_flags = row.get("data_quality_flags") or []
-
-    _append_metric(parts, "24h", row.get("price_change_24h_pct"), "{:+.2f}%")
-    _append_metric(parts, "OI", row.get("oi_change_24h_pct"), "{:+.2f}%")
-    _append_metric(parts, "funding", row.get("funding_rate_pct"), "{:+.4f}%")
-    if row.get("long_short_ratio") is not None:
-        parts.append(f"L/S {float(row['long_short_ratio']):.2f}")
-    if scores.get("factor_score") is not None:
-        parts.append(f"factor {scores['factor_score']:+.2f}")
-    if scores.get("confidence_score") is not None:
-        parts.append(f"confidence {scores['confidence_score']:.0f}")
-    if row.get("signal_conflict_label") and row.get("signal_conflict_label") != "aligned":
-        parts.append(f"signals {row['signal_conflict_label']}")
-    if row.get("technical_setup"):
-        parts.append(f"tech {row['technical_setup']}")
-
-    strongest = sorted(
-        ((name, value) for name, value in factors.items() if name in DIRECTIONAL_FACTORS),
-        key=lambda item: abs(item[1]),
-        reverse=True,
-    )[:2]
-    for name, value in strongest:
-        if abs(value) >= 0.5:
-            parts.append(f"{name} {value:+.2f}")
-
-    if side == "fade-long":
-        parts.append("crowded long conditions")
-    if side == "squeeze-risk":
-        parts.append("crowded short conditions")
-    if quality_flags:
-        parts.append("excluded: " + ", ".join(str(flag) for flag in quality_flags))
-    return "; ".join(parts)
-
-
 def _btc_change(rows: list[dict[str, Any]], market_context: dict[str, Any]) -> float | None:
     for row in rows:
         if row.get("symbol") == "BTC":
@@ -554,12 +478,6 @@ def _btc_change(rows: list[dict[str, Any]], market_context: dict[str, Any]) -> f
 def _avg(values: list[float | None]) -> float | None:
     valid = [value for value in values if value is not None]
     return sum(valid) / len(valid) if valid else None
-
-
-def _append_metric(parts: list[str], label: str, value: Any, fmt: str) -> None:
-    numeric = to_float(value)
-    if numeric is not None:
-        parts.append(f"{label} {fmt.format(numeric)}")
 
 
 def _quality_percentile(zscore: float) -> float:
@@ -585,7 +503,12 @@ def _signal_conflict_summary(
         }
 
     checks = [
-        ("technical", "4h technicals", _avg_signal([row.get("technical_trend_score"), row.get("technical_momentum_score")]), 0.20),
+        (
+            "technical",
+            "4h technicals",
+            _avg_signal([row.get("technical_trend_score"), row.get("technical_momentum_score")]),
+            0.20,
+        ),
         ("derivatives", "derivatives confirmation", row.get("derivatives_confirmation_score"), 0.20),
         ("funding", "funding contrarian", factors.get("funding_rate_contrarian"), 0.35),
         ("positioning", "OI/price", factors.get("oi_price_signal"), 0.35),

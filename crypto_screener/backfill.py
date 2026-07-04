@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +10,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .coinglass import CoinGlassClient
+from .coinglass_pairs import select_price_pair
+from .config import load_config_dict
 from .derivatives import candles_per_window, derivatives_snapshot
 from .factors import score_snapshot
 from .providers import ProviderError
@@ -23,8 +24,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Backfill compact CoinGlass factor history.")
     parser.add_argument("--config", default="config/default.json", help="Path to JSON config.")
     parser.add_argument("--symbols", help="Comma-separated base symbols. Defaults to report core symbols.")
-    parser.add_argument("--interval", default=None, help="CoinGlass interval. Default: config derivatives_history interval.")
-    parser.add_argument("--limit", type=int, default=None, help="History rows per symbol. Default: config backfill/history limit.")
+    parser.add_argument(
+        "--interval", default=None, help="CoinGlass interval. Default: config derivatives_history interval."
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="History rows per symbol. Default: config backfill/history limit."
+    )
     parser.add_argument("--min-cross-section", type=int, default=3, help="Minimum symbols required per timestamp.")
     parser.add_argument("--request-delay-seconds", type=float, default=None, help="Delay between CoinGlass requests.")
     parser.add_argument("--dry-run", action="store_true", help="Fetch and build records without writing SQLite.")
@@ -32,8 +37,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_config(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    return load_config_dict(path)
 
 
 def run_backfill(config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
@@ -71,8 +75,10 @@ def run_backfill(config: dict[str, Any], args: argparse.Namespace) -> dict[str, 
     errors: list[str] = []
     for symbol in symbols:
         try:
-            exchange, contract_symbol = _select_price_pair(supported_pairs, exchanges, symbol, quote_asset)
-            histories = _fetch_histories(client, exchanges, exchange, contract_symbol, symbol, interval, limit, request_delay)
+            exchange, contract_symbol = select_price_pair(supported_pairs, exchanges, symbol, quote_asset)
+            histories = _fetch_histories(
+                client, exchanges, exchange, contract_symbol, symbol, interval, limit, request_delay
+            )
             symbol_rows = _build_symbol_rows(symbol, exchange, contract_symbol, interval, histories)
             for row in symbol_rows:
                 rows_by_time.setdefault(row["_time"], []).append(row)
@@ -220,26 +226,6 @@ def _dedupe_symbols(symbols: list[str]) -> list[str]:
     return result
 
 
-def _select_price_pair(
-    supported_pairs: dict[str, list[dict[str, Any]]],
-    exchanges: list[str],
-    symbol: str,
-    quote_asset: str,
-) -> tuple[str, str]:
-    for exchange in exchanges:
-        for pair in supported_pairs.get(exchange, []):
-            base = str(pair.get("base_asset") or "").upper()
-            instrument_id = str(pair.get("instrument_id") or "")
-            if base != symbol:
-                continue
-            if not _quote_matches(pair, quote_asset):
-                continue
-            if not _is_likely_perpetual(instrument_id):
-                continue
-            return exchange, instrument_id or f"{symbol}{quote_asset}"
-    raise ValueError("no supported configured price pair")
-
-
 def _normalize_price_candles(candles: list[dict[str, Any]]) -> list[dict[str, float]]:
     normalized: list[dict[str, float]] = []
     for candle in sorted(candles, key=lambda item: to_float(item.get("time"), 0.0) or 0.0):
@@ -268,20 +254,6 @@ def _normalize_price_candles(candles: list[dict[str, Any]]) -> list[dict[str, fl
 
 def _raw_candles_until(candles: list[dict[str, Any]], end_time: int) -> list[dict[str, Any]]:
     return [candle for candle in candles if (to_float(candle.get("time"), 0.0) or 0.0) <= end_time]
-
-
-def _quote_matches(pair: dict[str, Any], quote_asset: str) -> bool:
-    return (
-        str(pair.get("quote_asset") or "").upper() == quote_asset
-        or str(pair.get("settlement_currency") or "").upper() == quote_asset
-    )
-
-
-def _is_likely_perpetual(instrument_id: str) -> bool:
-    lowered = instrument_id.lower()
-    if "perp" in lowered or "swap" in lowered:
-        return True
-    return re.search(r"[_-]\d{6,8}$", instrument_id) is None
 
 
 def _timestamp_id(time_ms: int) -> str:

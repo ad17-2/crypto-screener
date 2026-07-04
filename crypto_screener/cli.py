@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
+from .config import load_config_dict
 from .pipeline import run_pipeline
-from .report import top_by
+from .watchlists import is_crowded_long, is_crowded_short, is_long_candidate, is_short_candidate, top_by
 
 
 def load_config(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    return load_config_dict(path)
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,30 +52,16 @@ def main() -> int:
     args = parse_args()
     config = apply_overrides(load_config(Path(args.config)), args)
 
-    payload, paths = run_pipeline(config, Path(args.out_dir), save=not args.no_save, write_report_files=not args.no_reports)
+    payload, paths = run_pipeline(
+        config, Path(args.out_dir), save=not args.no_save, write_report_files=not args.no_reports
+    )
     rows = payload["rows"]
     limit = int(config.get("report", {}).get("limit", 12))
 
-    long_count = len(top_by(rows, "long_score", limit, predicate=lambda row: (row.get("factor_score") or 0) > 0))
-    short_count = len(top_by(rows, "short_score", limit, predicate=lambda row: (row.get("factor_score") or 0) < 0))
-    fade_count = len(
-        top_by(
-            rows,
-            "crowded_long_score",
-            limit,
-            predicate=lambda row: (row.get("funding_rate_pct") or 0) > 0.015
-            or (row.get("long_short_ratio") is not None and row["long_short_ratio"] >= 1.3),
-        )
-    )
-    squeeze_count = len(
-        top_by(
-            rows,
-            "squeeze_risk_score",
-            limit,
-            predicate=lambda row: (row.get("funding_rate_pct") or 0) < -0.015
-            or (row.get("long_short_ratio") is not None and row["long_short_ratio"] <= 0.8),
-        )
-    )
+    long_count = len(top_by(rows, "long_score", limit, predicate=is_long_candidate))
+    short_count = len(top_by(rows, "short_score", limit, predicate=is_short_candidate))
+    fade_count = len(top_by(rows, "crowded_long_score", limit, predicate=is_crowded_long))
+    squeeze_count = len(top_by(rows, "squeeze_risk_score", limit, predicate=is_crowded_short))
 
     print(f"run_id={payload['run_id']}")
     print(f"screened_symbols={len(rows)}")

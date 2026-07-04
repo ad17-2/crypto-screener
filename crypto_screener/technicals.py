@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from typing import Any
 
 from .scoring import clamp, mean, stdev, to_float
@@ -25,7 +24,8 @@ def technical_snapshot(candles: list[dict[str, Any]], interval: str) -> dict[str
 
     distance_ema20_pct = _pct_distance(close, ema_20)
     atr_14_pct = (atr_14 / close * 100.0) if atr_14 is not None and close > 0 else None
-    macd_hist_pct = (macd["histogram"] / close * 100.0) if macd.get("histogram") is not None and close > 0 else None
+    macd_hist = macd.get("histogram")
+    macd_hist_pct = (macd_hist / close * 100.0) if macd_hist is not None and close > 0 else None
     trend_score = _trend_score(close, ema_20, ema_50, ema_200)
     momentum_score = _momentum_score(rsi_14, macd_hist_pct)
 
@@ -51,7 +51,9 @@ def technical_snapshot(candles: list[dict[str, Any]], interval: str) -> dict[str
         "bb_width_pct": bollinger.get("width_pct"),
         "technical_trend_score": trend_score,
         "technical_momentum_score": momentum_score,
-        "technical_setup": _technical_setup(trend_score, rsi_14, bollinger.get("position"), distance_ema20_pct, bollinger.get("width_pct")),
+        "technical_setup": _technical_setup(
+            trend_score, rsi_14, bollinger.get("position"), distance_ema20_pct, bollinger.get("width_pct")
+        ),
     }
 
 
@@ -104,13 +106,13 @@ def _rsi(values: list[float], period: int) -> float | None:
         return None
     gains: list[float] = []
     losses: list[float] = []
-    for previous, current in zip(values, values[1:]):
+    for previous, current in zip(values, values[1:], strict=False):
         delta = current - previous
         gains.append(max(delta, 0.0))
         losses.append(abs(min(delta, 0.0)))
     avg_gain = mean(gains[:period])
     avg_loss = mean(losses[:period])
-    for gain, loss in zip(gains[period:], losses[period:]):
+    for gain, loss in zip(gains[period:], losses[period:], strict=True):
         avg_gain = ((avg_gain * (period - 1)) + gain) / period
         avg_loss = ((avg_loss * (period - 1)) + loss) / period
     if avg_loss == 0:
@@ -125,7 +127,7 @@ def _macd(values: list[float]) -> dict[str, float | None]:
     if not ema_12 or not ema_26:
         return {"line": None, "signal": None, "histogram": None}
     aligned_ema_12 = ema_12[-len(ema_26) :]
-    line = [fast - slow for fast, slow in zip(aligned_ema_12, ema_26)]
+    line = [fast - slow for fast, slow in zip(aligned_ema_12, ema_26, strict=True)]
     signal_series = _ema_series(line, 9)
     if not signal_series:
         return {"line": line[-1], "signal": None, "histogram": None}

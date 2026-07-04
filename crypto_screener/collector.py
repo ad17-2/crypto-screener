@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import os
-import re
 import time
 from typing import Any
 
 from .coingecko import CoinGeckoClient
 from .coinglass import CoinGlassClient
-from .derivatives import derivatives_snapshot
+from .coinglass_enrichment import (
+    append_coinglass_derivatives_history as _append_coinglass_derivatives_history,
+)
+from .coinglass_enrichment import (
+    append_coinglass_technicals as _append_coinglass_technicals,
+)
+from .coinglass_pairs import base_from_pair, is_likely_perpetual_pair, pair_symbol_matches_quote, quote_matches
 from .providers import ProviderError
 from .quality import apply_data_quality
 from .scoring import funding_annualized_pct, to_float
-from .technicals import technical_snapshot
 
 
 def collect_market(config: dict[str, Any]) -> dict[str, Any]:
@@ -93,113 +97,6 @@ def collect_coinglass_futures(config: dict[str, Any], status: dict[str, Any] | N
     return rows
 
 
-def _append_coinglass_technicals(
-    rows: list[dict[str, Any]],
-    client: CoinGlassClient,
-    provider_cfg: dict[str, Any],
-    status: dict[str, Any] | None,
-) -> None:
-    technical_cfg = provider_cfg.get("technical_indicators", {})
-    if not technical_cfg.get("enabled", True):
-        if status is not None:
-            status["technicals"] = {"status": "disabled"}
-        return
-
-    interval = str(technical_cfg.get("interval", "4h"))
-    limit = int(technical_cfg.get("limit", 220))
-    max_symbols = int(technical_cfg.get("max_symbols", 40))
-    request_delay = float(technical_cfg.get("request_delay_seconds", provider_cfg.get("request_delay_seconds", 2.1)))
-    enriched = 0
-    errors: list[str] = []
-
-    for row in rows[:max_symbols]:
-        exchange = str(row.get("primary_exchange") or "")
-        contract_symbol = str(row.get("contract_symbol") or "")
-        if not exchange or not contract_symbol:
-            continue
-        try:
-            candles = client.price_history(exchange, contract_symbol, interval, limit)
-            snapshot = technical_snapshot(candles, interval)
-            if snapshot:
-                row.update(snapshot)
-                enriched += 1
-        except ProviderError as exc:
-            errors.append(f"{row.get('symbol', contract_symbol)}: {exc}")
-        finally:
-            if request_delay > 0:
-                time.sleep(request_delay)
-
-    if status is not None:
-        status["technicals"] = {
-            "status": "ok" if enriched else "error",
-            "rows": enriched,
-            "candidate_symbols": min(max_symbols, len(rows)),
-            "interval": interval,
-            "errors": errors[:5],
-            "note": "CoinGlass futures price OHLC technical indicators",
-        }
-
-
-def _append_coinglass_derivatives_history(
-    rows: list[dict[str, Any]],
-    client: CoinGlassClient,
-    provider_cfg: dict[str, Any],
-    status: dict[str, Any] | None,
-) -> None:
-    history_cfg = provider_cfg.get("derivatives_history", {})
-    if not history_cfg.get("enabled", True):
-        if status is not None:
-            status["derivatives_history"] = {"status": "disabled"}
-        return
-
-    interval = str(history_cfg.get("interval", "4h"))
-    limit = int(history_cfg.get("limit", 220))
-    max_symbols = int(history_cfg.get("max_symbols", 30))
-    request_delay = float(history_cfg.get("request_delay_seconds", provider_cfg.get("request_delay_seconds", 2.1)))
-    exchanges = [str(item) for item in provider_cfg.get("exchanges", [])]
-    enriched = 0
-    errors: list[str] = []
-
-    for row in rows[:max_symbols]:
-        symbol = str(row.get("symbol") or "")
-        if not symbol:
-            continue
-        try:
-            oi_history = client.open_interest_aggregated_history(symbol, interval, limit)
-            _sleep_between_requests(request_delay)
-            funding_history = client.funding_oi_weight_history(symbol, interval, limit)
-            _sleep_between_requests(request_delay)
-            liquidation_history = client.liquidation_aggregated_history(exchanges, symbol, interval, limit)
-            _sleep_between_requests(request_delay)
-            taker_history = client.aggregated_taker_buy_sell_history(exchanges, symbol, interval, limit)
-
-            snapshot = derivatives_snapshot(
-                oi_history=oi_history,
-                funding_history=funding_history,
-                liquidation_history=liquidation_history,
-                taker_history=taker_history,
-                interval=interval,
-            )
-            if snapshot:
-                row.update(snapshot)
-                enriched += 1
-        except ProviderError as exc:
-            errors.append(f"{symbol}: {exc}")
-        finally:
-            if request_delay > 0:
-                time.sleep(request_delay)
-
-    if status is not None:
-        status["derivatives_history"] = {
-            "status": "ok" if enriched else "error",
-            "rows": enriched,
-            "candidate_symbols": min(max_symbols, len(rows)),
-            "interval": interval,
-            "errors": errors[:5],
-            "note": "CoinGlass historical OI/funding/liquidation/taker features",
-        }
-
-
 def collect_coingecko_context(config: dict[str, Any], status: dict[str, Any]) -> dict[str, Any]:
     provider_cfg = config.get("providers", {}).get("coingecko", {})
     if not provider_cfg.get("enabled", True):
@@ -240,11 +137,6 @@ def collect_coingecko_context(config: dict[str, Any], status: dict[str, Any]) ->
     return context
 
 
-def _sleep_between_requests(seconds: float) -> None:
-    if seconds > 0:
-        time.sleep(seconds)
-
-
 def _coinglass_candidate_stats(
     supported_pairs: dict[str, list[dict[str, Any]]],
     exchanges: set[str],
@@ -260,9 +152,9 @@ def _coinglass_candidate_stats(
             base_asset = str(pair.get("base_asset") or "").upper()
             if not base_asset or base_asset in excluded_bases:
                 continue
-            if not _quote_matches(pair, quote_asset):
+            if not quote_matches(pair, quote_asset):
                 continue
-            if not _is_likely_perpetual(pair):
+            if not is_likely_perpetual_pair(pair):
                 continue
             item = stats.setdefault(
                 base_asset,
@@ -277,11 +169,7 @@ def _coinglass_candidate_stats(
             item["instrument_count"] += 1
             item["max_leverage"] = max(item["max_leverage"], to_float(pair.get("max_leverage"), 0.0) or 0.0)
 
-    return {
-        symbol: item
-        for symbol, item in stats.items()
-        if len(item["exchanges"]) >= min_exchange_count
-    }
+    return {symbol: item for symbol, item in stats.items() if len(item["exchanges"]) >= min_exchange_count}
 
 
 def _rank_coinglass_candidates(
@@ -317,14 +205,13 @@ def _aggregate_coinglass_pairs(
     filtered = [
         pair
         for pair in pairs
-        if (not exchanges or pair.get("exchange_name") in exchanges)
-        and _pair_symbol_matches_quote(pair, quote_asset)
+        if (not exchanges or pair.get("exchange_name") in exchanges) and pair_symbol_matches_quote(pair, quote_asset)
     ]
     if not filtered:
         return {}
 
     primary = max(filtered, key=lambda pair: to_float(pair.get("volume_usd"), 0.0) or 0.0)
-    symbol = _base_from_pair(primary)
+    symbol = base_from_pair(primary, quote_asset)
     total_volume = sum(to_float(pair.get("volume_usd"), 0.0) or 0.0 for pair in filtered)
     total_oi = sum(to_float(pair.get("open_interest_usd"), 0.0) or 0.0 for pair in filtered)
     long_volume = sum(to_float(pair.get("long_volume_usd"), 0.0) or 0.0 for pair in filtered)
@@ -360,35 +247,6 @@ def _aggregate_coinglass_pairs(
         "coinglass_instrument_count": symbol_stats.get("instrument_count"),
         "coinglass_supported_exchange_count": len(symbol_stats.get("exchanges", [])),
     }
-
-
-def _quote_matches(pair: dict[str, Any], quote_asset: str) -> bool:
-    return (
-        str(pair.get("quote_asset") or "").upper() == quote_asset
-        or str(pair.get("settlement_currency") or "").upper() == quote_asset
-    )
-
-
-def _pair_symbol_matches_quote(pair: dict[str, Any], quote_asset: str) -> bool:
-    symbol = str(pair.get("symbol") or "").upper()
-    instrument_id = str(pair.get("instrument_id") or "").upper()
-    return symbol.endswith(f"/{quote_asset}") or quote_asset in instrument_id
-
-
-def _is_likely_perpetual(pair: dict[str, Any]) -> bool:
-    instrument_id = str(pair.get("instrument_id") or "")
-    lowered = instrument_id.lower()
-    if "perp" in lowered or "swap" in lowered:
-        return True
-    return re.search(r"[_-]\d{6,8}$", instrument_id) is None
-
-
-def _base_from_pair(pair: dict[str, Any]) -> str:
-    symbol = str(pair.get("symbol") or "")
-    if "/" in symbol:
-        return symbol.split("/", 1)[0].upper()
-    instrument_id = str(pair.get("instrument_id") or "")
-    return re.sub(r"[^A-Z0-9].*$", "", instrument_id.upper()).replace("USDT", "")
 
 
 def _normalize_coingecko_global(global_data: dict[str, Any]) -> dict[str, Any]:

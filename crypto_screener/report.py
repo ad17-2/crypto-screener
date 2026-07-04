@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from .factors import reason_for
-
+from .factor_explanations import reason_for
+from .watchlists import is_crowded_long, is_crowded_short, is_long_candidate, is_short_candidate, top_by
 
 REPORT_FIELDS = [
     "symbol",
@@ -90,22 +90,6 @@ def format_pct(value: Any, digits: int = 2, signed: bool = True) -> str:
     return f"{float(value):{sign}.{digits}f}%"
 
 
-def top_by(
-    rows: list[dict[str, Any]],
-    field: str,
-    limit: int,
-    minimum: float = 0.01,
-    predicate=None,
-    trusted_only: bool = True,
-) -> list[dict[str, Any]]:
-    if trusted_only:
-        rows = [row for row in rows if row.get("is_trusted", True)]
-    ranked = sorted(rows, key=lambda item: item.get(field) or 0, reverse=True)
-    if predicate is not None:
-        ranked = [row for row in ranked if predicate(row)]
-    return [row for row in ranked if (row.get(field) or 0) >= minimum][:limit]
-
-
 def render_markdown(payload: dict[str, Any], config: dict[str, Any]) -> str:
     rows = payload.get("rows", [])
     report_cfg = config.get("report", {})
@@ -115,10 +99,10 @@ def render_markdown(payload: dict[str, Any], config: dict[str, Any]) -> str:
     provider_status = payload.get("provider_status", {})
     weights = payload.get("factor_weights", {})
 
-    long_rows = top_by(rows, "long_score", limit, predicate=lambda row: (row.get("factor_score") or 0) > 0)
-    short_rows = top_by(rows, "short_score", limit, predicate=lambda row: (row.get("factor_score") or 0) < 0)
-    fade_rows = top_by(rows, "crowded_long_score", limit, predicate=_is_crowded_long)
-    squeeze_rows = top_by(rows, "squeeze_risk_score", limit, predicate=_is_crowded_short)
+    long_rows = top_by(rows, "long_score", limit, predicate=is_long_candidate)
+    short_rows = top_by(rows, "short_score", limit, predicate=is_short_candidate)
+    fade_rows = top_by(rows, "crowded_long_score", limit, predicate=is_crowded_long)
+    squeeze_rows = top_by(rows, "squeeze_risk_score", limit, predicate=is_crowded_short)
     core_rows = [row for row in rows if row.get("symbol") in set(report_cfg.get("core_symbols", ["BTC", "ETH", "SOL"]))]
 
     return "\n".join(
@@ -301,18 +285,6 @@ def _candidate_table(rows: list[dict[str, Any]], score_field: str, side: str) ->
             )
         )
     return "\n".join(lines)
-
-
-def _is_crowded_long(row: dict[str, Any]) -> bool:
-    funding = row.get("funding_rate_pct") or 0.0
-    ls_ratio = row.get("long_short_ratio")
-    return funding > 0.015 or (ls_ratio is not None and ls_ratio >= 1.3)
-
-
-def _is_crowded_short(row: dict[str, Any]) -> bool:
-    funding = row.get("funding_rate_pct") or 0.0
-    ls_ratio = row.get("long_short_ratio")
-    return funding < -0.015 or (ls_ratio is not None and ls_ratio <= 0.8)
 
 
 def _data_quality_block(rows: list[dict[str, Any]]) -> str:
