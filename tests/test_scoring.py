@@ -43,6 +43,10 @@ class ScoringTests(unittest.TestCase):
                 "short_liquidation_usd_24h": 2_000_000,
                 "technical_trend_score": 0.8,
                 "technical_momentum_score": 0.6,
+                "oi_acceleration_4h_pct": 3,
+                "funding_avg_24h_pct": 0.01,
+                "taker_imbalance_24h_pct": 8,
+                "liquidation_imbalance_24h_pct": 12,
             },
             {
                 "symbol": "SHORT",
@@ -55,6 +59,10 @@ class ScoringTests(unittest.TestCase):
                 "short_liquidation_usd_24h": 500_000,
                 "technical_trend_score": -0.7,
                 "technical_momentum_score": -0.5,
+                "oi_acceleration_4h_pct": 4,
+                "funding_avg_24h_pct": 0.04,
+                "taker_imbalance_24h_pct": -10,
+                "liquidation_imbalance_24h_pct": -20,
             },
             {
                 "symbol": "BTC",
@@ -71,6 +79,8 @@ class ScoringTests(unittest.TestCase):
         self.assertGreater(long_row["long_score"], long_row["short_score"])
         self.assertGreater(short_row["short_score"], short_row["long_score"])
         self.assertIn("technical_trend_4h", long_row["factors"])
+        self.assertIn("oi_acceleration_signal", long_row["factors"])
+        self.assertIn("taker_flow_24h", long_row["factors"])
         self.assertGreater(long_row["confidence_score"], 0)
 
 

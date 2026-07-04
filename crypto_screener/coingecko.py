@@ -43,6 +43,7 @@ class CoinGeckoClient:
                         return json.load(response)
                 except urllib.error.HTTPError as exc:
                     body = exc.read().decode("utf-8", errors="replace")[:500]
+                    exc.close()
                     if not self._should_retry_429(exc, attempt):
                         raise ProviderError(f"{path} returned HTTP {exc.code}: {body}") from exc
                     attempt += 1

@@ -7,6 +7,7 @@ from typing import Any
 
 from .coingecko import CoinGeckoClient
 from .coinglass import CoinGlassClient
+from .derivatives import derivatives_snapshot
 from .providers import ProviderError
 from .quality import apply_data_quality
 from .scoring import funding_annualized_pct, to_float
@@ -78,6 +79,7 @@ def collect_coinglass_futures(config: dict[str, Any], status: dict[str, Any] | N
     rows.sort(key=lambda row: row.get("quote_volume_usd") or 0.0, reverse=True)
     rows = rows[:top_symbols]
     _append_coinglass_technicals(rows, client, provider_cfg, status)
+    _append_coinglass_derivatives_history(rows, client, provider_cfg, status)
 
     if status is not None:
         status["coinglass"] = {
@@ -138,6 +140,66 @@ def _append_coinglass_technicals(
         }
 
 
+def _append_coinglass_derivatives_history(
+    rows: list[dict[str, Any]],
+    client: CoinGlassClient,
+    provider_cfg: dict[str, Any],
+    status: dict[str, Any] | None,
+) -> None:
+    history_cfg = provider_cfg.get("derivatives_history", {})
+    if not history_cfg.get("enabled", True):
+        if status is not None:
+            status["derivatives_history"] = {"status": "disabled"}
+        return
+
+    interval = str(history_cfg.get("interval", "4h"))
+    limit = int(history_cfg.get("limit", 220))
+    max_symbols = int(history_cfg.get("max_symbols", 30))
+    request_delay = float(history_cfg.get("request_delay_seconds", provider_cfg.get("request_delay_seconds", 2.1)))
+    exchanges = [str(item) for item in provider_cfg.get("exchanges", [])]
+    enriched = 0
+    errors: list[str] = []
+
+    for row in rows[:max_symbols]:
+        symbol = str(row.get("symbol") or "")
+        if not symbol:
+            continue
+        try:
+            oi_history = client.open_interest_aggregated_history(symbol, interval, limit)
+            _sleep_between_requests(request_delay)
+            funding_history = client.funding_oi_weight_history(symbol, interval, limit)
+            _sleep_between_requests(request_delay)
+            liquidation_history = client.liquidation_aggregated_history(exchanges, symbol, interval, limit)
+            _sleep_between_requests(request_delay)
+            taker_history = client.aggregated_taker_buy_sell_history(exchanges, symbol, interval, limit)
+
+            snapshot = derivatives_snapshot(
+                oi_history=oi_history,
+                funding_history=funding_history,
+                liquidation_history=liquidation_history,
+                taker_history=taker_history,
+                interval=interval,
+            )
+            if snapshot:
+                row.update(snapshot)
+                enriched += 1
+        except ProviderError as exc:
+            errors.append(f"{symbol}: {exc}")
+        finally:
+            if request_delay > 0:
+                time.sleep(request_delay)
+
+    if status is not None:
+        status["derivatives_history"] = {
+            "status": "ok" if enriched else "error",
+            "rows": enriched,
+            "candidate_symbols": min(max_symbols, len(rows)),
+            "interval": interval,
+            "errors": errors[:5],
+            "note": "CoinGlass historical OI/funding/liquidation/taker features",
+        }
+
+
 def collect_coingecko_context(config: dict[str, Any], status: dict[str, Any]) -> dict[str, Any]:
     provider_cfg = config.get("providers", {}).get("coingecko", {})
     if not provider_cfg.get("enabled", True):
@@ -176,6 +238,11 @@ def collect_coingecko_context(config: dict[str, Any], status: dict[str, Any]) ->
         "note": "global market and category context",
     }
     return context
+
+
+def _sleep_between_requests(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)
 
 
 def _coinglass_candidate_stats(

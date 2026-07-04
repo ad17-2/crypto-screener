@@ -75,7 +75,8 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
 
 def save_snapshot(payload: dict[str, Any], config: dict[str, Any]) -> None:
     db_path = Path(config.get("storage_path", "data/crypto_screener.sqlite3"))
-    with connect(db_path) as conn:
+    conn = connect(db_path)
+    try:
         run_id = payload["run_id"]
         generated_at = payload["generated_at"]
         conn.execute(
@@ -136,13 +137,46 @@ def save_snapshot(payload: dict[str, Any], config: dict[str, Any]) -> None:
                 ),
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def save_factor_history_records(records: list[dict[str, Any]], config: dict[str, Any]) -> int:
+    db_path = Path(config.get("storage_path", "data/crypto_screener.sqlite3"))
+    if not records:
+        return 0
+
+    conn = connect(db_path)
+    try:
+        for row in records:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO factor_history
+                    (run_id, generated_at, symbol, price_usd, factors_json, scores_json, metrics_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row["run_id"],
+                    row["generated_at"],
+                    row.get("symbol"),
+                    row.get("price_usd"),
+                    json.dumps(row.get("factors", {}), sort_keys=True),
+                    json.dumps(row.get("scores", {}), sort_keys=True),
+                    json.dumps(_history_metrics(row), sort_keys=True),
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return len(records)
 
 
 def prune_old_runs(db_path: Path, keep: int) -> dict[str, int]:
     if keep <= 0 or not db_path.exists():
         return {"kept_runs": 0, "deleted_runs": 0, "deleted_rows": 0}
 
-    with connect(db_path) as conn:
+    conn = connect(db_path)
+    try:
         keep_rows = conn.execute(
             """
             SELECT run_id
@@ -172,6 +206,8 @@ def prune_old_runs(db_path: Path, keep: int) -> dict[str, int]:
             "deleted_runs": run_delete.rowcount,
             "deleted_rows": row_delete.rowcount,
         }
+    finally:
+        conn.close()
 
 
 def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
@@ -186,7 +222,8 @@ def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
     max_target_hours = horizon_hours * 1.5
     cutoff = datetime.now().astimezone() - timedelta(days=window_days + 3)
 
-    with connect(db_path) as conn:
+    conn = connect(db_path)
+    try:
         rows = _load_factor_history_rows(conn, cutoff.isoformat(timespec="seconds"))
         if not rows:
             rows = conn.execute(
@@ -198,6 +235,8 @@ def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
                 """,
                 (cutoff.isoformat(timespec="seconds"),),
             ).fetchall()
+    finally:
+        conn.close()
 
     by_symbol: dict[str, list[dict[str, Any]]] = {}
     for db_row in rows:
@@ -246,6 +285,7 @@ def _history_metrics(row: dict[str, Any]) -> dict[str, Any]:
         "confidence_score",
         "technical_setup",
         "technical_interval",
+        "derivatives_interval",
         "rsi_14",
         "macd_histogram_pct",
         "atr_14_pct",
@@ -254,6 +294,22 @@ def _history_metrics(row: dict[str, Any]) -> dict[str, Any]:
         "distance_ema20_pct",
         "technical_trend_score",
         "technical_momentum_score",
+        "oi_change_4h_pct_history",
+        "oi_change_24h_pct_history",
+        "oi_acceleration_4h_pct",
+        "oi_zscore_30",
+        "funding_avg_24h_pct",
+        "funding_abs_avg_24h_pct",
+        "funding_persistence_24h",
+        "long_liquidation_usd_24h_history",
+        "short_liquidation_usd_24h_history",
+        "liquidation_total_24h_usd",
+        "liquidation_imbalance_24h_pct",
+        "taker_buy_volume_usd_24h",
+        "taker_sell_volume_usd_24h",
+        "taker_buy_sell_ratio_24h",
+        "taker_imbalance_24h_pct",
+        "derivatives_confirmation_score",
     ]
     return {key: row.get(key) for key in keys if row.get(key) is not None}
 

@@ -40,6 +40,7 @@ class CoinGlassClient:
                 payload = json.load(response)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")[:500]
+            exc.close()
             raise ProviderError(f"{path} returned HTTP {exc.code}: {body}") from exc
         except urllib.error.URLError as exc:
             raise ProviderError(f"{path} failed: {exc.reason}") from exc
@@ -55,16 +56,26 @@ class CoinGlassClient:
         data = self.get_json("/api/futures/pairs-markets", {"symbol": symbol})
         return data if isinstance(data, list) else []
 
-    def price_history(self, exchange: str, symbol: str, interval: str, limit: int) -> list[dict[str, Any]]:
-        data = self.get_json(
-            "/api/futures/price/history",
-            {
-                "exchange": exchange,
-                "symbol": symbol,
-                "interval": interval,
-                "limit": limit,
-            },
-        )
+    def price_history(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: str,
+        limit: int,
+        start_time: int | None = None,
+        end_time: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params = {
+            "exchange": exchange,
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+        }
+        if start_time is not None:
+            params["start_time"] = start_time
+        if end_time is not None:
+            params["end_time"] = end_time
+        data = self.get_json("/api/futures/price/history", params)
         return data if isinstance(data, list) else []
 
     def supported_coins(self) -> list[str]:
@@ -88,18 +99,31 @@ class CoinGlassClient:
         interval: str,
         limit: int,
         unit: str = "usd",
+        start_time: int | None = None,
+        end_time: int | None = None,
     ) -> list[dict[str, Any]]:
-        data = self.get_json(
-            "/api/futures/open-interest/aggregated-history",
-            {"symbol": symbol, "interval": interval, "limit": limit, "unit": unit},
-        )
+        params = {"symbol": symbol, "interval": interval, "limit": limit, "unit": unit}
+        if start_time is not None:
+            params["start_time"] = start_time
+        if end_time is not None:
+            params["end_time"] = end_time
+        data = self.get_json("/api/futures/open-interest/aggregated-history", params)
         return data if isinstance(data, list) else []
 
-    def funding_oi_weight_history(self, symbol: str, interval: str, limit: int) -> list[dict[str, Any]]:
-        data = self.get_json(
-            "/api/futures/funding-rate/oi-weight-history",
-            {"symbol": symbol, "interval": interval, "limit": limit},
-        )
+    def funding_oi_weight_history(
+        self,
+        symbol: str,
+        interval: str,
+        limit: int,
+        start_time: int | None = None,
+        end_time: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params = {"symbol": symbol, "interval": interval, "limit": limit}
+        if start_time is not None:
+            params["start_time"] = start_time
+        if end_time is not None:
+            params["end_time"] = end_time
+        data = self.get_json("/api/futures/funding-rate/oi-weight-history", params)
         return data if isinstance(data, list) else []
 
     def liquidation_aggregated_history(
@@ -108,14 +132,42 @@ class CoinGlassClient:
         symbol: str,
         interval: str,
         limit: int,
+        start_time: int | None = None,
+        end_time: int | None = None,
     ) -> list[dict[str, Any]]:
-        data = self.get_json(
-            "/api/futures/liquidation/aggregated-history",
-            {
-                "exchange_list": ",".join(exchange_list),
-                "symbol": symbol,
-                "interval": interval,
-                "limit": limit,
-            },
-        )
+        params = {
+            "exchange_list": ",".join(exchange_list),
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+        }
+        if start_time is not None:
+            params["start_time"] = start_time
+        if end_time is not None:
+            params["end_time"] = end_time
+        data = self.get_json("/api/futures/liquidation/aggregated-history", params)
+        return data if isinstance(data, list) else []
+
+    def aggregated_taker_buy_sell_history(
+        self,
+        exchange_list: list[str],
+        symbol: str,
+        interval: str,
+        limit: int,
+        unit: str = "usd",
+        start_time: int | None = None,
+        end_time: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params = {
+            "exchange_list": ",".join(exchange_list),
+            "symbol": symbol,
+            "interval": interval,
+            "limit": limit,
+            "unit": unit,
+        }
+        if start_time is not None:
+            params["start_time"] = start_time
+        if end_time is not None:
+            params["end_time"] = end_time
+        data = self.get_json("/api/futures/aggregated-taker-buy-sell-volume/history", params)
         return data if isinstance(data, list) else []

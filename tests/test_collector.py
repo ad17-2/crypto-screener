@@ -2,6 +2,7 @@ import unittest
 
 from crypto_screener.collector import (
     _aggregate_coinglass_pairs,
+    _append_coinglass_derivatives_history,
     _append_coinglass_technicals,
     _coinglass_candidate_stats,
     _rank_coinglass_candidates,
@@ -121,6 +122,32 @@ class CollectorTests(unittest.TestCase):
         self.assertEqual(rows[0]["technical_interval"], "4h")
         self.assertIn("rsi_14", rows[0])
 
+    def test_append_coinglass_derivatives_history_enriches_rows(self):
+        rows = [{"symbol": "BTC"}]
+        status = {}
+        client = FakeCoinGlassClient()
+
+        _append_coinglass_derivatives_history(
+            rows,
+            client,
+            {
+                "exchanges": ["OKX", "Bybit"],
+                "derivatives_history": {
+                    "enabled": True,
+                    "interval": "4h",
+                    "limit": 40,
+                    "max_symbols": 1,
+                    "request_delay_seconds": 0,
+                },
+            },
+            status,
+        )
+
+        self.assertEqual(status["derivatives_history"]["status"], "ok")
+        self.assertEqual(rows[0]["derivatives_interval"], "4h")
+        self.assertIn("oi_change_24h_pct_history", rows[0])
+        self.assertIn("taker_imbalance_24h_pct", rows[0])
+
 
 class FakeCoinGlassClient:
     def __init__(self):
@@ -141,6 +168,32 @@ class FakeCoinGlassClient:
                 }
             )
         return candles
+
+    def open_interest_aggregated_history(self, symbol, interval, limit):
+        return [{"time": index, "close": 1000 + index} for index in range(limit)]
+
+    def funding_oi_weight_history(self, symbol, interval, limit):
+        return [{"time": index, "close": 0.01} for index in range(limit)]
+
+    def liquidation_aggregated_history(self, exchanges, symbol, interval, limit):
+        return [
+            {
+                "time": index,
+                "aggregated_long_liquidation_usd": 100,
+                "aggregated_short_liquidation_usd": 200,
+            }
+            for index in range(limit)
+        ]
+
+    def aggregated_taker_buy_sell_history(self, exchanges, symbol, interval, limit):
+        return [
+            {
+                "time": index,
+                "aggregated_buy_volume_usd": 120,
+                "aggregated_sell_volume_usd": 100,
+            }
+            for index in range(limit)
+        ]
 
 
 if __name__ == "__main__":

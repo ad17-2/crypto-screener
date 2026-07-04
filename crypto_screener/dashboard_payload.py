@@ -21,6 +21,10 @@ FACTOR_LABELS = {
     "btc_relative_strength": "BTC Relative",
     "technical_trend_4h": "4h Trend",
     "technical_momentum_4h": "4h Momentum",
+    "oi_acceleration_signal": "OI Acceleration",
+    "funding_persistence_contrarian": "Funding Persistence",
+    "taker_flow_24h": "Taker Flow",
+    "liquidation_pressure_24h": "Liq Pressure",
 }
 
 WATCHLIST_LABELS = {
@@ -42,7 +46,8 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
             "refresh_status": None,
         }
 
-    with connect(db_path) as conn:
+    conn = connect(db_path)
+    try:
         runs = _recent_runs(conn)
         selected = _selected_run(conn, run_id)
         if selected is None:
@@ -69,6 +74,8 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
             [str(row.get("symbol")) for row in rows if row.get("symbol")],
             selected["generated_at"],
         )
+    finally:
+        conn.close()
 
     context = _loads_json(selected["context_json"], {})
     provider_status = _loads_json(selected["provider_status_json"], {})
@@ -687,8 +694,11 @@ def _loads_json(raw: str | None, default: Any) -> Any:
 def latest_run_generated_at(db_path: Path) -> datetime | None:
     if not db_path.exists():
         return None
-    with connect(db_path) as conn:
+    conn = connect(db_path)
+    try:
         row = conn.execute("SELECT generated_at FROM runs ORDER BY generated_at DESC LIMIT 1").fetchone()
+    finally:
+        conn.close()
     if row is None:
         return None
     try:

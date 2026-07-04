@@ -16,6 +16,10 @@ DIRECTIONAL_FACTORS = [
     "btc_relative_strength",
     "technical_trend_4h",
     "technical_momentum_4h",
+    "oi_acceleration_signal",
+    "funding_persistence_contrarian",
+    "taker_flow_24h",
+    "liquidation_pressure_24h",
 ]
 
 QUALITY_FACTORS = [
@@ -35,6 +39,10 @@ DEFAULT_PRIORS = {
     "btc_relative_strength": 0.16,
     "technical_trend_4h": 0.12,
     "technical_momentum_4h": 0.08,
+    "oi_acceleration_signal": 0.08,
+    "funding_persistence_contrarian": 0.08,
+    "taker_flow_24h": 0.07,
+    "liquidation_pressure_24h": 0.07,
 }
 
 
@@ -86,6 +94,10 @@ def _raw_factors(
     technical_trend = to_float(row.get("technical_trend_score"))
     technical_momentum = to_float(row.get("technical_momentum_score"))
     atr_pct = to_float(row.get("atr_14_pct"))
+    oi_acceleration = to_float(row.get("oi_acceleration_4h_pct"))
+    funding_avg = to_float(row.get("funding_avg_24h_pct"))
+    taker_imbalance = to_float(row.get("taker_imbalance_24h_pct"))
+    liquidation_imbalance_24h = to_float(row.get("liquidation_imbalance_24h_pct"))
 
     btc_change = _btc_change(rows, market_context)
     liq_total = long_liq + short_liq
@@ -104,6 +116,10 @@ def _raw_factors(
     if ls_ratio is not None and ls_ratio > 0:
         ls_contrarian = -math.log(ls_ratio)
 
+    oi_acceleration_signal = None
+    if oi_acceleration is not None and price_change is not None:
+        oi_acceleration_signal = math.copysign(max(oi_acceleration, 0.0), price_change)
+
     return {
         "momentum_24h": price_change,
         "reversal_1d": -price_change if price_change is not None else None,
@@ -114,6 +130,10 @@ def _raw_factors(
         "btc_relative_strength": price_change - btc_change if price_change is not None and btc_change is not None else None,
         "technical_trend_4h": technical_trend,
         "technical_momentum_4h": technical_momentum,
+        "oi_acceleration_signal": oi_acceleration_signal,
+        "funding_persistence_contrarian": -funding_avg if funding_avg is not None else None,
+        "taker_flow_24h": taker_imbalance,
+        "liquidation_pressure_24h": liquidation_imbalance_24h,
         "liquidity_30d": liquidity if quote_volume > 0 else None,
         "volume_expansion_24h": volume_change,
         "volatility_expansion_4h": atr_pct,
@@ -348,19 +368,22 @@ def _confidence_score(
     data_quality = to_float(row.get("data_quality_score"), 100.0) or 100.0
     trend = to_float(row.get("technical_trend_score"))
     momentum = to_float(row.get("technical_momentum_score"))
+    derivatives = to_float(row.get("derivatives_confirmation_score"))
     factor_strength = clamp(abs(directional_score) / 1.25)
     liquidity = clamp(liquidity_quality / 100.0)
     quality = clamp(data_quality / 100.0)
     technical_alignment = _technical_alignment(directional_score, trend, momentum)
+    derivatives_alignment = _signal_alignment(directional_score, derivatives)
     driver_count = sum(1 for name in DIRECTIONAL_FACTORS if abs(factors.get(name, 0.0)) >= 0.5)
     confirmation = clamp(driver_count / 3.0)
 
     confidence = (
-        factor_strength * 0.30
-        + liquidity * 0.20
+        factor_strength * 0.27
+        + liquidity * 0.18
         + quality * 0.20
-        + technical_alignment * 0.20
-        + confirmation * 0.10
+        + technical_alignment * 0.17
+        + derivatives_alignment * 0.10
+        + confirmation * 0.08
     ) * 100.0
     if row.get("is_trusted", True) is False:
         confidence *= 0.35
@@ -380,3 +403,10 @@ def _technical_alignment(
     direction = 1.0 if directional_score > 0 else -1.0
     aligned = sum(clamp((value * direction + 1.0) / 2.0) for value in technical_values)
     return aligned / len(technical_values)
+
+
+def _signal_alignment(directional_score: float, signal: float | None) -> float:
+    if signal is None or directional_score == 0:
+        return 0.5
+    direction = 1.0 if directional_score > 0 else -1.0
+    return clamp((signal * direction + 1.0) / 2.0)

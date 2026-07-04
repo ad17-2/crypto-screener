@@ -135,8 +135,11 @@ class DashboardTests(unittest.TestCase):
 
             result = prune_old_runs(db_path, keep=1)
             dashboard = build_dashboard_payload(db_path, limit=5)
-            with connect(db_path) as conn:
+            conn = connect(db_path)
+            try:
                 factor_history_count = conn.execute("SELECT COUNT(*) AS count FROM factor_history").fetchone()["count"]
+            finally:
+                conn.close()
 
         self.assertEqual(result["kept_runs"], 1)
         self.assertEqual(result["deleted_runs"], 1)
@@ -309,8 +312,11 @@ class DashboardTests(unittest.TestCase):
             raw.commit()
             raw.close()
 
-            with connect(db_path) as conn:
+            conn = connect(db_path)
+            try:
                 columns = {row["name"] for row in conn.execute("PRAGMA table_info(runs)")}
+            finally:
+                conn.close()
 
         self.assertIn("regime_json", columns)
         self.assertIn("factor_weights_json", columns)

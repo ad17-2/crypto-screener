@@ -30,6 +30,8 @@ The dashboard is designed around this workflow:
 - CoinGlass futures universe collection from supported exchange pairs.
 - CoinGlass pairs-market data for price, volume, funding, open interest, long/short volume, and liquidations.
 - CoinGlass OHLC price-history enrichment for 4h technical indicators.
+- CoinGlass 4h historical OI, funding, liquidation, and taker buy/sell features for stronger derivatives confirmation.
+- Compact historical backfill into `factor_history` without creating fake dashboard runs.
 - CoinGecko global market context and sector/category rotation.
 - Data-quality guards for suspicious provider rows and extreme outliers.
 - Confidence scoring that combines factor strength, liquidity, data quality, and 4h technical alignment.
@@ -183,6 +185,7 @@ Key defaults:
 | Minimum supported venues | 2 |
 | CoinGlass request delay | 2.1 seconds |
 | CoinGlass technical candles | 4h interval, 220 candles, top 40 rows |
+| CoinGlass derivative history | 4h interval, 220 rows, top 25 rows |
 | CoinGecko categories | 12 |
 | Report rows per section | 12 |
 | Core symbols | BTC, ETH, SOL |
@@ -206,6 +209,15 @@ If CoinGlass returns suspicious values, the data-quality layer can exclude the r
 
 The provider also fetches 4h price-history candles for top rows and derives EMA trend, RSI, MACD histogram, ATR, Bollinger position, Bollinger width, and a compact technical setup label. The default interval is `4h` to stay compatible with the CoinGlass Hobbyist tier's price-history interval limits.
 
+For top rows, the provider also fetches CoinGlass historical derivatives series at the same `4h` interval:
+
+- Aggregated open interest history.
+- Open-interest-weighted funding history.
+- Aggregated liquidation history.
+- Aggregated taker buy/sell volume history.
+
+These fields are used as model confirmation signals; they do not change dashboard layout.
+
 ### CoinGecko
 
 Used for broader market context:
@@ -223,6 +235,7 @@ load config
   -> collect CoinGecko global and category context
   -> aggregate CoinGlass pairs-market data by symbol
   -> enrich top rows with CoinGlass 4h OHLC technicals
+  -> enrich top rows with CoinGlass 4h derivatives history
   -> apply data-quality sanity checks
   -> load prior SQLite history for factor IC labels
   -> compute factors, weights, scores, and market regime
@@ -301,6 +314,10 @@ Directional factors:
 - `btc_relative_strength`
 - `technical_trend_4h`
 - `technical_momentum_4h`
+- `oi_acceleration_signal`
+- `funding_persistence_contrarian`
+- `taker_flow_24h`
+- `liquidation_pressure_24h`
 
 Quality/context factors:
 
@@ -339,6 +356,34 @@ The dashboard also builds:
 Chart priority combines the relevant score with data quality and trust state. It is not an entry signal; it is a workflow sort for manual review.
 
 Each row also has a `confidence_score` from 0 to 100. It rewards stronger directional factors, better liquidity, clean data, and alignment between the factor side and 4h technical trend/momentum. Treat confidence as a sorting aid, not a trade trigger.
+
+## Historical Backfill
+
+Backfill writes compact model history only. It does not insert into `runs` or `market_rows`, so the dashboard continues showing the latest real snapshot while `factor_history` gains more observations for IC learning and future backtests.
+
+Dry-run the default core-symbol backfill:
+
+```bash
+python3 -m crypto_screener.backfill --config config/default.json --dry-run
+```
+
+Backfill a specific universe:
+
+```bash
+python3 -m crypto_screener.backfill \
+  --config config/default.json \
+  --symbols BTC,ETH,SOL,SUI,HYPE,LINK \
+  --interval 4h \
+  --limit 220
+```
+
+The backfill command:
+
+- Fetches CoinGlass price, OI, funding, liquidation, and taker buy/sell histories.
+- Builds synthetic cross-sectional snapshots by timestamp.
+- Reuses the same factor model and scoring code.
+- Stores deterministic `backfill-YYYYMMDDHHMM` compact records in `factor_history`.
+- Skips cross-sections with fewer than `--min-cross-section` symbols.
 
 ## Data Quality
 
