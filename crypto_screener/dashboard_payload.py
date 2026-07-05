@@ -6,7 +6,7 @@ from typing import Any
 
 from .dashboard_freshness import freshness_summary, latest_run_age_seconds, latest_run_generated_at
 from .dashboard_rows import dashboard_row
-from .dashboard_taxonomy import factor_label, sector_breadth
+from .dashboard_taxonomy import factor_label
 from .scoring import to_float
 from .storage import connect
 from .watchlists import (
@@ -66,7 +66,6 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
     regime = _loads_json(selected["regime_json"], {})
     factor_weights = _loads_json(selected["factor_weights_json"], {})
     sections = _sections(rows, limit, history, regime)
-    sector_context = sector_breadth(rows)
     freshness = freshness_summary(selected["generated_at"])
 
     return {
@@ -84,7 +83,6 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
         "factor_weights": factor_weights,
         "validation": _validation_summary(factor_weights.get("validation", {}), rows, sections),
         "freshness": freshness,
-        "sector_breadth": sector_context,
         "quality": _quality_summary(rows),
         "sections": sections,
         "watchlists": _watchlists(sections, limit),

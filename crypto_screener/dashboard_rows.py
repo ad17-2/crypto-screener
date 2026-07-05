@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .dashboard_taxonomy import factor_label, sector_for_symbol
+from .dashboard_taxonomy import factor_label
 from .factor_definitions import DIRECTIONAL_FACTORS
 from .factor_explanations import reason_for
 from .scoring import clamp, to_float
@@ -19,10 +19,8 @@ def dashboard_row(
     score = row.get(score_field)
     setup = setup_label(row, side)
     priority = chart_priority(row, score_field, score)
-    sector = sector_for_symbol(row.get("symbol"))
     return {
         "symbol": row.get("symbol"),
-        "sector": sector,
         "side": side,
         "setup": setup,
         "setup_tone": setup_tone(side),
@@ -69,7 +67,7 @@ def dashboard_row(
         "history": history or [],
         "reason": reason_for(row, side),
         "reason_parts": reason_parts(row, side),
-        "explanation": token_explanation(row, side, setup, sector),
+        "explanation": token_explanation(row, side, setup),
     }
 
 
@@ -150,7 +148,7 @@ def primary_driver(factors: dict[str, Any]) -> dict[str, Any] | None:
     return parts[0] if parts else None
 
 
-def token_explanation(row: dict[str, Any], side: str, setup: str, sector: str) -> dict[str, Any]:
+def token_explanation(row: dict[str, Any], side: str, setup: str) -> dict[str, Any]:
     symbol = str(row.get("symbol") or "-")
     driver = primary_driver(row.get("factors", {}))
     driver_text = f"{driver['label']} {driver['value']:+.2f}" if driver else "mixed factors"
@@ -160,14 +158,11 @@ def token_explanation(row: dict[str, Any], side: str, setup: str, sector: str) -
     ls_ratio = to_float(row.get("long_short_ratio"))
     direction = "long" if side in {"long", "squeeze-risk"} else "short" if side in {"short", "fade-long"} else "neutral"
 
-    read = (
-        f"{symbol} is grouped as {setup} in {sector} because {driver_text} is the strongest driver, "
-        f"with {conflict_label} signal conflict."
-    )
+    read = f"{symbol} is grouped as {setup} because {driver_text} is the strongest driver, with {conflict_label} signal conflict."
     confirm = [
         "Check the TradingView chart for entry location, invalidation, and nearby liquidity.",
         "Prefer the setup only if 4h trend and momentum agree with the intended direction.",
-        "Confirm BTC, market breadth, and sector tape have not flipped against the setup.",
+        "Confirm BTC, market breadth, and market regime have not flipped against the setup.",
     ]
     if direction == "long":
         confirm.append("For longs, avoid chasing after an extended impulse unless pullback structure is clean.")
@@ -192,7 +187,6 @@ def token_explanation(row: dict[str, Any], side: str, setup: str, sector: str) -
         "read": read,
         "confirm": confirm[:4],
         "risk": risks[:4],
-        "sector": sector,
     }
 
 

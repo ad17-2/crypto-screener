@@ -98,7 +98,7 @@ The final output should be read as a set of prompts:
 - "Is this short candidate breaking down with real participation?"
 - "Is this crowded long ready to unwind, or is the trend still absorbing pressure?"
 - "Is this crowded short actually squeezeable, or just weak?"
-- "Does BTC, sector breadth, and market regime agree with the idea?"
+- "Does BTC, sector rotation, and market regime agree with the idea?"
 
 That is the intended edge: reduce the market to a defensible review queue, make the reasoning inspectable, and keep the final decision outside the code.
 
