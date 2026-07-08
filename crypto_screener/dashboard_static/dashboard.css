@@ -1101,6 +1101,10 @@ button:hover {
   grid-column: 1 / -1;
 }
 
+.detail-body > .detail-section[open] {
+  grid-column: 1 / -1;
+}
+
 .module-panel summary::-webkit-details-marker {
   display: none;
 }

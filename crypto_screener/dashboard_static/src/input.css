@@ -319,6 +319,7 @@
     .detail-section summary::-webkit-details-marker { display: none; }
     .module-panel { }
     .module-grid > :has(.module-panel[open]) { grid-column: 1 / -1; }
+    .detail-body > .detail-section[open] { grid-column: 1 / -1; }
     .module-panel summary::-webkit-details-marker { display: none; }
     .detail-section summary::after, .module-panel summary::after {
       content: "";
