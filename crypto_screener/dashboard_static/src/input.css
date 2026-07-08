@@ -52,34 +52,7 @@
       outline-offset: 2px;
       border-radius: 4px;
     }
-    .shell {
-      width: min(1480px, calc(100vw - 32px));
-      margin: 0 auto;
-      padding: 22px 0 34px;
-    }
-    .topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 18px;
-    }
-    h1 { margin: 0; font-size: 24px; line-height: 1.1; letter-spacing: -0.01em; }
-    .subline { color: var(--muted); font-size: 13px; margin-top: 6px; }
-    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-    select, button {
-      height: 36px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      color: var(--ink);
-      border-radius: 8px;
-      padding: 0 10px;
-      font: inherit;
-      font-size: 13px;
-    }
-    button { cursor: pointer; font-weight: 650; }
     button:hover { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
-    .theme-btn { min-width: 40px; }
 
     /* Market tape header (signature element) */
     .metrics {
@@ -814,11 +787,6 @@
       .sparkline { margin-left: 0; }
     }
     @media (max-width: 680px) {
-      .shell { width: min(100vw - 20px, 1480px); padding-top: 14px; }
-      .topbar { flex-direction: column; align-items: stretch; }
-      .actions { justify-content: stretch; }
-      select, button { width: 100%; }
-      .theme-btn { width: 100%; }
       .filter-input, .filter-select, .filter-toggle { width: 100%; }
       .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .value { font-size: 19px; }
