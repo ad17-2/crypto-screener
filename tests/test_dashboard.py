@@ -22,6 +22,8 @@ from crypto_screener.dashboard import (
     _seconds_until_next_daily_check,
     build_dashboard_payload,
 )
+from crypto_screener.dashboard_payload import _model_weights_summary
+from crypto_screener.dashboard_rows import dashboard_row
 from crypto_screener.storage import connect, prune_old_runs, save_snapshot
 
 
@@ -43,7 +45,30 @@ class DashboardTests(unittest.TestCase):
                 "provider_status": {"coinglass": {"status": "ok", "rows": 2}},
                 "regime": {"bias": "risk-on", "label": "momentum", "breadth_label": "selective-risk-on"},
                 "factor_weights": {
-                    "mode": "prior",
+                    "mode": "ic",
+                    "regime_adjustment": {"label": "momentum", "bias": "risk-on"},
+                    "stats": {
+                        "momentum_24h": {
+                            "weight": 0.35,
+                            "base_weight": 0.3,
+                            "mode": "ic",
+                            "ic": 0.08,
+                            "t_stat": 2.1,
+                            "n_periods": 42,
+                            "credibility_k": 0.75,
+                            "regime_multiplier": 1.05,
+                        },
+                        "reversal_1d": {
+                            "weight": -0.12,
+                            "base_weight": -0.1,
+                            "mode": "prior",
+                            "ic": None,
+                            "t_stat": None,
+                            "n_periods": 0,
+                            "credibility_k": None,
+                            "regime_multiplier": 0.98,
+                        },
+                    },
                     "validation": {
                         "status": "limited",
                         "horizon_hours": 12,
@@ -62,6 +87,9 @@ class DashboardTests(unittest.TestCase):
                         "price_change_24h_pct": 1,
                         "oi_change_24h_pct": 2,
                         "funding_rate_pct": 0.01,
+                        "long_short_ratio": 1.05,
+                        "long_short_account_ratio": 1.25,
+                        "top_trader_long_short_ratio": 0.95,
                         "quote_volume_usd": 100_000_000,
                         "data_source": "coinglass",
                         "primary_exchange": "OKX",
@@ -147,10 +175,63 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("read", long_row["explanation"])
         self.assertIn("Signals", [part["label"] for part in long_row["reason_parts"]])
         self.assertEqual(long_row["technical_state"]["rsi_14"], 61)
+        self.assertIn("long_short_account_ratio", long_row)
+        self.assertIn("top_trader_long_short_ratio", long_row)
+        self.assertIn("positioning_ratio", long_row)
+        self.assertEqual(long_row["positioning_ratio"], 1.25)
+        self.assertEqual(dashboard["model_weights"]["mode"], "ic")
+        factors = dashboard["model_weights"]["factors"]
+        self.assertEqual(factors[0]["name"], "momentum_24h")
+        self.assertEqual(factors[0]["label"], "Momentum")
+        self.assertEqual(factors[0]["mode"], "ic")
+        self.assertEqual(factors[0]["t_stat"], 2.1)
+        self.assertEqual(factors[1]["name"], "reversal_1d")
+        self.assertGreater(abs(factors[0]["weight"] or 0), abs(factors[1]["weight"] or 0))
         self.assertTrue(long_row["factor_parts"])
         self.assertEqual(len(long_row["history"]), 2)
         self.assertEqual(long_row["history"][0]["confidence_score"], 72)
         self.assertEqual(dashboard["runs"][0]["coinglass_status"], "ok")
+
+    def test_dashboard_row_positioning_ratio_falls_back_to_taker_ratio(self):
+        row = dashboard_row(
+            {"symbol": "ETH", "long_short_ratio": 0.92, "scores": {}, "factors": {}},
+            "long_score",
+            "long",
+        )
+        self.assertIsNone(row["long_short_account_ratio"])
+        self.assertIsNone(row["top_trader_long_short_ratio"])
+        self.assertEqual(row["positioning_ratio"], 0.92)
+
+        with_account = dashboard_row(
+            {
+                "symbol": "ETH",
+                "long_short_ratio": 0.92,
+                "long_short_account_ratio": 1.1,
+                "top_trader_long_short_ratio": 0.88,
+                "scores": {},
+                "factors": {},
+            },
+            "long_score",
+            "long",
+        )
+        self.assertEqual(with_account["positioning_ratio"], 1.1)
+
+    def test_model_weights_summary_sorts_by_abs_weight(self):
+        summary = _model_weights_summary(
+            {
+                "mode": "ic",
+                "regime_adjustment": {"label": "momentum"},
+                "stats": {
+                    "reversal_1d": {"weight": -0.05, "mode": "prior", "t_stat": None},
+                    "momentum_24h": {"weight": 0.2, "mode": "ic", "t_stat": 1.8},
+                },
+            }
+        )
+        self.assertEqual(summary["mode"], "ic")
+        self.assertEqual(summary["regime"]["label"], "momentum")
+        self.assertEqual(summary["factors"][0]["label"], "Momentum")
+        self.assertEqual(summary["factors"][0]["t_stat"], 1.8)
+        self.assertEqual(summary["factors"][1]["label"], "Reversal")
 
     def test_prune_old_runs_keeps_only_latest_snapshot(self):
         with tempfile.TemporaryDirectory() as tmpdir:

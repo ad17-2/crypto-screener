@@ -331,13 +331,15 @@
       align-items: start;
     }
     .module-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      align-items: start;
+      column-count: 4;
+      column-gap: 12px;
       margin-top: 12px;
     }
-    #sectorPanel { grid-column: 1 / -1; }
+    .module-grid > div {
+      break-inside: avoid;
+      margin-bottom: 12px;
+    }
+    #sectorPanel { column-span: all; }
     .watch-panel { overflow: visible; }
     .watch-controls {
       display: flex;
@@ -649,6 +651,32 @@
     .factor-fill { height: 100%; border-radius: 999px; background: var(--muted); }
     .factor-fill.pos { background: var(--up); }
     .factor-fill.neg { background: var(--down); }
+    .pos-dot {
+      display: inline-block;
+      font-size: 10px;
+      margin-left: 4px;
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      vertical-align: baseline;
+    }
+    .pos-dot.warn { color: var(--warn); }
+    .pos-dot.pos { color: var(--up); }
+    .pos-dot.neutral { color: var(--muted); }
+    .weight-row {
+      display: grid;
+      grid-template-columns: minmax(90px, 1fr) minmax(0, 1.2fr) auto;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+    .weight-label { display: grid; gap: 2px; min-width: 0; }
+    .weight-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-self: end;
+    }
+    .weight-meta strong { font-family: var(--mono); font-variant-numeric: tabular-nums; }
     .explanation-box, .conflict-block, .conflict-summary {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -760,8 +788,8 @@
     @media (max-width: 1100px) {
       .metrics { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
       .dashboard-grid { grid-template-columns: 1fr; }
-      .module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      #sectorPanel { grid-column: auto; }
+      .module-grid { column-count: 2; }
+      #sectorPanel { column-span: none; }
       .sector-list { grid-template-columns: 1fr; }
       .detail-rail { position: static; }
     }
@@ -794,6 +822,6 @@
       .value { font-size: 19px; }
       .detail-grid { grid-template-columns: 1fr; }
       .explanation-grid { grid-template-columns: 1fr; }
-      .module-grid { grid-template-columns: 1fr; }
+      .module-grid { column-count: 1; }
       .sector-list { grid-template-columns: 1fr; }
     }

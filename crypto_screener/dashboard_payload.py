@@ -81,6 +81,7 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
         "market_context": context,
         "provider_status": provider_status,
         "factor_weights": factor_weights,
+        "model_weights": _model_weights_summary(factor_weights),
         "validation": _validation_summary(factor_weights.get("validation", {}), rows, sections),
         "freshness": freshness,
         "quality": _quality_summary(rows),
@@ -339,6 +340,34 @@ def _calibration_label(hit_rate: float | None, observations: int) -> str:
     if hit_rate >= 50.0:
         return "neutral"
     return "weak"
+
+
+def _model_weights_summary(factor_weights: dict[str, Any]) -> dict[str, Any]:
+    stats = factor_weights.get("stats", {}) or {}
+    factors: list[dict[str, Any]] = []
+    for name, details in stats.items():
+        if not isinstance(details, dict):
+            continue
+        factors.append(
+            {
+                "name": name,
+                "label": factor_label(name),
+                "weight": to_float(details.get("weight")),
+                "base_weight": to_float(details.get("base_weight")),
+                "mode": details.get("mode"),
+                "ic": to_float(details.get("ic")),
+                "t_stat": to_float(details.get("t_stat")),
+                "n_periods": int(to_float(details.get("n_periods"), 0) or 0),
+                "credibility_k": to_float(details.get("credibility_k")),
+                "regime_multiplier": to_float(details.get("regime_multiplier")),
+            }
+        )
+    factors.sort(key=lambda item: abs(item.get("weight") or 0), reverse=True)
+    return {
+        "mode": factor_weights.get("mode"),
+        "regime": factor_weights.get("regime_adjustment", {}) or {},
+        "factors": factors,
+    }
 
 
 def _rank_validation_factors(factors: dict[str, Any], reverse: bool) -> list[dict[str, Any]]:

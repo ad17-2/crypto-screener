@@ -8,7 +8,7 @@
       price: { field: "price_change_24h_pct", type: "numeric" },
       oi: { field: "oi_change_24h_pct", type: "numeric" },
       funding: { field: "funding_rate_pct", type: "numeric" },
-      ls: { field: "long_short_ratio", type: "numeric" },
+      ls: { field: "positioning_ratio", type: "numeric" },
       volume: { field: "quote_volume_usd", type: "numeric" },
       source: { field: "data_source", type: "string" },
     };
@@ -218,6 +218,30 @@
       const label = row?.signal_conflict_label || "unknown";
       return `<span class="conflict-badge ${conflictTone(label)}">${esc(label)}</span>`;
     }
+    function positioningDivergence(row) {
+      const LONG = 1.2;
+      const SHORT = 0.85;
+      const retail = numeric(row?.long_short_account_ratio);
+      const top = numeric(row?.top_trader_long_short_ratio);
+      if (retail === null || top === null) return null;
+      if (retail >= LONG && top <= 1.0) {
+        return { tone: "warn", mark: "R▲", title: `Retail long ${retail.toFixed(2)}x vs top-trader ${top.toFixed(2)}x — retail-crowded long` };
+      }
+      if (retail <= SHORT && top >= 1.0) {
+        return { tone: "warn", mark: "R▼", title: `Retail short ${retail.toFixed(2)}x vs top-trader ${top.toFixed(2)}x — retail-crowded short` };
+      }
+      if ((retail >= LONG && top >= LONG) || (retail <= SHORT && top <= SHORT)) {
+        return { tone: "pos", mark: "=", title: `Retail ${retail.toFixed(2)}x / top ${top.toFixed(2)}x — aligned` };
+      }
+      return { tone: "neutral", mark: "", title: `Retail ${retail.toFixed(2)}x / top ${top.toFixed(2)}x` };
+    }
+    function positioningCell(row) {
+      const div = positioningDivergence(row);
+      const value = row.positioning_ratio == null ? "-" : fmtNum(row.positioning_ratio);
+      const title = div?.title ? ` title="${esc(div.title)}"` : "";
+      const mark = div && div.mark ? `<span class="pos-dot ${esc(div.tone)}" title="${esc(div.title)}">${esc(div.mark)}</span>` : "";
+      return `<div class="watch-cell" data-label="L/S"${title}>${value}${mark}</div>`;
+    }
     function setupMeta(row) {
       const parts = [];
       const conflict = String(row?.signal_conflict_label || "");
@@ -417,7 +441,7 @@
           <div class="watch-cell ${clsFor(row.price_change_24h_pct)}" data-label="24h">${arrowPct(row.price_change_24h_pct)}</div>
           <div class="watch-cell ${clsFor(row.oi_change_24h_pct)}" data-label="OI 24h">${arrowPct(row.oi_change_24h_pct)}</div>
           <div class="watch-cell ${clsFor(row.funding_rate_pct)}" data-label="Funding">${fmtPct(row.funding_rate_pct, 4)}</div>
-          <div class="watch-cell" data-label="L/S">${row.long_short_ratio == null ? "-" : fmtNum(row.long_short_ratio)}</div>
+          ${positioningCell(row)}
           <div class="watch-cell" data-label="Volume">${fmtUsd(row.quote_volume_usd)}</div>
           <div class="watch-cell" data-label="Source"><div class="source-stack">${sourceTags(row.data_source)}</div></div>
         </div>`;
@@ -522,6 +546,16 @@
           <div class="detail-metric"><span class="label">Quality</span><strong class="${qualityTone(row.quality)}">${esc(row.quality ?? "-")}</strong></div>
           <div class="detail-metric"><span class="label">24h / OI</span><strong><span class="${clsFor(row.price_change_24h_pct)}">${fmtPct(row.price_change_24h_pct)}</span> / <span class="${clsFor(row.oi_change_24h_pct)}">${fmtPct(row.oi_change_24h_pct)}</span></strong></div>
           <div class="detail-metric"><span class="label">Funding / L/S</span><strong><span class="${clsFor(row.funding_rate_pct)}">${fmtPct(row.funding_rate_pct, 4)}</span> / ${row.long_short_ratio == null ? "-" : fmtNum(row.long_short_ratio)}</strong></div>
+          <div class="detail-metric"><span class="label">Positioning (R / T)</span><strong>${(() => {
+            const retail = row.long_short_account_ratio;
+            const top = row.top_trader_long_short_ratio;
+            const div = positioningDivergence(row);
+            const valueText = `${retail == null ? "-" : fmtNum(retail)}x / ${top == null ? "-" : fmtNum(top)}x`;
+            const badge = retail != null && top != null
+              ? `<span class="conflict-badge ${div ? (div.tone === "warn" ? "warn" : div.tone === "pos" ? "pos" : "neutral") : "neutral"}">${esc(div ? (div.mark || "mixed") : "n/a")}</span>`
+              : "";
+            return `${valueText}${badge}`;
+          })()}</strong></div>
           <div class="detail-metric"><span class="label">Volume</span><strong>${fmtUsd(row.quote_volume_usd)}</strong></div>
           <div class="detail-metric"><span class="label">Open Interest</span><strong>${fmtUsd(row.open_interest_usd)}</strong></div>
         </div>
@@ -619,6 +653,9 @@
         validationBlock(data.validation),
         false
       );
+      const mw = data.model_weights || {};
+      const mwSub = `${mw.mode || "prior"} · ${mw.regime?.label || data.regime?.label || "mixed"}`;
+      $("weightsPanel").innerHTML = modulePanel("Factor Weights", mwSub, weightsBlock(mw), false);
       $("sectorPanel").innerHTML = modulePanel(
         "Sector Rotation",
         data.market_context?.sector_rotation?.label || "leaders / laggards",
@@ -631,6 +668,23 @@
         `${freshnessBlock(data.freshness)}${runsBlock(data.runs)}`,
         false
       );
+    }
+    function weightsBlock(modelWeights) {
+      const factors = modelWeights?.factors || [];
+      if (!factors.length) return `<div class="empty">No factor weights</div>`;
+      const maxAbs = Math.max(...factors.map((f) => Math.abs(Number(f.weight || 0))), 0.0001);
+      return `<div class="list">${factors.map((f) => {
+        const width = Math.round((Math.abs(Number(f.weight || 0)) / maxAbs) * 100);
+        const tone = f.weight > 0 ? "pos" : f.weight < 0 ? "neg" : "neutral";
+        const driver = f.mode === "ic"
+          ? `<span class="driver-line">IC ${fmtNum(f.ic, 2)} · t ${fmtNum(f.t_stat, 1)} · k ${fmtNum(f.credibility_k, 2)} · ${esc(f.n_periods)}p${f.regime_multiplier != null && Math.abs(f.regime_multiplier - 1) >= 0.01 ? ` · x${fmtNum(f.regime_multiplier, 2)}` : ""}</span>`
+          : "";
+        return `<div class="weight-row">
+          <div class="weight-label"><strong>${esc(f.label || f.name || "-")}</strong>${driver}</div>
+          <span class="factor-track"><span class="factor-fill ${tone}" style="width:${width}%"></span></span>
+          <div class="weight-meta"><span class="status-pill ${f.mode === "ic" ? "" : "warn"}">${esc((f.mode || "prior").toUpperCase())}</span><strong>${fmtNum(f.weight, 3)}</strong></div>
+        </div>`;
+      }).join("")}</div>`;
     }
     function validationBlock(validation) {
       if (!validation || Object.keys(validation).length === 0) return `<div class="empty">No validation data</div>`;
@@ -694,7 +748,7 @@
         $("watchCount").textContent = "-";
         $("watchTable").innerHTML = `<div class="empty">No data</div>`;
         $("detailPanel").innerHTML = panel("Selected Coin", "", `<div class="empty">No data</div>`);
-        ["providerPanel","qualityPanel","validationPanel","sectorPanel","runsPanel"].forEach((id) => $(id).innerHTML = modulePanel(id, "", `<div class="empty">No data</div>`));
+        ["providerPanel","qualityPanel","validationPanel","weightsPanel","sectorPanel","runsPanel"].forEach((id) => $(id).innerHTML = modulePanel(id, "", `<div class="empty">No data</div>`));
         return;
       }
       state.selectedRun = data.run.run_id;

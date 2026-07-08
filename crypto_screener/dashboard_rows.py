@@ -36,6 +36,11 @@ def dashboard_row(
         "oi_change_24h_pct": row.get("oi_change_24h_pct"),
         "funding_rate_pct": row.get("funding_rate_pct"),
         "long_short_ratio": row.get("long_short_ratio"),
+        "long_short_account_ratio": row.get("long_short_account_ratio"),
+        "top_trader_long_short_ratio": row.get("top_trader_long_short_ratio"),
+        "positioning_ratio": row.get("long_short_account_ratio")
+        if row.get("long_short_account_ratio") is not None
+        else row.get("long_short_ratio"),
         "quote_volume_usd": row.get("quote_volume_usd"),
         "open_interest_usd": row.get("open_interest_usd"),
         "technical_setup": row.get("technical_setup"),
