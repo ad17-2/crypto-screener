@@ -54,50 +54,12 @@
     }
     button:hover { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
 
-    /* Market tape header (signature element) */
-    .metrics {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(130px, 1fr));
-      gap: 10px;
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
       margin-bottom: 12px;
-    }
-    .metric, .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .metric { min-height: 86px; padding: 12px; }
-    .market-tape {
-      grid-column: 1 / -1;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      row-gap: 6px;
-      padding: 11px 14px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-    }
-    .tape-live {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding-right: 16px;
-      margin-right: 2px;
-      border-right: 1px solid var(--line);
-    }
-    .tape-live b {
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      color: var(--up);
-    }
-    .tape-live .age {
-      font-family: var(--mono);
-      font-variant-numeric: tabular-nums;
-      font-size: 12px;
-      color: var(--muted);
     }
     .live-dot {
       width: 8px;
@@ -106,29 +68,7 @@
       background: var(--up);
       flex: 0 0 auto;
     }
-    .tape-seg {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 6px;
-      padding: 0 16px;
-      border-left: 1px solid var(--line);
-    }
     .tape-live + .tape-seg { border-left: 0; }
-    .tape-k {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.09em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .tape-v {
-      font-family: var(--mono);
-      font-variant-numeric: tabular-nums;
-      font-size: 13px;
-      font-weight: 700;
-      color: var(--ink);
-    }
-
     .label {
       color: var(--muted);
       font-size: 11px;
@@ -136,21 +76,6 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
-    .value {
-      font-family: var(--mono);
-      font-variant-numeric: tabular-nums;
-      font-size: 23px;
-      font-weight: 760;
-      margin-top: 8px;
-      line-height: 1.15;
-      word-break: break-word;
-    }
-    .value.small { font-size: 18px; }
-    .good { color: var(--up); }
-    .bad { color: var(--down); }
-    .warn { color: var(--warn); }
-    .accent { color: var(--gold); }
-    .panel { overflow: hidden; margin-bottom: 12px; }
     .panel-head {
       display: flex;
       justify-content: space-between;
@@ -763,7 +688,6 @@
       * { animation: none !important; transition: none !important; }
     }
     @media (max-width: 1100px) {
-      .metrics { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
       .dashboard-grid { grid-template-columns: 1fr; }
       .sector-list { grid-template-columns: 1fr; }
       .detail-rail { position: static; }
@@ -788,8 +712,6 @@
     }
     @media (max-width: 680px) {
       .filter-input, .filter-select, .filter-toggle { width: 100%; }
-      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .value { font-size: 19px; }
       .detail-grid { grid-template-columns: 1fr; }
       .explanation-grid { grid-template-columns: 1fr; }
       .sector-list { grid-template-columns: 1fr; }

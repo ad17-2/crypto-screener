@@ -14,7 +14,7 @@
     };
     const $ = (id) => document.getElementById(id);
     const esc = (value) => String(value ?? "-").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-    const clsFor = (value) => Number(value || 0) > 0 ? "good" : Number(value || 0) < 0 ? "bad" : "";
+    const clsFor = (value) => Number(value || 0) > 0 ? "text-up" : Number(value || 0) < 0 ? "text-down" : "";
     function loadPrefs() {
       try {
         const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
@@ -73,7 +73,7 @@
       return `$${n.toFixed(2)}`;
     }
     function metric(label, value, klass = "") {
-      return `<article class="metric"><div class="label">${esc(label)}</div><div class="value ${klass}">${esc(value)}</div></article>`;
+      return `<article class="bg-panel border border-line rounded-md min-h-[86px] p-3"><div class="text-muted text-[11px] leading-tight uppercase tracking-wider">${esc(label)}</div><div class="font-mono tabular-nums text-xl font-extrabold mt-2 leading-tight break-words ${klass || "text-ink"}">${esc(value)}</div></article>`;
     }
     function panel(title, count, body) {
       return `<div class="panel-head"><h2>${esc(title)}</h2><span class="count">${esc(count)}</span></div>${body}`;
@@ -338,7 +338,7 @@
       }).join("")}</div>`;
     }
     function metricCard(label, body, klass = "") {
-      return `<article class="metric"><div class="label">${esc(label)}</div><div class="value ${klass}">${body}</div></article>`;
+      return `<article class="bg-panel border border-line rounded-md min-h-[86px] p-3"><div class="text-muted text-[11px] leading-tight uppercase tracking-wider">${esc(label)}</div><div class="font-mono tabular-nums text-xl font-extrabold mt-2 leading-tight break-words ${klass || "text-ink"}">${body}</div></article>`;
     }
     function tapeAge(freshness) {
       if (!freshness || freshness.status !== "ok") return "unknown";
@@ -346,18 +346,18 @@
       return freshness.label || "unknown";
     }
     function tapeSegment(key, value, klass = "") {
-      return `<span class="tape-seg"><span class="tape-k">${esc(key)}</span><span class="tape-v ${klass}">${value}</span></span>`;
+      return `<span class="tape-seg inline-flex items-baseline gap-1.5 px-4 border-l border-line"><span class="text-[10px] font-bold tracking-wider uppercase text-muted">${esc(key)}</span><span class="font-mono tabular-nums text-[13px] font-bold ${klass || "text-ink"}">${value}</span></span>`;
     }
     function marketTape(data) {
       const c = data.market_context || {};
       const r = data.regime || {};
       const q = data.quality || {};
       const fresh = data.freshness || {};
-      const excludedTone = q.excluded_count ? "warn" : "good";
-      const live = `<span class="tape-live"><span class="live-dot"></span><b>Live</b><span class="age">${esc(tapeAge(fresh))}</span></span>`;
-      return `<div class="market-tape" role="status" aria-label="Market pulse">
+      const excludedTone = q.excluded_count ? "text-warn" : "text-up";
+      const live = `<span class="tape-live inline-flex items-center gap-2 pr-4 mr-0.5 border-r border-line"><span class="live-dot"></span><b class="text-[11px] font-extrabold tracking-wider uppercase text-up">Live</b><span class="font-mono tabular-nums text-xs text-muted">${esc(tapeAge(fresh))}</span></span>`;
+      return `<div class="col-span-full flex flex-wrap items-center gap-y-1.5 py-[11px] px-3.5 bg-panel border border-line rounded-md" role="status" aria-label="Market pulse">
         ${live}
-        ${tapeSegment("Bias", esc(r.bias || "unknown"), "accent")}
+        ${tapeSegment("Bias", esc(r.bias || "unknown"), "text-gold")}
         ${tapeSegment("Regime", esc(r.label || "unknown"))}
         ${tapeSegment("MC 24h", fmtPct(c.market_cap_change_24h_pct), clsFor(c.market_cap_change_24h_pct))}
         ${tapeSegment("BTC.D", fmtPct(c.btc_dominance_pct, 2).replace("+", ""))}
@@ -457,7 +457,7 @@
         return `<div class="factor-row">
           <span>${esc(part.label)}</span>
           <span class="factor-track"><span class="factor-fill ${esc(part.tone || "neutral")}" style="width:${width}%"></span></span>
-          <strong class="${part.value > 0 ? "good" : part.value < 0 ? "bad" : ""}">${fmtNum(part.value, 2)}</strong>
+          <strong class="${part.value > 0 ? "text-up" : part.value < 0 ? "text-down" : ""}">${fmtNum(part.value, 2)}</strong>
         </div>`;
       }).join("")}</div>`;
     }
@@ -543,7 +543,7 @@
         <div class="detail-grid">
           <div class="detail-metric"><span class="label">Score / Priority</span><strong>${fmtNum(row.score)} / ${fmtNum(row.priority)}</strong></div>
           <div class="detail-metric"><span class="label">Confidence</span><strong>${row.confidence_score == null ? "-" : fmtNum(row.confidence_score, 0)}</strong></div>
-          <div class="detail-metric"><span class="label">Quality</span><strong class="${qualityTone(row.quality)}">${esc(row.quality ?? "-")}</strong></div>
+          <div class="detail-metric"><span class="label">Quality</span><strong class="${qualityTone(row.quality) === "bad" ? "text-down" : qualityTone(row.quality) === "warn" ? "text-warn" : ""}">${esc(row.quality ?? "-")}</strong></div>
           <div class="detail-metric"><span class="label">24h / OI</span><strong><span class="${clsFor(row.price_change_24h_pct)}">${fmtPct(row.price_change_24h_pct)}</span> / <span class="${clsFor(row.oi_change_24h_pct)}">${fmtPct(row.oi_change_24h_pct)}</span></strong></div>
           <div class="detail-metric"><span class="label">Funding / L/S</span><strong><span class="${clsFor(row.funding_rate_pct)}">${fmtPct(row.funding_rate_pct, 4)}</span> / ${row.long_short_ratio == null ? "-" : fmtNum(row.long_short_ratio)}</strong></div>
           <div class="detail-metric"><span class="label">Positioning (R / T)</span><strong>${(() => {
@@ -833,5 +833,5 @@
     applyDensity();
     load().catch((error) => {
       $("generated").textContent = "Dashboard error";
-      $("metrics").innerHTML = metric("Error", error.message || String(error), "bad");
+      $("metrics").innerHTML = metric("Error", error.message || String(error), "text-down");
     });

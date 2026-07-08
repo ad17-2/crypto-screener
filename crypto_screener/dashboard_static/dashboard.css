@@ -612,60 +612,12 @@ button:hover {
   border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
 }
 
-/* Market tape header (signature element) */
-
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(130px, 1fr));
-  gap: 10px;
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
   margin-bottom: 12px;
-}
-
-.metric, .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.metric {
-  min-height: 86px;
-  padding: 12px;
-}
-
-.market-tape {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  row-gap: 6px;
-  padding: 11px 14px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-}
-
-.tape-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding-right: 16px;
-  margin-right: 2px;
-  border-right: 1px solid var(--line);
-}
-
-.tape-live b {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--up);
-}
-
-.tape-live .age {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  color: var(--muted);
 }
 
 .live-dot {
@@ -676,32 +628,8 @@ button:hover {
   flex: 0 0 auto;
 }
 
-.tape-seg {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 0 16px;
-  border-left: 1px solid var(--line);
-}
-
 .tape-live + .tape-seg {
   border-left: 0;
-}
-
-.tape-k {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.tape-v {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
 }
 
 .label {
@@ -710,41 +638,6 @@ button:hover {
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-}
-
-.value {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 23px;
-  font-weight: 760;
-  margin-top: 8px;
-  line-height: 1.15;
-  word-break: break-word;
-}
-
-.value.small {
-  font-size: 18px;
-}
-
-.good {
-  color: var(--up);
-}
-
-.bad {
-  color: var(--down);
-}
-
-.warn {
-  color: var(--warn);
-}
-
-.accent {
-  color: var(--gold);
-}
-
-.panel {
-  overflow: hidden;
-  margin-bottom: 12px;
 }
 
 .panel-head {
@@ -1819,10 +1712,6 @@ h2 {
 }
 
 @media (max-width: 1100px) {
-  .metrics {
-    grid-template-columns: repeat(3, minmax(130px, 1fr));
-  }
-
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -1873,14 +1762,6 @@ h2 {
     width: 100%;
   }
 
-  .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .value {
-    font-size: 19px;
-  }
-
   .detail-grid {
     grid-template-columns: 1fr;
   }
@@ -1898,6 +1779,10 @@ h2 {
   visibility: visible;
 }
 
+.col-span-full {
+  grid-column: 1 / -1;
+}
+
 .m-0 {
   margin: 0px;
 }
@@ -1907,20 +1792,40 @@ h2 {
   margin-right: auto;
 }
 
+.mb-3 {
+  margin-bottom: 0.75rem;
+}
+
 .mb-\[18px\] {
   margin-bottom: 18px;
+}
+
+.mr-0\.5 {
+  margin-right: 0.125rem;
 }
 
 .mt-1\.5 {
   margin-top: 0.375rem;
 }
 
+.mt-2 {
+  margin-top: 0.5rem;
+}
+
 .flex {
   display: flex;
 }
 
+.inline-flex {
+  display: inline-flex;
+}
+
 .table {
   display: table;
+}
+
+.grid {
+  display: grid;
 }
 
 .hidden {
@@ -1929,6 +1834,10 @@ h2 {
 
 .h-9 {
   height: 2.25rem;
+}
+
+.min-h-\[86px\] {
+  min-height: 86px;
 }
 
 .w-\[min\(1480px\2c calc\(100vw-32px\)\)\] {
@@ -1947,6 +1856,10 @@ h2 {
   resize: both;
 }
 
+.grid-cols-\[repeat\(6\2c minmax\(130px\2c 1fr\)\)\] {
+  grid-template-columns: repeat(6,minmax(130px,1fr));
+}
+
 .flex-wrap {
   flex-wrap: wrap;
 }
@@ -1959,12 +1872,20 @@ h2 {
   align-items: center;
 }
 
+.items-baseline {
+  align-items: baseline;
+}
+
 .justify-end {
   justify-content: flex-end;
 }
 
 .justify-between {
   justify-content: space-between;
+}
+
+.gap-1\.5 {
+  gap: 0.375rem;
 }
 
 .gap-2 {
@@ -1975,12 +1896,28 @@ h2 {
   gap: 1rem;
 }
 
+.gap-y-1\.5 {
+  row-gap: 0.375rem;
+}
+
+.break-words {
+  overflow-wrap: break-word;
+}
+
 .rounded-md {
   border-radius: 0.375rem;
 }
 
 .border {
   border-width: 1px;
+}
+
+.border-l {
+  border-left-width: 1px;
+}
+
+.border-r {
+  border-right-width: 1px;
 }
 
 .border-line {
@@ -1991,17 +1928,52 @@ h2 {
   background-color: var(--panel);
 }
 
+.p-3 {
+  padding: 0.75rem;
+}
+
 .px-2\.5 {
   padding-left: 0.625rem;
   padding-right: 0.625rem;
+}
+
+.px-3\.5 {
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.py-\[11px\] {
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 
 .pb-\[34px\] {
   padding-bottom: 34px;
 }
 
+.pr-4 {
+  padding-right: 1rem;
+}
+
 .pt-\[22px\] {
   padding-top: 22px;
+}
+
+.font-mono {
+  font-family: ui-monospace, SF Mono, JetBrains Mono, Menlo, monospace;
+}
+
+.text-\[10px\] {
+  font-size: 10px;
+}
+
+.text-\[11px\] {
+  font-size: 11px;
 }
 
 .text-\[13px\] {
@@ -2013,12 +1985,35 @@ h2 {
   line-height: 1.5rem;
 }
 
+.text-xl {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+.font-extrabold {
+  font-weight: 800;
+}
+
 .font-semibold {
   font-weight: 600;
 }
 
 .uppercase {
   text-transform: uppercase;
+}
+
+.tabular-nums {
+  --tw-numeric-spacing: tabular-nums;
+  font-variant-numeric: var(--tw-ordinal) var(--tw-slashed-zero) var(--tw-numeric-figure) var(--tw-numeric-spacing) var(--tw-numeric-fraction);
 }
 
 .leading-tight {
@@ -2029,6 +2024,18 @@ h2 {
   letter-spacing: 0.025em;
 }
 
+.tracking-wider {
+  letter-spacing: 0.05em;
+}
+
+.text-down {
+  color: var(--down);
+}
+
+.text-gold {
+  color: var(--gold);
+}
+
 .text-ink {
   color: var(--ink);
 }
@@ -2037,8 +2044,22 @@ h2 {
   color: var(--muted);
 }
 
+.text-up {
+  color: var(--up);
+}
+
+.text-warn {
+  color: var(--warn);
+}
+
 .filter {
   filter: var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow);
+}
+
+@media (max-width: 1100px) {
+  .max-\[1100px\]\:grid-cols-\[repeat\(3\2c minmax\(130px\2c 1fr\)\)\] {
+    grid-template-columns: repeat(3,minmax(130px,1fr));
+  }
 }
 
 @media (max-width: 680px) {
@@ -2048,6 +2069,10 @@ h2 {
 
   .max-\[680px\]\:w-full {
     width: 100%;
+  }
+
+  .max-\[680px\]\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .max-\[680px\]\:flex-col {
