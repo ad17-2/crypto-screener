@@ -411,10 +411,10 @@
       const active = state.sortKey === key;
       const arrow = active ? (state.sortDir === "asc" ? "▲" : "▼") : "";
       const ariaSort = active ? (state.sortDir === "asc" ? "ascending" : "descending") : "none";
-      return `<div class="watch-th${active ? " sorted" : ""}" role="columnheader" tabindex="0" data-sort="${key}" aria-sort="${ariaSort}">${esc(label)}<span class="sort-arrow">${arrow}</span></div>`;
+      return `<div class="watch-th inline-flex items-center justify-end gap-0.5 cursor-pointer select-none whitespace-nowrap hover:text-ink${active ? " sorted text-gold" : ""}" role="columnheader" tabindex="0" data-sort="${key}" aria-sort="${ariaSort}">${esc(label)}<span class="sort-arrow text-[9px] leading-none transition-colors duration-100">${arrow}</span></div>`;
     }
     function watchHead() {
-      return `<div class="watch-head" role="row">
+      return `<div class="watch-head sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-muted text-[11px] font-bold tracking-wide uppercase text-right" role="row">
         ${headCell("symbol", "Symbol")}${headCell("setup", "Setup")}${headCell("score", "Score")}${headCell("quality", "Q")}${headCell("price", "24h")}${headCell("oi", "OI 24h")}${headCell("funding", "Funding")}${headCell("ls", "L/S")}${headCell("volume", "Volume")}${headCell("source", "Source")}
       </div>`;
     }
@@ -425,7 +425,7 @@
       if (!selectedStillVisible) state.selectedKey = rows[0] ? rowKey(rows[0]) : null;
       $("watchCount").textContent = `${rows.length} / ${list.rows.length}`;
       if (!rows.length) {
-        $("watchTable").innerHTML = `<div class="empty">No rows match the current filters</div>`;
+        $("watchTable").innerHTML = `<div class="py-7 px-3 text-muted text-center">No rows match the current filters</div>`;
         renderDetail(null);
         return;
       }
@@ -746,7 +746,7 @@
         $("metrics").innerHTML = metric("Database", data.database || "-");
         $("watchTabs").innerHTML = "";
         $("watchCount").textContent = "-";
-        $("watchTable").innerHTML = `<div class="empty">No data</div>`;
+        $("watchTable").innerHTML = `<div class="py-7 px-3 text-muted text-center">No data</div>`;
         $("detailPanel").innerHTML = panel("Selected Coin", "", `<div class="empty">No data</div>`);
         ["providerPanel","qualityPanel","validationPanel","weightsPanel","sectorPanel","runsPanel"].forEach((id) => $(id).innerHTML = modulePanel(id, "", `<div class="empty">No data</div>`));
         return;
