@@ -367,7 +367,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("sector_rotation", js)
         self.assertIn('class="watch-row', js)
         self.assertIn('class="watch-cell', js)
-        self.assertIn('class="detail-rail"', index)
+        self.assertIn('class="detail-rail self-stretch"', index)
         self.assertIn("sourceTags(row.data_source)", js)
         self.assertIn("tradingViewSymbol", js)
         self.assertIn("${tradingViewExchange(row?.primary_exchange)}:${base}USDT.P", js)

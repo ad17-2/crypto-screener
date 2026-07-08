@@ -1444,6 +1444,10 @@ button:hover {
   height: 30px;
 }
 
+.h-full {
+  height: 100%;
+}
+
 .max-h-\[calc\(100vh-24px\)\] {
   max-height: calc(100vh - 24px);
 }
@@ -1458,6 +1462,10 @@ button:hover {
 
 .min-h-\[86px\] {
   min-height: 86px;
+}
+
+.min-h-full {
+  min-height: 100%;
 }
 
 .w-\[92px\] {
@@ -1594,6 +1602,10 @@ button:hover {
   row-gap: 0.375rem;
 }
 
+.self-stretch {
+  align-self: stretch;
+}
+
 .justify-self-end {
   justify-self: end;
 }
@@ -1638,24 +1650,12 @@ button:hover {
   border-left-width: 1px;
 }
 
-.border-l-2 {
-  border-left-width: 2px;
-}
-
 .border-r {
   border-right-width: 1px;
 }
 
 .border-line {
   border-color: var(--line);
-}
-
-.border-l-blue {
-  border-left-color: var(--blue);
-}
-
-.border-l-gold {
-  border-left-color: var(--gold);
 }
 
 .bg-panel {
@@ -1872,6 +1872,10 @@ button:hover {
 @media (max-width: 1100px) {
   .max-\[1100px\]\:static {
     position: static;
+  }
+
+  .max-\[1100px\]\:h-auto {
+    height: auto;
   }
 
   .max-\[1100px\]\:max-h-none {
