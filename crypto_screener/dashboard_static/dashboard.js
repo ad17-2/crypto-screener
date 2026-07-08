@@ -620,7 +620,8 @@
       `).join("")}</div>`;
     }
     function modulePanel(title, subtitle, body, open = false, accent = "blue") {
-      return `<details class="module-panel border-l-2 border-${accent} rounded-md overflow-hidden bg-panel border border-line" ${open ? "open" : ""}>
+      const accentBar = accent === "gold" ? "border-l-2 border-gold" : "border-l-2 border-blue";
+      return `<details class="module-panel ${accentBar} rounded-md overflow-hidden bg-panel border border-line" ${open ? "open" : ""}>
         <summary class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 px-3 py-2.5 cursor-pointer list-none bg-panel-2"><strong class="text-xs font-semibold uppercase tracking-wide">${esc(title)}</strong><span class="text-muted text-xs font-semibold whitespace-nowrap">${esc(subtitle || "")}</span></summary>
         ${body}
       </details>`;

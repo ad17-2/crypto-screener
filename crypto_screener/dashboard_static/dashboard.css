@@ -1657,6 +1657,14 @@ button:hover {
   border-right-width: 1px;
 }
 
+.border-blue {
+  border-color: var(--blue);
+}
+
+.border-gold {
+  border-color: var(--gold);
+}
+
 .border-line {
   border-color: var(--line);
 }
