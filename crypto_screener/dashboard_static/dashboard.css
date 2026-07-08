@@ -1453,6 +1453,10 @@ button:hover {
   height: 30px;
 }
 
+.max-h-\[calc\(100vh-24px\)\] {
+  max-height: calc(100vh - 24px);
+}
+
 .min-h-\[30px\] {
   min-height: 30px;
 }
@@ -1605,6 +1609,10 @@ button:hover {
 
 .overflow-visible {
   overflow: visible;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
 }
 
 .whitespace-nowrap {
@@ -1871,12 +1879,20 @@ button:hover {
     position: static;
   }
 
+  .max-\[1100px\]\:max-h-none {
+    max-height: none;
+  }
+
   .max-\[1100px\]\:grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
   .max-\[1100px\]\:grid-cols-\[repeat\(3\2c minmax\(130px\2c 1fr\)\)\] {
     grid-template-columns: repeat(3,minmax(130px,1fr));
+  }
+
+  .max-\[1100px\]\:overflow-visible {
+    overflow: visible;
   }
 }
 
