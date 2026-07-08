@@ -1057,13 +1057,6 @@ button:hover {
   color: var(--down);
 }
 
-.sparkline {
-  display: block;
-  width: 92px;
-  height: 28px;
-  margin-left: auto;
-}
-
 .sparkline polyline {
   fill: none;
   stroke-width: 2;
@@ -1345,10 +1338,6 @@ button:hover {
   .score-bar {
     margin-left: 0;
   }
-
-  .sparkline {
-    margin-left: 0;
-  }
 }
 
 @media (max-width: 680px) {
@@ -1406,6 +1395,10 @@ button:hover {
   margin-bottom: 18px;
 }
 
+.ml-auto {
+  margin-left: auto;
+}
+
 .mr-0\.5 {
   margin-right: 0.125rem;
 }
@@ -1416,6 +1409,10 @@ button:hover {
 
 .mt-2 {
   margin-top: 0.5rem;
+}
+
+.block {
+  display: block;
 }
 
 .flex {
@@ -1454,6 +1451,10 @@ button:hover {
   height: 26px;
 }
 
+.h-\[28px\] {
+  height: 28px;
+}
+
 .h-\[30px\] {
   height: 30px;
 }
@@ -1468,6 +1469,10 @@ button:hover {
 
 .min-h-\[86px\] {
   min-height: 86px;
+}
+
+.w-\[92px\] {
+  width: 92px;
 }
 
 .w-\[min\(1480px\2c calc\(100vw-32px\)\)\] {
@@ -1882,6 +1887,12 @@ button:hover {
 
   .max-\[1100px\]\:grid-cols-\[repeat\(3\2c minmax\(130px\2c 1fr\)\)\] {
     grid-template-columns: repeat(3,minmax(130px,1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .max-\[900px\]\:ml-0 {
+    margin-left: 0px;
   }
 }
 

@@ -389,7 +389,7 @@
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       }).join(" ");
       const tone = values[values.length - 1] > values[0] ? "good" : values[values.length - 1] < values[0] ? "bad" : "neutral";
-      return `<svg class="sparkline" viewBox="0 0 ${width} ${height}" aria-hidden="true"><line class="axis" x1="0" y1="${height - 2}" x2="${width}" y2="${height - 2}"></line><polyline class="${tone}" points="${coords}"></polyline></svg>`;
+      return `<svg class="sparkline block w-[92px] h-[28px] ml-auto max-[900px]:ml-0" viewBox="0 0 ${width} ${height}" aria-hidden="true"><line class="axis" x1="0" y1="${height - 2}" x2="${width}" y2="${height - 2}"></line><polyline class="${tone}" points="${coords}"></polyline></svg>`;
     }
     function sortRows(rows) {
       if (!state.sortKey || !SORT_COLUMNS[state.sortKey]) return rows;

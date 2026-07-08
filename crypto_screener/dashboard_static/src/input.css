@@ -303,12 +303,6 @@
     }
     .quality-badge.warn { background: color-mix(in srgb, var(--warn) 16%, var(--panel)); color: var(--warn); }
     .quality-badge.bad { background: color-mix(in srgb, var(--down) 16%, var(--panel)); color: var(--down); }
-    .sparkline {
-      display: block;
-      width: 92px;
-      height: 28px;
-      margin-left: auto;
-    }
     .sparkline polyline { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .sparkline polyline.good { stroke: var(--up); }
     .sparkline polyline.bad { stroke: var(--down); }
@@ -455,7 +449,6 @@
         font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
       }
       .score-bar { margin-left: 0; }
-      .sparkline { margin-left: 0; }
     }
     @media (max-width: 680px) {
       .explanation-grid { grid-template-columns: 1fr; }
