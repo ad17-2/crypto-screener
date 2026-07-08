@@ -28,35 +28,35 @@
       </div>
     </div>
     <section class="grid grid-cols-[repeat(6,minmax(130px,1fr))] max-[1100px]:grid-cols-[repeat(3,minmax(130px,1fr))] max-[680px]:grid-cols-2 gap-2 mb-3" id="metrics"></section>
-    <section class="dashboard-grid">
-      <section class="panel watch-panel" aria-label="Watchlist workbench">
-        <div class="panel-head">
-          <h2>Watchlist</h2>
-          <div class="head-tools">
-            <button id="densityToggle" class="density-btn" type="button" aria-label="Toggle row density">Comfortable</button>
-            <span class="count" id="watchCount">-</span>
+    <section class="grid grid-cols-[minmax(0,1fr)_390px] max-[1100px]:grid-cols-1 gap-3 items-start">
+      <section class="panel overflow-visible" aria-label="Watchlist workbench">
+        <div class="flex justify-between items-center gap-2 min-h-[42px] px-3 py-2.5 border-b border-line bg-panel-2">
+          <h2 class="m-0 text-xs font-semibold uppercase tracking-wide">Watchlist</h2>
+          <div class="inline-flex items-center gap-2">
+            <button id="densityToggle" class="density-btn h-[26px] px-2 rounded-full border border-line bg-panel text-muted text-[11px] font-bold tracking-wide uppercase cursor-pointer" type="button" aria-label="Toggle row density">Comfortable</button>
+            <span class="text-muted text-xs font-mono tabular-nums" id="watchCount">-</span>
           </div>
         </div>
-        <div class="watch-tabs" id="watchTabs"></div>
-        <div class="watch-controls">
-          <input class="filter-input" id="symbolFilter" type="search" placeholder="Filter symbol or setup" aria-label="Filter symbol or setup">
-          <select class="filter-select" id="qualityFilter" aria-label="Minimum quality">
+        <div class="flex gap-1.5 flex-wrap px-3 pt-2.5" id="watchTabs"></div>
+        <div class="flex gap-2 items-center flex-wrap px-3 py-2.5 border-b border-line bg-panel">
+          <input class="h-8 min-w-[180px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs font-inherit" id="symbolFilter" type="search" placeholder="Filter symbol or setup" aria-label="Filter symbol or setup">
+          <select class="h-8 min-w-[132px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs font-inherit" id="qualityFilter" aria-label="Minimum quality">
             <option value="0">Q 0+</option>
             <option value="50">Q 50+</option>
             <option value="75">Q 75+</option>
             <option value="90">Q 90+</option>
           </select>
-          <select class="filter-select" id="sourceFilter" aria-label="Source">
+          <select class="h-8 min-w-[132px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs font-inherit" id="sourceFilter" aria-label="Source">
             <option value="all">All sources</option>
           </select>
-          <select class="filter-select" id="volumeFilter" aria-label="Minimum volume">
+          <select class="h-8 min-w-[132px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs font-inherit" id="volumeFilter" aria-label="Minimum volume">
             <option value="0">Any volume</option>
             <option value="20000000">$20M+</option>
             <option value="100000000">$100M+</option>
             <option value="1000000000">$1B+</option>
           </select>
-          <label class="filter-toggle"><input id="positiveOiFilter" type="checkbox"> OI &gt; 0</label>
-          <label class="filter-toggle"><input id="negativeFundingFilter" type="checkbox"> Funding &lt; 0</label>
+          <label class="filter-toggle inline-flex items-center gap-1.5 h-8 px-2 border border-line rounded-md text-ink bg-panel text-xs whitespace-nowrap max-[680px]:w-full"><input id="positiveOiFilter" type="checkbox"> OI &gt; 0</label>
+          <label class="filter-toggle inline-flex items-center gap-1.5 h-8 px-2 border border-line rounded-md text-ink bg-panel text-xs whitespace-nowrap max-[680px]:w-full"><input id="negativeFundingFilter" type="checkbox"> Funding &lt; 0</label>
         </div>
         <div class="watch-table" id="watchTable"></div>
       </section>

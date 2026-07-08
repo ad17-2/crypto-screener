@@ -76,7 +76,7 @@
       return `<article class="bg-panel border border-line rounded-md min-h-[86px] p-3"><div class="text-muted text-[11px] leading-tight uppercase tracking-wider">${esc(label)}</div><div class="font-mono tabular-nums text-xl font-extrabold mt-2 leading-tight break-words ${klass || "text-ink"}">${esc(value)}</div></article>`;
     }
     function panel(title, count, body) {
-      return `<div class="panel-head"><h2>${esc(title)}</h2><span class="count">${esc(count)}</span></div>${body}`;
+      return `<div class="flex justify-between items-center gap-2 min-h-[42px] px-3 py-2.5 border-b border-line bg-panel-2"><h2 class="m-0 text-xs font-semibold uppercase tracking-wide">${esc(title)}</h2><span class="text-muted text-xs font-mono tabular-nums">${esc(count)}</span></div>${body}`;
     }
     function reasonHelp() {
       return `<span class="help-tip" tabindex="0" aria-label="${esc(reasonTooltip)}" data-tooltip="${esc(reasonTooltip)}">?</span>`;
@@ -372,7 +372,7 @@
       }
       $("watchTabs").innerHTML = lists.map((list) => {
         const active = list.id === state.activeWatchlist ? " active" : "";
-        return `<button class="tab-btn${active}" type="button" data-tab="${esc(list.id)}">${esc(list.label)}</button>`;
+        return `<button class="tab-btn h-[30px] rounded-full px-3 border border-line bg-panel-2 text-muted text-xs font-semibold cursor-pointer${active}" type="button" data-tab="${esc(list.id)}">${esc(list.label)}</button>`;
       }).join("");
     }
     function sparkline(points, key) {
