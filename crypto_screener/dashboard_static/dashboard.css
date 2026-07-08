@@ -1235,17 +1235,6 @@ button:hover {
 }
 
 .sector-list {
-  display: grid;
-  grid-template-columns: .9fr 1fr 1fr;
-  gap: 12px;
-  padding: 10px 12px 12px;
-}
-
-.sector-block {
-  min-width: 0;
-  display: grid;
-  align-content: start;
-  gap: 8px;
 }
 
 .sector-block .list-row {
@@ -1531,6 +1520,10 @@ button:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.grid-cols-\[0\.9fr_1fr_1fr\] {
+  grid-template-columns: 0.9fr 1fr 1fr;
+}
+
 .grid-cols-\[minmax\(0\2c 1fr\)_390px\] {
   grid-template-columns: minmax(0,1fr) 390px;
 }
@@ -1553,6 +1546,10 @@ button:hover {
 
 .flex-wrap {
   flex-wrap: wrap;
+}
+
+.content-start {
+  align-content: flex-start;
 }
 
 .items-start {

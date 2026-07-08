@@ -397,18 +397,7 @@
       font-size: 12px;
     }
     .conflict-row span { color: var(--muted); overflow-wrap: anywhere; }
-    .sector-list {
-      display: grid;
-      grid-template-columns: .9fr 1fr 1fr;
-      gap: 12px;
-      padding: 10px 12px 12px;
-    }
-    .sector-block {
-      min-width: 0;
-      display: grid;
-      align-content: start;
-      gap: 8px;
-    }
+    .sector-list { }
     .sector-block .list-row { padding: 0; }
     .provider-dots { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
     .provider-dot {

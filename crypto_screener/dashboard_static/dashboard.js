@@ -719,18 +719,18 @@
       const breadth = context?.breadth || {};
       const rotation = context?.sector_rotation || {};
       const line = (item) => `<div class="list-row flex justify-between gap-3 text-[13px]"><strong>${esc(item.name || item.id)}</strong><span class="${clsFor(item.market_cap_change_24h_pct)}">${fmtPct(item.market_cap_change_24h_pct)}</span></div>`;
-      return `<div class="sector-list">
-        <div class="sector-block">
+      return `<div class="sector-list grid grid-cols-[0.9fr_1fr_1fr] max-[1100px]:grid-cols-1 gap-3 p-3">
+        <div class="sector-block min-w-0 grid content-start gap-2">
           <div class="list-row flex justify-between gap-3 text-[13px]"><strong>Breadth</strong><span>${esc(breadth.label || "unknown")} / ${fmtNum(breadth.score, 2)}</span></div>
           <div class="list-row flex justify-between gap-3 text-[13px]"><strong>Sector Tape</strong><span>${esc(rotation.label || "unknown")}</span></div>
         </div>
-        <div class="sector-block">
+        <div class="sector-block min-w-0 grid content-start gap-2">
           <div class="label">Leaders</div>
-          ${leaders.slice(0, 3).map(line).join("") || `<div class="empty">No leaders</div>`}
+          ${leaders.slice(0, 3).map(line).join("") || `<div class="py-7 px-3 text-muted text-center">No leaders</div>`}
         </div>
-        <div class="sector-block">
+        <div class="sector-block min-w-0 grid content-start gap-2">
           <div class="label">Laggards</div>
-          ${laggards.slice(0, 3).map(line).join("") || `<div class="empty">No laggards</div>`}
+          ${laggards.slice(0, 3).map(line).join("") || `<div class="py-7 px-3 text-muted text-center">No laggards</div>`}
         </div>
       </div>`;
     }
