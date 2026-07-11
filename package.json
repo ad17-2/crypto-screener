@@ -10,10 +10,11 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web & wait",
-    "build": "npm run build --workspace=packages/contracts && npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "build": "npm run build:contracts && npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "build:contracts": "npm run build --workspace=packages/contracts",
     "start": "node scripts/start.mjs",
-    "test": "vitest run",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run build:contracts && vitest run",
+    "typecheck": "npm run build:contracts && npm run typecheck --workspaces --if-present",
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "prepare": "husky"
