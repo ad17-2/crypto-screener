@@ -2,3 +2,8 @@ providers = ["node"]
 
 [variables]
 NIXPACKS_NODE_VERSION = "22"
+# Nixpacks' install phase runs `npm ci` with npm in production mode, which omits
+# devDependencies — but the build needs them (typescript, tailwind, next's toolchain).
+# Keep them here rather than reinstalling in the build phase: node_modules/.cache is a
+# mounted build cache, and a second `npm ci` fails trying to rmdir it (EBUSY).
+NPM_CONFIG_PRODUCTION = "false"
