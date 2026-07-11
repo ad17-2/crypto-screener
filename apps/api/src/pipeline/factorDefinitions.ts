@@ -1,8 +1,4 @@
-/**
- * The canonical directional factor list. `btc_relative_strength` and `reversal_1d` are RETIRED
- * (collinearity bug: btc_relative_strength == momentum_24h, reversal_1d == -momentum_24h) and must
- * never be added back here.
- */
+// btc_relative_strength and reversal_1d are RETIRED (collinear with momentum_24h / -momentum_24h) -- never re-add.
 export const DIRECTIONAL_FACTORS: string[] = [
   'momentum_24h',
   'reversal_3d',

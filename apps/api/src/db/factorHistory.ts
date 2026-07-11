@@ -13,11 +13,7 @@ import type {
   LabeledFactorRecordWithRegime,
 } from './types.js';
 
-/**
- * The allowlist of flat metric fields copied from a market row into factor_history.metrics_json.
- * Every downstream IC / decay / walk-forward computation reads this column, so changing which
- * keys are copied changes what those computations see for all future runs.
- */
+/** Allowlist copied into factor_history.metrics_json — every downstream IC/decay/walk-forward computation reads this column. */
 const HISTORY_METRIC_KEYS = [
   'price_change_24h_pct',
   'oi_change_24h_pct',
@@ -72,7 +68,6 @@ export function historyMetrics(row: Record<string, unknown>): Record<string, unk
   return metrics;
 }
 
-/** Shared factor_history upsert, used by both `saveSnapshot` and `saveFactorHistoryRecords`. */
 export function prepareFactorHistoryInsert(db: Database.Database): Database.Statement {
   return db.prepare(`
     INSERT OR REPLACE INTO factor_history
@@ -135,10 +130,7 @@ interface LabelingItem {
   factors: Record<string, unknown>;
 }
 
-/**
- * Recent factor_history rows grouped by symbol, keeping only rows with a positive price. Falls
- * back to market_rows if factor_history has no rows in the window yet.
- */
+/** Rows grouped by symbol, keeping only positive prices; falls back to market_rows if factor_history has none yet. */
 function labelingRowsBySymbol(
   db: Database.Database,
   icWindowDays: number,
@@ -180,10 +172,8 @@ function labelingRowsBySymbol(
 }
 
 /**
- * Scans candidates in ascending time order, stopping as soon as one falls past the tolerance
- * window, and matches on the MIDPOINT of [minTargetHours, maxTargetHours] — this is the
- * forward-return labeling path, distinct from `loadPriceLookback` below, which matches on the
- * requested horizon itself, not the tolerance-band midpoint.
+ * Matches on the MIDPOINT of the tolerance band — unlike `loadPriceLookback` below, which matches
+ * on the raw horizon. Scan breaks at the first candidate past the window (ascending order).
  */
 function findForwardRow(
   candidates: LabelingItem[],
@@ -268,10 +258,7 @@ interface PriceLookbackDbRow {
   price_usd: number;
 }
 
-/**
- * Unlike `findForwardRow` above, the match target is `hours` itself (the requested lookback
- * horizon), NOT the midpoint of the tolerance band.
- */
+/** Unlike `findForwardRow` above, the match target is `hours` itself, not the tolerance band's midpoint. */
 export function loadPriceLookback(db: Database.Database, hours: number): Record<string, number> {
   const referenceAt = new Date();
   const [minTargetHours, maxTargetHours] = horizonTolerance(hours);

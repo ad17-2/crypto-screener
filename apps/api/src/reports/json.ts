@@ -2,10 +2,8 @@ import { stableStringify } from '../db/json.js';
 import type { RunPayload } from '../pipeline/models.js';
 
 /**
- * Reuses db/json.ts's `stableStringify` for its lexicographic key ordering (see that module's doc
- * comment), then re-serializes the already-key-sorted result with 2-space indentation for a
- * human-readable report file -- `stableStringify` itself only targets compact single-line SQLite
- * JSON columns.
+ * Round-trips through `stableStringify` for deterministic key order, then re-indents for
+ * readability -- a direct `JSON.stringify(payload, null, 2)` would lose that ordering.
  */
 export function renderJson(payload: RunPayload): string {
   const sorted: unknown = JSON.parse(stableStringify(payload));

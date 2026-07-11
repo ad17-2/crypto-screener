@@ -1,10 +1,6 @@
 import { ProviderError } from './errors.js';
 
-/**
- * Non-blocking throttle delay used by every provider client and pipeline enrichment pass between
- * requests. Implemented as a real `setTimeout`-based await (not a blocking sleep) so the event
- * loop keeps serving other requests while a pipeline run is rate-limiting itself between symbols.
- */
+// Non-blocking rate-limit delay; must stay setTimeout-based, not a blocking sleep.
 export function sleep(seconds: number): Promise<void> {
   if (seconds <= 0) {
     return Promise.resolve();
@@ -18,11 +14,7 @@ export interface HttpResponse {
   text: string;
 }
 
-/**
- * Fetches `url` with a hard timeout, returning the raw status/headers/body without interpreting
- * them -- each provider client maps this to its own `ProviderError` messages, and CoinGecko
- * additionally layers 429 retry behavior on top.
- */
+// Returns raw status/headers/body uninterpreted; each provider maps its own errors (CoinGecko also retries on 429).
 export async function fetchWithTimeout(
   url: string,
   options: { headers?: Record<string, string>; timeoutSeconds: number },
@@ -48,7 +40,6 @@ export async function fetchWithTimeout(
   }
 }
 
-/** Appends query params to the URL, dropping any that are undefined or null. */
 export function buildUrl(
   baseUrl: string,
   path: string,

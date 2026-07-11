@@ -2,7 +2,7 @@ import { Panel } from '@/components/layout/Panel';
 import { asProviderEntry, providerTone } from '@/lib/provider-status';
 
 export interface ProvidersPanelProps {
-  /** Untyped on the wire (the API returns a free-form object here) — read defensively. */
+  /** untyped on the wire — read defensively. */
   providerStatus: Record<string, unknown>;
 }
 

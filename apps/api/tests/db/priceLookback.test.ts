@@ -6,14 +6,8 @@ import { openDatabase } from '../../src/db/client.js';
 import { loadPriceLookback } from '../../src/db/factorHistory.js';
 import { formatJakartaIso } from '../../src/db/time.js';
 
-// Pins the horizon-matching behavior of loadPriceLookback: an asymmetric 0.75x-1.5x tolerance
-// band, matched to the candidate nearest the REQUESTED horizon itself (not the midpoint of the
-// tolerance band).
-//
-// Fixtures use the same +07:00-offset string format real production rows use (via
-// formatJakartaIso), not raw Date#toISOString()'s "Z" suffix -- loadPriceLookback's SQL bounds
-// are compared lexically, so mixing offset conventions in a test would silently stop exercising
-// that real behavior.
+// Fixtures use formatJakartaIso (+07:00), not toISOString's "Z" -- loadPriceLookback compares
+// SQL bounds lexically, so a mismatched offset convention would silently stop exercising it.
 
 let dir: string;
 let dbPath: string;
@@ -89,9 +83,6 @@ describe('loadPriceLookback', () => {
     insertFactorHistoryRow(db, 'run-recent', isoHoursBefore(24), 'BTC', 110_000.0);
     db.close();
 
-    // loadPriceLookback always formats "now" with the fixed Jakarta offset
-    // regardless of the Node process's ambient timezone, so faking "now" to
-    // the same real instant must produce the same result no matter what.
     vi.useFakeTimers();
     vi.setSystemTime(reference);
     const dbAtInstant = openDatabase(dbPath);

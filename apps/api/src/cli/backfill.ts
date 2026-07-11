@@ -114,12 +114,9 @@ function rawCandlesUntil(
 }
 
 /**
- * Sums `values[start:end]` where a negative `end` wraps by counting back from the array's own
- * length, rather than clamping to 0. The rolling-volume callers below clamp only the slice START
- * via `max(0, ...)`; END is deliberately left unclamped, so a sufficiently fine-grained interval
- * (whose 24h candle window exceeds the 49-candle warmup) can drive `end` negative -- and it must
- * still wrap, not silently produce an empty sum. This wraparound behavior is pinned by the parity
- * fixture; do not "fix" it into a simple clamped-both-ends sum.
+ * A negative `end` wraps (counts back from array length) rather than clamping to 0 -- callers
+ * clamp only `start`. No test currently drives `end` negative (only 4h is covered), so a "clamp
+ * both ends" cleanup would ship silently broken.
  */
 function wrappingSliceSum(values: number[], start: number, end: number): number {
   const length = values.length;
@@ -136,7 +133,6 @@ function wrappingSliceSum(values: number[], start: number, end: number): number 
   return total;
 }
 
-/** "YYYYMMDDHHMM", minute precision, no separators. */
 function timestampId(timeMs: number): string {
   return formatJakartaIso(new Date(timeMs)).slice(0, 16).replace(/[-:T]/g, '');
 }
@@ -323,11 +319,9 @@ export interface BackfillSummary {
 }
 
 /**
- * CRITICAL ordering, locked by tests/cli/backfill.test.ts's
- * "CRYPTO_SCREENER_DB_PATH ordering contract": the CRYPTO_SCREENER_DB_PATH override is applied to
- * `config.storage_path` BEFORE the COINGLASS_API_KEY validation runs, so a missing key still
- * surfaces the env override in `config`. Writes ONLY to factor_history (via
- * `saveFactorHistoryRecords`) -- never touches `runs`/`market_rows`.
+ * The CRYPTO_SCREENER_DB_PATH override must be applied to `config.storage_path` BEFORE the
+ * COINGLASS_API_KEY check, so a missing key still surfaces the env override in `config` (locked
+ * by tests/cli/backfill.test.ts). Writes only to factor_history -- never `runs`/`market_rows`.
  */
 export async function runBackfill(
   config: AppConfig,
@@ -396,8 +390,7 @@ export async function runBackfill(
         }
       }
     } catch (error) {
-      // Catches selectPricePair's "no supported configured price pair" alongside ProviderError,
-      // recording it against this symbol instead of aborting the whole backfill.
+      // Per-symbol error isolation: records the failure instead of aborting the whole backfill.
       if (error instanceof Error) {
         errors.push(`${symbol}: ${error.message}`);
       } else {

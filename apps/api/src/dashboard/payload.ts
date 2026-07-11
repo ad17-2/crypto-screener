@@ -27,11 +27,7 @@ import {
   WATCHLIST_LABELS,
 } from './watchlists.js';
 
-/**
- * Takes an already-open `db` handle (see db/client.ts::openDatabase) plus `config` so the
- * `database` field can report the CONFIGURED storage path (config.storage_path) rather than
- * whatever physical file `db` happens to be backed by right now (e.g. a test's temp copy).
- */
+/** `config` is passed alongside `db` so `database` reports the CONFIGURED storage_path, not whatever file `db` is physically backed by (e.g. a test's temp copy). */
 
 const CORE_SYMBOLS = ['BTC', 'ETH', 'SOL'] as const;
 const HISTORY_POINTS_LIMIT = 16;
@@ -180,8 +176,7 @@ function historyBySymbol(
       long_short_account_ratio: numberOrNull(item.long_short_account_ratio),
       top_trader_long_short_ratio: numberOrNull(item.top_trader_long_short_ratio),
       quote_volume_usd: numberOrNull(item.quote_volume_usd),
-      // Deliberate `||`, not `??`: falls through to item.confidence_score even when
-      // scores.confidence_score is an explicit 0, not just null/undefined.
+      // Deliberate `||`, not `??`: an explicit 0 in scores.confidence_score should still fall through.
       confidence_score:
         numberOrNull(scores.confidence_score) || numberOrNull(item.confidence_score),
       technical_trend_4h: numberOrNull(factors.technical_trend_4h),
@@ -216,13 +211,9 @@ interface MarketRowLegacyDbRow {
 }
 
 /**
- * Fallback for databases where factor_history has no rows yet in the window. Unreachable against
- * the real production database (factor_history is always populated by saveSnapshot alongside
- * market_rows), so it is not exercised by the parity fixture.
- *
- * row_json has no top-level "factors"/technical fields the way factor_history's
- * factors_json/metrics_json do, so technical_trend_4h/technical_momentum_4h/rsi_14/
- * signal_conflict_score are always null here rather than derived.
+ * Fallback when factor_history has no rows yet; unreachable against production (populated by
+ * saveSnapshot), so not exercised by the parity fixture. row_json lacks factors_json/metrics_json,
+ * so technical_trend_4h/technical_momentum_4h/rsi_14/signal_conflict_score are always null here.
  */
 function legacyHistoryBySymbol(
   db: Database.Database,
@@ -359,11 +350,7 @@ function regimeFitRows(
   });
 }
 
-/**
- * `CORE_SYMBOLS` is deliberately hardcoded, NOT read from config.report.core_symbols -- this
- * function takes no config argument at all. The two happen to hold the same three symbols today,
- * but they are not the same source of truth; do not wire this to config.
- */
+/** `CORE_SYMBOLS` is deliberately hardcoded, not read from config.report.core_symbols — they coincide today but are not the same source of truth. */
 function buildSections(
   rows: Row[],
   limit: number,
@@ -506,9 +493,7 @@ function modelWeightsSummary(factorWeights: Record<string, unknown>): ModelWeigh
       n_periods: Math.trunc(toFloat(details.n_periods, 0) ?? 0),
       credibility_k: toFloat(details.credibility_k),
       regime_multiplier: toFloat(details.regime_multiplier),
-      // `?? null`, not left `undefined`: JSON.stringify drops undefined-valued keys entirely, and
-      // these two fields are only ever set when a factor went through walk-forward/regime-
-      // conditional scoring, so most factors have no such key in their stats object at all.
+      // `?? null`, not undefined: JSON.stringify drops undefined keys, and consumers expect these present even when unset.
       robustness: details.robustness ?? null,
       oos_ic: toFloat(details.oos_ic),
       regime_ic: toFloat(details.regime_ic),
@@ -556,9 +541,7 @@ function rankValidationFactors(
       avg_forward_return_pct: toFloat(details.avg_forward_return_pct),
     });
   }
-  // Sorts by the (hit_rate, observations) tuple lexicographically, then flips the whole
-  // comparison when reverse is true (not two independent sorts) -- ties keep their original
-  // relative order because Array#sort is stable.
+  // Tuple sort on (hit_rate, observations), sign-flipped for reverse; ties keep insertion order (stable sort).
   const sign = reverse ? -1 : 1;
   return ranked
     .sort((a, b) => sign * (a.hit_rate - b.hit_rate || a.observations - b.observations))
@@ -591,11 +574,7 @@ function conflictBuckets(rows: Row[]): ConflictBucket[] {
   return result.sort((a, b) => b.count - a.count);
 }
 
-/**
- * Returns an opaque record: the contract types `validation` as `jsonRecord` because
- * factor_weights.validation carries no fixed schema (see packages/contracts/src/dashboard.ts's
- * file-level scope note).
- */
+/** Returns an opaque record: factor_weights.validation has no fixed schema in the contract type. */
 function validationSummary(
   validation: Record<string, unknown>,
   rows: Row[],

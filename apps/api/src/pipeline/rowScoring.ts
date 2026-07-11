@@ -3,13 +3,7 @@ import { clamp, mean, pyRound, toFloat } from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 
-/**
- * Row-level scoring: `applyScores`, `applyExcludedScores`, and everything they call
- * (`signalConflictSummary`, `confidenceScore`, ...). Named `rowScoring.ts` rather than
- * `scoring.ts` because `pipeline/scoring.ts` already holds the shared math primitives
- * (median/zscore/rank/...) that this module builds on instead of duplicating.
- */
-
+// Named rowScoring.ts, not scoring.ts, because pipeline/scoring.ts already holds the shared math primitives this builds on.
 export interface ConflictItem {
   code: string;
   label: string;
@@ -38,7 +32,6 @@ export interface RowScores {
   breadth_alignment_score: number;
 }
 
-/** Minimal shape `_apply_scores`/`_signal_conflict_summary` read off `weights`/`regime`. */
 export interface DirectionalWeightsLike {
   directional?: Record<string, number>;
 }
@@ -152,7 +145,6 @@ export function applyExcludedScores(row: Row): void {
 }
 
 function qualityPercentile(zscore: number): number {
-  // Logistic squashing of a z-score into a 0-100 quality range.
   return 100.0 / (1.0 + Math.exp(-zscore));
 }
 

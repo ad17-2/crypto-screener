@@ -1,13 +1,7 @@
 import { mean, spearmanCorr, stdev, toFloat } from './scoring.js';
 import { asRecord } from './types.js';
 
-/**
- * Cross-sectional information-coefficient computation, shared by weighting.ts::factorWeights
- * (pooled + regime-conditional IC) and validation.ts::walkForward/factorDecay (in-sample/
- * out-of-sample and per-horizon IC). Kept in its own module because those two also import each
- * other's exports; folding this into either one would create a circular dependency.
- */
-
+// Kept separate from weighting.ts/validation.ts: they import each other, so folding this in would create a circular dependency.
 export interface CrossSectionalIcResult {
   mean_ic: number | null;
   t_stat: number | null;
@@ -15,7 +9,6 @@ export interface CrossSectionalIcResult {
   n_obs: number;
 }
 
-/** A minimal labeled factor record: `{symbol, generated_at, forward_return_pct, factors, regime?}`. */
 export interface FactorRecord {
   generated_at?: unknown;
   forward_return_pct?: unknown;

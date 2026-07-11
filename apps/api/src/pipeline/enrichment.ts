@@ -7,13 +7,7 @@ import { toFloat } from './scoring.js';
 import { technicalSnapshot } from './technicals.js';
 import type { Row } from './types.js';
 
-/**
- * Three CoinGlass enrichment passes that add technical/derivatives/long-short-ratio fields onto
- * rows already produced by the collector. Each pass is capped by its own `max_symbols` and
- * throttled by `sleep()` between requests; a provider failure for one row is captured into
- * `status[...]` rather than aborting the whole run.
- */
-
+// A provider failure for one row is captured into `status[...]`, not thrown -- must not abort the whole run.
 export type ProviderStatus = Record<string, unknown>;
 
 export async function appendCoinglassTechnicals(

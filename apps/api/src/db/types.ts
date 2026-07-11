@@ -1,8 +1,4 @@
-/**
- * A market/factor row as produced by the scoring pipeline: an open bag of flat metric fields
- * (technical indicators, derivatives stats, etc.) plus the `symbol`/`price_usd`/`factors`/`scores`
- * fields the db layer reads explicitly.
- */
+/** An open bag of pipeline-produced metric fields; `symbol`/`price_usd`/`factors`/`scores` are the only fields the db layer reads explicitly. */
 export interface MarketRow {
   symbol: string;
   price_usd?: number | null;
@@ -21,7 +17,6 @@ export interface SnapshotPayload {
   rows?: MarketRow[];
 }
 
-/** A backfill-shaped row, as accepted by `saveFactorHistoryRecords`. */
 export interface FactorHistoryRecordInput {
   run_id: string;
   generated_at: string;
@@ -39,7 +34,6 @@ export interface LabeledFactorRecord {
   factors: Record<string, unknown>;
 }
 
-/** A `LabeledFactorRecord` with the matching `regime_state` merged in. */
 export interface LabeledFactorRecordWithRegime extends LabeledFactorRecord {
   regime: string | null;
 }

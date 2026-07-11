@@ -23,7 +23,6 @@ interface Bollinger {
   widthPct: number | null;
 }
 
-/** Returns `{}` when fewer than 50 usable candles. */
 export function technicalSnapshot(candles: RawCandle[], interval: string): Record<string, unknown> {
   const series = normalizeCandles(candles);
   const closes = series.map((item) => item.close);
@@ -107,8 +106,7 @@ function lastEma(values: number[], period: number): number | null {
   return series.length ? (series.at(-1) as number) : null;
 }
 
-/** Seeded from the SMA of the first `period` values (not from the first single value), matching
- * how the rest of the indicator stack (RSI, ATR) seeds its own smoothing average. */
+// Seeded from the SMA of the first `period` values, not the first single value (matches RSI/ATR below).
 function emaSeries(values: number[], period: number): number[] {
   if (values.length < period) {
     return [];
@@ -123,9 +121,7 @@ function emaSeries(values: number[], period: number): number[] {
   return result;
 }
 
-/** Wilder smoothing: the rolling average is seeded from the plain mean of the first `period`
- * gains/losses, then updated as `(avg * (period - 1) + next) / period` -- not a plain SMA or a
- * standard EMA. */
+// Wilder smoothing: seeded from the mean of the first `period` values, then avg = (avg*(period-1)+next)/period.
 function rsi(values: number[], period: number): number | null {
   if (values.length <= period) {
     return null;

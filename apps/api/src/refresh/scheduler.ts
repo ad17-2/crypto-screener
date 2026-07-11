@@ -4,14 +4,9 @@ import type { DailyRefreshTime } from '../env.js';
 import type { RefreshRuntime } from './runtime.js';
 
 /**
- * Node has one event loop, so every scheduler loop here is `setTimeout`-driven async recursion:
- * it awaits the (possible) refresh, then schedules its next tick, never blocking the loop while
- * idle.
- *
- * Due-ness is recomputed from the LATEST RUN's `generated_at` in SQLite on every tick -- there is
- * no persisted "next fire time" -- so a process restart mid-day can never double-fire (the
- * just-written run is already newer than today's target) or skip a day (a missed target is still
- * in the past and still due).
+ * Due-ness is recomputed from the latest run's `generated_at` on every tick, not a persisted
+ * "next fire time" — a restart can't double-fire (the just-written run is already newer than
+ * today's target) or skip a day (a missed target is still in the past and still due).
  */
 
 interface ZonedParts {
@@ -20,9 +15,6 @@ interface ZonedParts {
   day: number;
 }
 
-/** Caches one Intl.DateTimeFormat per timezone -- constructing one is comparatively expensive and
- * every call site here is on a scheduler tick, not a hot path, but there is no reason to rebuild
- * it every tick either. */
 const partsFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
 function partsFormatter(timeZone: string): Intl.DateTimeFormat {
@@ -49,7 +41,6 @@ interface FullZonedParts extends ZonedParts {
   second: number;
 }
 
-/** The wall-clock date/time `instant` reads as inside `timeZone`. */
 function zonedParts(instant: Date, timeZone: string): FullZonedParts {
   const parts = partsFormatter(timeZone).formatToParts(instant);
   const lookup = (type: string): number => {
@@ -66,7 +57,7 @@ function zonedParts(instant: Date, timeZone: string): FullZonedParts {
   };
 }
 
-/** The UTC offset (in minutes, e.g. +420 for Asia/Jakarta) `timeZone` observes at `instant`. */
+/** Positive when `timeZone` is ahead of UTC (e.g. +420 for Asia/Jakarta). */
 function offsetMinutesAt(instant: Date, timeZone: string): number {
   const parts = zonedParts(instant, timeZone);
   const asUtc = Date.UTC(
@@ -81,11 +72,8 @@ function offsetMinutesAt(instant: Date, timeZone: string): number {
 }
 
 /**
- * Converts a wall-clock date + time in `timeZone` to the absolute instant it represents. Standard
- * "guess as UTC, then correct by the zone's actual offset at that guess" technique: correct for
- * all fixed-offset zones (Asia/Jakarta, the default, included) and for DST-observing zones except
- * within the ambiguous/skipped hour of a transition itself -- not a concern for daily refresh
- * windows in practice.
+ * Guess-as-UTC-then-correct-by-actual-offset; inexact within a DST transition's ambiguous/skipped
+ * hour (not a concern for daily refresh windows).
  */
 function zonedTimeToUtc(
   year: number,
@@ -100,8 +88,6 @@ function zonedTimeToUtc(
   return new Date(guessMs - offset * 60_000);
 }
 
-/** Today's (in `timeZone`, "today" being `now`'s calendar date in that zone) occurrence of
- * `refreshTime`. */
 export function scheduledDatetime(
   now: Date,
   refreshTime: DailyRefreshTime,
@@ -152,7 +138,6 @@ export function secondsUntilNextDailyCheck(
   return Math.max(60, Math.min(deltaSeconds, 1800));
 }
 
-/** Stops a scheduler loop started by `startAutoRefresh`. A no-op when auto-refresh is disabled. */
 export type StopScheduler = () => void;
 
 export interface AutoRefreshOptions {

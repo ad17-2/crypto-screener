@@ -13,8 +13,6 @@ const QUALITY_FLAG_LABELS: Record<string, string> = {
   weird_contract_symbol: 'Contract',
 };
 
-/** Renders a data-quality flag code (e.g. "extreme_24h_price_change" or
- * "thin_coinglass_exchange_coverage:3/8") as a labeled chip. */
 export function QualityFlagChip({ flag }: { flag: string }) {
   const [rawLabel, rawValue = ''] = flag.split(':');
   const label = (rawLabel && QUALITY_FLAG_LABELS[rawLabel]) || (rawLabel ?? '').replace(/_/g, ' ');

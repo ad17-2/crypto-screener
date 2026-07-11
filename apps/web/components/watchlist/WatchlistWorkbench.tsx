@@ -35,10 +35,6 @@ function defaultTab(watchlists: Watchlist[]): WatchlistId {
     : (watchlists[0]?.id ?? 'chart_next');
 }
 
-/**
- * Owns every piece of interactive watchlist state — active tab, density, filters, sort, and the
- * selected row — and renders the two-column workbench (table + detail rail) that shares it.
- */
 export function WatchlistWorkbench({ watchlists }: WatchlistWorkbenchProps) {
   const [activeTab, setActiveTab] = useState<WatchlistId>(() => defaultTab(watchlists));
   const [density, setDensity] = useState<Density>('comfortable');
@@ -47,9 +43,8 @@ export function WatchlistWorkbench({ watchlists }: WatchlistWorkbenchProps) {
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  // Restore density/sort from localStorage post-mount only, matching ThemeProvider's pattern: the
-  // server-safe default renders first (no hydration mismatch), then a same-frame correction syncs
-  // dependent UI once the real prefs are known.
+  // Post-mount only, matching ThemeProvider: server-safe default renders first (no hydration
+  // mismatch), then this syncs from localStorage once real prefs are known.
   useEffect(() => {
     const prefs = readPrefs();
     if (prefs.density === 'compact' || prefs.density === 'comfortable') setDensity(prefs.density);

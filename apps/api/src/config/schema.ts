@@ -1,12 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Every object is `.strict()`: unknown keys throw instead of being silently dropped.
- *
- * `schema.default({})` only substitutes the literal `{}` when a key is missing — it does NOT run
- * that value through `schema`, so the schema's own field defaults never get filled. Every nested
- * config object below instead defaults via `Schema.default(() => Schema.parse({}))`, which forces
- * the missing-key case through the schema so its field defaults populate too.
+ * All objects are `.strict()` (unknown keys throw). Nested defaults use
+ * `Schema.default(() => Schema.parse({}))`, not `Schema.default({})` — the latter skips the
+ * schema entirely on a missing key, so nested field defaults never populate.
  */
 
 const TechnicalIndicatorsConfigSchema = z

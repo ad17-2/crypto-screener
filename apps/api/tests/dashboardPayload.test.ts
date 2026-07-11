@@ -8,40 +8,17 @@ import { buildDashboardPayload } from '../src/dashboard/payload.js';
 import { openDatabase } from '../src/db/client.js';
 
 /**
- * THE PARITY GATE: apps/api/tests/fixtures/dashboard-payload.json is a REAL `GET /api/dashboard`
- * response (see apps/api/tests/fixtures/README.md for provenance), and
- * apps/api/tests/fixtures/parity.sqlite3 is a frozen snapshot of the database it was captured
- * against. This test copies that snapshot to a temp path (never opens the fixture read-write),
- * builds the payload with the ported TypeScript buildDashboardPayload(), and deep-compares the
- * result against the fixture with a 1e-9 float tolerance and STRICT key-set equality at every level
- * (sections, watchlists, every row, every nested object) -- missing or extra keys are failures, not
- * just differing values.
+ * PARITY GATE: fixtures/dashboard-payload.json is a captured Python /api/dashboard response;
+ * fixtures/parity.sqlite3 is the frozen DB snapshot it came from (see fixtures/README.md).
+ * Pinned rather than the live DB because a real screener run shifts IC weights/decay and would
+ * break this for reasons unrelated to port correctness.
  *
- * The snapshot is deliberately NOT data/crypto_screener.sqlite3. That file is live, mutable state:
- * any real screener run appends a run and new factor_history rows, which legitimately shifts the IC
- * weights and decay curves and would break this comparison for reasons that have nothing to do with
- * the port's correctness. A correctness gate must be hermetic, so it pins its own input.
- *
- * EXCLUSION LIST (kept as short as possible; each entry justified individually, each excluded
- * field still asserted present with the right type before being excluded from the value compare):
- *
- *   1. freshness.age_seconds  -- `Date.now() - generated_at`; recomputed fresh every time this
- *      test runs, so it necessarily differs from the value the Python server happened to compute
- *      at its own capture time. Not a bug: buildDashboardPayload's whole *job* here is to report
- *      "how old is this run right now".
- *   2. freshness.age_minutes  -- derived from age_seconds (age_seconds / 60, rounded); same
- *      justification.
- *   3. top-level refresh_status -- injected by the HTTP handler (http/routes/dashboard.ts's
- *      dashboardRoute) AFTER calling buildDashboardPayload, not by the payload builder itself.
- *      packages/contracts/src/dashboard.ts's
- *      DashboardPayloadOkSchema already documents this ("optional here so this schema also
- *      validates the payload-builder's raw return value"). This is genuinely an HTTP-layer field,
- *      not a payload-builder field, so buildDashboardPayload() correctly never produces it.
- *
- * No other field is excluded: run/runs/regime/market_context/provider_status/factor_weights/
- * model_weights/factor_correlations/factor_decay/walk_forward/validation/quality/sections/
- * watchlists (every row inside them, including history/confluence/factor_parts/reason_parts/
- * explanation) are all compared exactly.
+ * Excluded from the compare (each still asserted present/typed first):
+ *   - freshness.age_seconds/age_minutes: derived from Date.now(), so always "now", not the
+ *     fixture's capture time.
+ *   - top-level refresh_status: added by the HTTP route after buildDashboardPayload runs, so
+ *     the payload builder correctly never produces it.
+ * Every other field, including nested row content, is compared exactly.
  */
 
 const FIXTURE_PATH = join(
@@ -56,14 +33,6 @@ function loadFixture(): Record<string, unknown> {
   return JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Record<string, unknown>;
 }
 
-/**
- * Deep-equality diff with a 1e-9 tolerance for numbers and exact comparison for everything else,
- * including object key sets (an actual object missing or adding a key relative to expected is a
- * diff). Ported verbatim from apps/api/tests/parity.test.ts's collectDiffs -- see that file for
- * the original; duplicated here rather than exported/shared because the two tests' proximity to
- * their respective parity gates matters more than DRYing out ~60 lines of test-only comparison
- * logic shared by exactly two call sites.
- */
 function collectDiffs(actual: unknown, expected: unknown, path: string, diffs: string[]): void {
   if (expected === null) {
     if (actual !== null) {
@@ -151,9 +120,7 @@ describe('buildDashboardPayload parity vs. captured Python /api/dashboard respon
   const db = openDatabase(dbPath);
 
   const fixture = loadFixture();
-  // config.storage_path/report.limit default to exactly 'data/crypto_screener.sqlite3' / 12 (see
-  // config/schema.ts), matching both the fixture's "database" field and the CRYPTO_DASHBOARD_LIMIT
-  // default (config.report.limit) used to capture it.
+  // Must match the defaults used when the fixture was captured, or parity breaks silently.
   const config = AppConfigSchema.parse({});
   expect(config.storage_path).toBe('data/crypto_screener.sqlite3');
   expect(config.report.limit).toBe(12);
@@ -163,11 +130,8 @@ describe('buildDashboardPayload parity vs. captured Python /api/dashboard respon
   }) as unknown as Record<string, unknown>;
 
   it('never produces a top-level refresh_status key (HTTP-layer only)', () => {
-    // Assert the excluded field is present and correctly typed in the captured fixture (proving
-    // it is a real field we've inspected, not one we're pretending doesn't exist) ...
     expect(fixture).toHaveProperty('refresh_status');
     expect(typeof fixture.refresh_status === 'object').toBe(true);
-    // ... and that buildDashboardPayload's own return value correctly omits it.
     expect('refresh_status' in actual).toBe(false);
   });
 

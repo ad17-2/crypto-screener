@@ -89,9 +89,8 @@ function pyStr(value: unknown): string {
 }
 
 /**
- * The stdout contract is locked by tests/cli/screener.test.ts: same keys, same order,
- * `reports=skipped` when no report files were written, else one `{label}={path}` line per report
- * file in `paths` insertion order.
+ * stdout format is locked by tests/cli/screener.test.ts: fixed keys/order, `reports=skipped` if
+ * no files were written, else one `{label}={path}` line per report file in `paths` insertion order.
  */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<number> {
   const args = parseCliArgs(argv);

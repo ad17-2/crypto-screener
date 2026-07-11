@@ -1,8 +1,4 @@
-/**
- * Sorts object keys lexicographically at every nesting level before serializing (array order is
- * left untouched), so every JSON column (config_json, context_json, factors_json, ...) gets a
- * deterministic byte representation regardless of insertion order.
- */
+/** Sorts keys at every nesting level (array order untouched) so every JSON column gets a deterministic byte representation regardless of insertion order. */
 export function stableStringify(value: unknown): string {
   return JSON.stringify(sortKeysDeep(value));
 }

@@ -14,7 +14,6 @@ import type {
 } from '../../src/providers/coinglass';
 import { ProviderError } from '../../src/providers/errors';
 
-/** Records every call it receives. Throws only where configured. */
 class FakeCoinGlassClient implements CoinGlassClient {
   priceHistoryCalls: Array<[string, string, string, number]> = [];
   globalCalls: Array<[string, string]> = [];
@@ -102,7 +101,6 @@ function coinglassConfig(overrides: Record<string, unknown>) {
 }
 
 describe('appendCoinglassTechnicals', () => {
-  // Mirrors test_append_coinglass_technicals_enriches_rows.
   it('fetches price history and merges the technical snapshot onto the row', async () => {
     const rows: Row[] = [
       { symbol: 'BTC', primary_exchange: 'OKX', contract_symbol: 'BTC-USDT-SWAP' },
@@ -163,7 +161,6 @@ describe('appendCoinglassTechnicals', () => {
 });
 
 describe('appendCoinglassDerivativesHistory', () => {
-  // Mirrors test_append_coinglass_derivatives_history_enriches_rows.
   it('fetches OI/funding/liquidation/taker history and merges the derivatives snapshot', async () => {
     const rows: Row[] = [{ symbol: 'BTC' }];
     const status: ProviderStatus = {};
@@ -189,7 +186,6 @@ describe('appendCoinglassDerivativesHistory', () => {
 });
 
 describe('appendCoinglassLongShortRatio', () => {
-  // Mirrors test_append_long_short_account_ratio.
   it('fetches global + top-trader account ratios and merges them onto the row', async () => {
     const rows: Row[] = [
       { symbol: 'BTC', base_asset: 'BTC', quote_asset: 'USDT', primary_exchange: 'Binance' },

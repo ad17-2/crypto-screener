@@ -3,7 +3,7 @@ import { fmtNum, fmtRate } from '@/lib/format';
 import { Row } from './Row';
 
 export interface ValidationPanelProps {
-  /** Untyped on the wire (the API returns a free-form object here) — read defensively. */
+  /** untyped on the wire — read defensively. */
   validation: Record<string, unknown>;
 }
 
@@ -18,10 +18,6 @@ interface ConflictBucket {
   avg_confidence: unknown;
 }
 
-/**
- * Status / Observations / Model Hit / Best Factor / Weak Factor rows, then the "Current Signal
- * Mix" conflict-bucket sub-table (first 4 buckets).
- */
 export function ValidationPanel({ validation }: ValidationPanelProps) {
   const hasData = Object.keys(validation).length > 0;
   const status = asString(validation.status);

@@ -4,7 +4,7 @@ import { asRecord } from '@/lib/wire';
 import { Row } from './Row';
 
 export interface SectorRotationPanelProps {
-  /** Untyped on the wire (the API returns a free-form object here) — read defensively. */
+  /** untyped on the wire — read defensively. */
   marketContext: Record<string, unknown>;
 }
 
@@ -14,7 +14,6 @@ interface CategoryItem {
   changePct: unknown;
 }
 
-/** Breadth / Sector Tape rows, then Leaders / Laggards. */
 export function SectorRotationPanel({ marketContext }: SectorRotationPanelProps) {
   const breadth = asRecord(marketContext.breadth);
   const rotation = asRecord(marketContext.sector_rotation);

@@ -1,14 +1,8 @@
 import type { ReactNode } from 'react';
 
 export interface PanelProps {
-  /** Panel heading, rendered as an <h2> for correct document outline. */
   title: string;
-  /** Right-aligned meta slot in the header row (a count, a status word, a summary line). */
   meta?: ReactNode;
-  /**
-   * Bottom "context panel" sections (Providers, Data Quality, ...) carry a colored left accent
-   * edge; the watchlist/detail-rail panels don't. Omit for the plain look.
-   */
   accent?: 'blue' | 'gold';
   id?: string;
   'aria-label'?: string;
@@ -16,11 +10,6 @@ export interface PanelProps {
   children: ReactNode;
 }
 
-/**
- * Shared panel chrome: a bordered, titled card with an optional right-aligned meta slot. Unifies
- * the plain `.panel` skin (Watchlist, Selected Coin) and the accented `.module-panel` skin (the
- * bottom context panels) into one component so every section stays visually consistent.
- */
 export function Panel({ title, meta, accent, id, className, children, ...rest }: PanelProps) {
   const shellClassName = [
     accent ? 'module-panel' : 'panel',

@@ -2,12 +2,7 @@ import type { DataQualityConfig } from '../config/index.js';
 import { pctChange, toFloat } from './scoring.js';
 import type { Row } from './types.js';
 
-/**
- * Rows failing checks are NEVER dropped here -- they stay in the returned array with
- * `is_trusted: false` and a populated `data_quality_flags` array. A later ranking stage is
- * responsible for excluding untrusted rows from factor ranking; this module only flags them.
- */
-
+// Rows failing checks are flagged (is_trusted: false), never dropped here -- exclusion happens later, in the ranking stage.
 export const DEFAULT_QUALITY_CONFIG: DataQualityConfig = {
   max_abs_price_change_24h_pct: 300,
   max_abs_oi_change_24h_pct: 300,
@@ -196,7 +191,6 @@ function flagAbsThreshold(
   }
 }
 
-/** Non-empty and every character is a Unicode letter or digit (an empty string is not alnum). */
 function isAlnum(text: string): boolean {
   return text.length > 0 && /^[\p{L}\p{N}]+$/u.test(text);
 }
@@ -205,7 +199,6 @@ function formatFixed(value: number, decimals: number): string {
   return value.toFixed(decimals);
 }
 
-/** Fixed-point formatting with an explicit sign, e.g. `+3.14`/`-3.14`. */
 function formatSigned(value: number, decimals: number): string {
   const fixed = value.toFixed(decimals);
   return value >= 0 ? `+${fixed}` : fixed;

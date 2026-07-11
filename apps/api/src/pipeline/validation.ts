@@ -4,8 +4,6 @@ import { pyRound, toFloat } from './scoring.js';
 import type { PipelineConfig } from './types.js';
 import { asRecord } from './types.js';
 
-/** Walk-forward robustness testing and multi-horizon factor-decay curves. */
-
 function signValue(value: number): -1 | 0 | 1 {
   return value > 0 ? 1 : value < 0 ? -1 : 0;
 }

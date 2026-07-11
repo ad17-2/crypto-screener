@@ -22,11 +22,6 @@ import { fundingAnnualizedPct, toFloat, weightedAverage } from './scoring.js';
 import type { Row } from './types.js';
 import { asRecord } from './types.js';
 
-/**
- * Provider clients are dependency-injected (defaulting to the real HTTP implementations) so
- * tests can pass stub clients and never touch the network.
- */
-
 export type { ProviderStatus } from './enrichment.js';
 
 export interface CollectResult {
@@ -392,7 +387,6 @@ function normalizeCoingeckoCategories(
   return { leaders, laggards };
 }
 
-/** Sums a numeric field across rows, treating missing/non-numeric values as 0. */
 function sumField(rows: CoinGlassPair[], key: string): number {
   return rows.reduce((sum, row) => sum + (toFloat(row[key], 0.0) ?? 0.0), 0);
 }

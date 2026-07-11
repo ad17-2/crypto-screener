@@ -9,9 +9,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Runs via next/script's beforeInteractive strategy, which Next.js injects into <head> and
- * executes before hydration — so `data-theme` is already correct on <html> by first paint, no
- * flash of the wrong theme.
+ * beforeInteractive: Next.js injects this into <head> and runs it before hydration, so
+ * data-theme is correct on <html> by first paint — no flash of the wrong theme.
  */
 const THEME_INIT_SCRIPT = `
 (function () {

@@ -1,7 +1,4 @@
-/**
- * A FIXED 49-column CSV allowlist -- do not add, remove, reorder, or rename entries; downstream
- * tooling (spreadsheets, ad-hoc analysis) depends on this exact column order.
- */
+/** Fixed 49-column CSV allowlist -- do not add, remove, reorder, or rename entries; downstream tooling depends on this exact column order. */
 export const REPORT_FIELDS: readonly string[] = [
   'symbol',
   'contract_symbol',

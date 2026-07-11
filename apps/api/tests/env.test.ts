@@ -23,7 +23,6 @@ describe('loadEnv', () => {
     expect(env.refreshToken).toBeNull();
     expect(env.coinglassApiKey).toBeNull();
     expect(env.coingeckoApiKey).toBeNull();
-    // CRYPTO_DASHBOARD_LIMIT falls back to config.report.limit.
     expect(env.dashboardLimit).toBe(12);
     expect(env.dbPath).toBe(env.config.storage_path);
   });

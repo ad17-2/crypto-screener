@@ -2,10 +2,7 @@ import type { WatchlistId } from '@crypto-screener/contracts';
 import { toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 
-/**
- * Keyed by the full WatchlistId union (rather than `Record<string, string>`) so indexing it is a
- * plain `string`, not `string | undefined`, under tsconfig's noUncheckedIndexedAccess.
- */
+/** Keyed by the full WatchlistId union (not `Record<string, string>`) so indexing stays plain `string` under tsconfig's noUncheckedIndexedAccess. */
 export const WATCHLIST_LABELS: Record<WatchlistId, string> = {
   chart_next: 'Top Setups',
   regime_fit: 'Regime Fit',

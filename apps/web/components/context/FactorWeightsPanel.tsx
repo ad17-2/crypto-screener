@@ -22,13 +22,8 @@ interface FactorDecay {
 }
 
 /**
- * One row per factor (sorted by weight descending), each with its IC/PRIOR badge, numeric weight,
- * a proportional weight bar, an IC stats line where applicable, and the factor-decay sparkline +
- * holds/robustness badges. Then the collinearity (factor_correlations) list, when non-empty.
- *
  * `.factor-track`/`.factor-fill` below are `<div>`s, not `<span>`s: CSS `width` has no effect on
- * non-replaced inline elements, so the proportional fill would never actually render if these were
- * inline.
+ * non-replaced inline elements, so the fill bar wouldn't render if these were inline.
  */
 export function FactorWeightsPanel({ modelWeights }: FactorWeightsPanelProps) {
   const regime = asRecord(modelWeights.regime);
@@ -41,7 +36,6 @@ export function FactorWeightsPanel({ modelWeights }: FactorWeightsPanelProps) {
   const mode = modelWeights.mode || 'prior';
   const meta = `${mode} · ${regimeLabel} · ${regimeIcFactors.length} regime-IC / ${pooledCount} pooled`;
 
-  // Sorted by |weight| descending (magnitude, not sign).
   const factors = [...modelWeights.factors].sort(
     (a, b) => Math.abs(b.weight ?? 0) - Math.abs(a.weight ?? 0),
   );

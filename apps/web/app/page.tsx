@@ -12,7 +12,7 @@ import { StatusStrip } from '@/components/layout/StatusStrip';
 import { WatchlistWorkbench } from '@/components/watchlist';
 import { getDashboard } from '@/lib/api';
 
-// Reads live DB state via a no-store fetch — never statically cache this route.
+// Live DB state — never statically cache this route.
 export const dynamic = 'force-dynamic';
 
 interface PageProps {

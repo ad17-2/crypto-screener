@@ -8,21 +8,15 @@ import type { FactorRecord } from '../src/pipeline/ic.js';
 import type { Row } from '../src/pipeline/types.js';
 
 /**
- * THE PARITY GATE: feeds the golden fixture (apps/api/tests/fixtures/parity-run.json; see
- * apps/api/tests/fixtures/README.md for provenance) through the ported scoring/factor/weighting
- * stage and asserts the output equals fixture.expected to a 1e-9 float tolerance (exact for
- * rounded values, since exact equality is a special case of a 1e-9-tolerant comparison).
+ * PARITY GATE: replays fixtures/parity-run.json (see fixtures/README.md) through the ported
+ * scoring/factor/weighting stage; output must match fixture.expected to a 1e-9 tolerance.
  *
- * `prior_market_state` is not part of the fixture because the regime-state lookup against the
- * golden run's own timestamp returns nothing; `scoreSnapshot` is therefore called with
- * `undefined` below, matching what actually produced this fixture.
+ * scoreSnapshot is called with prior_market_state=undefined: the regime lookup against the
+ * fixture's own timestamp returns nothing, matching what produced this fixture.
  *
- * `expected.factor_weights.factor_decay` is EXCLUDED from the comparison below. It is not a
- * discrepancy being hidden: `factorDecay()` takes `records_by_horizon`, a per-horizon (4h/8h/12h/
- * 24h/48h/72h) relabeling of raw price/factor snapshots that the fixture does not ship
- * (fixture.factor_history is only the single 24h-horizon-labeled, already-collapsed output -- it
- * has no price_usd field and cannot be relabeled at other horizons). `factorDecay`'s algorithm
- * itself is fully covered independently by apps/api/tests/pipeline/validation.test.ts.
+ * expected.factor_weights.factor_decay is excluded: factorDecay() needs per-horizon
+ * (4h/8h/12h/24h/48h/72h) relabeled records the fixture doesn't ship (factor_history is only the
+ * collapsed 24h output, with no price_usd). factorDecay itself is covered by validation.test.ts.
  */
 
 const FIXTURE_PATH = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/parity-run.json');
@@ -45,12 +39,6 @@ function loadFixture(): Fixture {
   return JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Fixture;
 }
 
-/**
- * Deep-equality diff with a 1e-9 tolerance for numbers (which subsumes exact equality for the
- * values Python explicitly `round()`s) and exact/strict comparison for everything else, including
- * object key sets -- an actual object missing or adding a key relative to expected is a diff, not
- * a silent pass. Collects every mismatch instead of stopping at the first, for a usable report.
- */
 function collectDiffs(actual: unknown, expected: unknown, path: string, diffs: string[]): void {
   if (expected === null) {
     if (actual !== null) {

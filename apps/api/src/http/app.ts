@@ -6,10 +6,7 @@ import { dashboardRoute } from './routes/dashboard.js';
 import { healthRoute } from './routes/health.js';
 import { refreshRoute } from './routes/refresh.js';
 
-/**
- * Pure and injectable (no `listen()` call here -- see server.ts) so tests can drive it directly
- * with supertest. There are no static UI routes here: apps/web owns the UI.
- */
+/** No `listen()` here (see server.ts) so tests can drive this with supertest; no static UI routes — apps/web owns the UI. */
 export interface AppDeps {
   db: Database.Database;
   config: AppConfig;
@@ -24,8 +21,7 @@ export function createApp(deps: AppDeps): Express {
   const app = express();
   app.disable('x-powered-by');
 
-  // Every JSON response sets this, so the Next.js proxy / any intermediary never caches a stale
-  // refresh_status or run.
+  // Prevents the Next.js proxy (or any intermediary) from caching a stale refresh_status/run.
   app.use((_req, res, next) => {
     res.set('Cache-Control', 'no-store');
     next();

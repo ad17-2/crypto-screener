@@ -1,11 +1,7 @@
 import { ProviderError } from './errors.js';
 import { buildUrl, fetchWithTimeout } from './http.js';
 
-/**
- * Every payload coming back from CoinGlass is treated as a loosely-typed JSON object -- the
- * pipeline reads individual fields defensively via `toFloat`, so these are intentionally left as
- * open index signatures rather than exhaustively modeled.
- */
+// Loosely typed on purpose: fields are read defensively via `toFloat`, not exhaustively modeled.
 export type CoinGlassPair = Record<string, unknown>;
 export type CoinGlassHistoryRow = Record<string, unknown>;
 
@@ -79,7 +75,6 @@ export interface CoinGlassClientOptions {
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
-/** Real HTTP implementation of {@link CoinGlassClient}. */
 export class CoinGlassHttpClient implements CoinGlassClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -134,8 +129,7 @@ export class CoinGlassHttpClient implements CoinGlassClient {
     return record.data;
   }
 
-  /** Shared tail of every list-returning endpoint below: fetch, then coerce a non-array payload
-   * to `[]` rather than throwing. */
+  // Coerces a non-array payload to `[]` rather than throwing.
   private async getJsonArray(
     path: string,
     params?: QueryParams,

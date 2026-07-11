@@ -12,10 +12,7 @@ import {
   secondsUntilNextDailyCheck,
 } from '../../src/refresh/scheduler.js';
 
-/**
- * Every instant below is constructed as "Asia/Jakarta wall-clock HH:MM" -> UTC (Jakarta is a
- * fixed +07:00, no DST).
- */
+// Instants below are "Asia/Jakarta wall-clock HH:MM" -> UTC (fixed +07:00, no DST).
 
 const ZONE = 'Asia/Jakarta';
 
@@ -70,9 +67,7 @@ describe('dailyRefreshDue', () => {
 
 describe('scheduledRefreshDue / secondsUntilNextDailyCheck', () => {
   it('supports multiple times per day, deduped/sorted upstream by parseDailyRefreshTimes', () => {
-    // parseDailyRefreshTimes("15:10,07:10,11:10,07:10") from env.ts dedupes + sorts ascending;
-    // reproduced here directly rather than re-parsing, since env.ts already owns and tests that
-    // parsing.
+    // Pre-sorted/deduped here directly rather than via parseDailyRefreshTimes, which env.ts owns and tests.
     const refreshTimes = [
       { hour: 7, minute: 10 },
       { hour: 11, minute: 10 },
@@ -111,8 +106,7 @@ describe('scheduledRefreshDue / secondsUntilNextDailyCheck', () => {
   });
 
   it('restart idempotency: a fresh process re-derives the same due-ness from SQLite alone', () => {
-    // No persisted "next fire time" anywhere -- due-ness is recomputed from the latest run row on
-    // every call, so a process restart between two due-checks must not double-fire or skip.
+    // Due-ness is recomputed from the latest run row every call, not a persisted "next fire time".
     const refreshTime = { hour: 6, minute: 0 };
     saveSnapshot(
       db,
@@ -124,9 +118,7 @@ describe('scheduledRefreshDue / secondsUntilNextDailyCheck', () => {
       { storage_path: dbPath },
     );
 
-    // Simulate a restart: a brand new call with no in-memory state, still correctly not due.
     expect(dailyRefreshDue(db, jakarta(2026, 7, 3, 8, 0), refreshTime, ZONE)).toBe(false);
-    // ...and still correctly due once the next day's window opens.
     expect(dailyRefreshDue(db, jakarta(2026, 7, 4, 6, 0), refreshTime, ZONE)).toBe(true);
   });
 });

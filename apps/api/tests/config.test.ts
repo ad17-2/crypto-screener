@@ -18,7 +18,6 @@ describe('loadConfig', () => {
     expect(runtime.report.limit).toBe(12);
     expect(runtime.providers.coinglass.technical_indicators).toBeDefined();
 
-    // Defaults not present in config/default.json (e.g. factors.regime) are still filled in.
     expect(config.factors.regime.dispersion_threshold_pct).toBe(8.0);
     expect(config.factors.reversal_lookback_hours).toBe(72);
   });

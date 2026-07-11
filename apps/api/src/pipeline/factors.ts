@@ -10,9 +10,6 @@ import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 import { type FactorWeights, factorWeights } from './weighting.js';
 
-/** Row/orchestration functions for the factor-ranking stage (IC weighting and validation/decay
- * math live in weighting.ts and validation.ts). */
-
 export interface ScoreSnapshotResult {
   rows: Row[];
   market_context: MarketContext;

@@ -6,18 +6,14 @@ import { asProviderEntry, providerTone } from '@/lib/provider-status';
 export interface StatusStripProps {
   freshness: Freshness;
   quality: Quality;
-  /** Untyped on the wire (the API returns a free-form object here) — read defensively. */
+  /** untyped on the wire — read defensively. */
   regime: Record<string, unknown>;
-  /** Untyped on the wire (the API returns a free-form object here) — read defensively. */
+  /** untyped on the wire — read defensively. */
   marketContext: Record<string, unknown>;
-  /** Untyped on the wire, one entry per data provider (coingecko, coinglass, ...). */
+  /** untyped on the wire, one entry per provider (coingecko, coinglass, ...) — read defensively. */
   providerStatus: Record<string, unknown>;
 }
 
-/**
- * The LIVE/age pill, BIAS, REGIME, MC 24H, BTC.D, BTC.D delta, ETH/BTC, TRUSTED/EXCL counts, and
- * the PROVIDERS chips row.
- */
 export function StatusStrip({
   freshness,
   quality,

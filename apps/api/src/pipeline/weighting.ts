@@ -92,8 +92,7 @@ export function factorWeights(
       meanIc !== null &&
       Math.abs(meanIc) >= minAbsIc;
     let kEffective = useObserved ? k : 0.0;
-    // walkForward() always populates every DIRECTIONAL_FACTORS entry (same loop set), so this is
-    // never actually undefined; noUncheckedIndexedAccess just can't see that invariant.
+    // walkForward() always populates every DIRECTIONAL_FACTORS entry; noUncheckedIndexedAccess just can't see that invariant.
     const wfFactor = wf.factors[factor] as WalkForwardFactorResult;
     if (walkForwardGating && wfFactor.verdict === 'overfit') {
       kEffective *= overfitPenalty;
@@ -117,7 +116,6 @@ export function factorWeights(
       raw_weight: pooledRaw[factor] as number,
       robustness: wfFactor.verdict,
       oos_ic: wfFactor.oos_ic,
-      // filled in below
       regime_ic: null,
       regime_t_stat: null,
       regime_n_periods: 0,

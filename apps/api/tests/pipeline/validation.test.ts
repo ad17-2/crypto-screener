@@ -13,10 +13,6 @@ import { formatJakartaIso } from '../../src/db/time.js';
 import type { FactorRecord } from '../../src/pipeline/ic.js';
 import { factorDecay, walkForward } from '../../src/pipeline/validation.js';
 
-/** The factorWeights()-level walk-forward GATING tests live in weighting.test.ts alongside the
- * regime-conditional IC tests, since both exercise factorWeights() rather than walkForward()
- * itself. */
-
 function strongPositive(
   periodIdx: number,
   symIdx: number,

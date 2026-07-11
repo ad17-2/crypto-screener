@@ -1,9 +1,8 @@
 const PREFS_KEY = 'tape.prefs';
 
 /**
- * Shared `localStorage` blob that both ThemeProvider (theme) and WatchlistWorkbench
- * (density/sortKey/sortDir) read and write. `writePrefs` merges rather than overwrites so neither
- * owner clobbers keys it doesn't own.
+ * Shared between ThemeProvider and WatchlistWorkbench. writePrefs merges rather than overwrites
+ * so neither owner clobbers keys it doesn't own.
  */
 export function readPrefs(): Record<string, unknown> {
   try {

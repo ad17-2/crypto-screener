@@ -13,7 +13,6 @@ const BASE_QUALITY_CONFIG = {
 };
 
 describe('dataQualityFlags', () => {
-  // Mirrors test_extreme_price_and_oi_changes_are_flagged.
   it('flags extreme 24h price and open-interest changes', () => {
     const row: Row = {
       symbol: 'TAIKO',
@@ -33,7 +32,6 @@ describe('dataQualityFlags', () => {
     expect(flags.some((flag) => flag.startsWith('extreme_24h_oi_change'))).toBe(true);
   });
 
-  // Mirrors test_stale_and_weird_rows_are_flagged.
   it('flags stale volume, invalid price, and malformed symbol/contract fields', () => {
     const row: Row = {
       symbol: 'BAD/PAIR',
@@ -61,7 +59,6 @@ describe('dataQualityFlags', () => {
     ).toBe(true);
   });
 
-  // Mirrors test_index_price_deviation_and_thin_coinglass_coverage_are_flagged.
   it('flags index-price deviation and thin CoinGlass exchange coverage', () => {
     const row: Row = {
       symbol: 'TAIKO',
@@ -91,10 +88,6 @@ describe('dataQualityFlags', () => {
 });
 
 describe('applyDataQuality', () => {
-  // Mirrors test_untrusted_rows_are_not_ranked, minus the score_snapshot() assertions (a later
-  // ranking-stage concern, out of scope for the collector/enrichment/quality port). What matters
-  // here -- and what this task's contract requires -- is that the flagged row STAYS in the array
-  // with is_trusted=false rather than being dropped.
   it('keeps flagged rows visible with is_trusted=false, instead of dropping them', () => {
     const rows: Row[] = [
       {

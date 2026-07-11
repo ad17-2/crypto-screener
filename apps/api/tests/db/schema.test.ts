@@ -77,7 +77,6 @@ describe('openDatabase / ensureSchema', () => {
     try {
       const row = second.prepare('SELECT run_id FROM runs WHERE run_id = ?').get('run-1');
       expect(row).toEqual({ run_id: 'run-1' });
-      // Re-running ensureSchema against an already-populated db must not throw.
       expect(() => ensureSchema(second)).not.toThrow();
     } finally {
       second.close();
@@ -85,8 +84,6 @@ describe('openDatabase / ensureSchema', () => {
   });
 
   it('adds missing legacy columns (regime_json, factor_weights_json) to an old-schema runs table', () => {
-    // Simulate a database created before regime_json/factor_weights_json existed on `runs`,
-    // exercising the legacy-column migration in ensureSchema.
     mkdirSync(join(dir, 'nested'), { recursive: true });
     const db = new Database(dbPath);
     db.exec(`
@@ -119,7 +116,6 @@ describe('openDatabase / ensureSchema', () => {
     expect(columnsAfter).toContain('regime_json');
     expect(columnsAfter).toContain('factor_weights_json');
 
-    // The pre-existing row must survive the migration, backfilled with the column defaults.
     const legacyRow = db
       .prepare('SELECT regime_json, factor_weights_json FROM runs WHERE run_id = ?')
       .get('legacy-run') as { regime_json: string; factor_weights_json: string };

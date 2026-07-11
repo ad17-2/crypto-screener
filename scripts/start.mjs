@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-// Production supervisor: runs the API and web servers as sibling processes,
-// forwards SIGTERM/SIGINT to both, and exits non-zero the moment either one
-// dies so Railway's restart policy kicks in.
+// Exits non-zero the moment either child process dies, so Railway's restart policy kicks in.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

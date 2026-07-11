@@ -4,10 +4,8 @@ import { pyRound } from '../pipeline/scoring.js';
 const EXPLICIT_OFFSET_PATTERN = /(Z|[+-]\d{2}:\d{2})$/;
 
 /**
- * A string with no offset/Z suffix is assumed to be **UTC** here — this deliberately differs from
- * db/time.ts::parseGeneratedAt, which assumes Asia/Jakarta (+07:00) for naive strings; that
- * assumption belongs to the storage layer's own cutoff math, not this freshness computation.
- * Returns null on an unparseable string.
+ * No offset/Z suffix is assumed UTC here — deliberately different from
+ * db/time.ts::parseGeneratedAt, which assumes +07:00. Do not unify them. Returns null if unparseable.
  */
 function parseIsoAssumingUtc(text: string): Date | null {
   const withOffset = EXPLICIT_OFFSET_PATTERN.test(text) ? text : `${text}Z`;
@@ -59,7 +57,6 @@ export function freshnessSummary(generatedAt: string | null | undefined): Freshn
   };
 }
 
-/** Takes an already-open db handle rather than a path (see db/client.ts::openDatabase). */
 export function latestRunGeneratedAt(db: Database.Database): Date | null {
   const row = db
     .prepare('SELECT generated_at FROM runs ORDER BY generated_at DESC LIMIT 1')

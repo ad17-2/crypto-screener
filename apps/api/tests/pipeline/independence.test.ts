@@ -32,9 +32,7 @@ describe('factorCorrelations', () => {
   });
 
   it('ignores an uncorrelated pair (test_factor_correlations_ignores_uncorrelated_pair)', () => {
-    // Fixed deterministic series (not a replay of Python's `random.seed(7)` -- reproducing
-    // CPython's Mersenne Twister stream isn't warranted here) with a verified |rho| ~= 0.21,
-    // safely under FLAG_THRESHOLD (0.6), which is what this test actually exercises.
+    // Fixed series, not a replay of Python's RNG stream; verified |rho| ~= 0.21, under the 0.6 flag threshold.
     const alpha = [
       0.6011, 0.8525, 0.1748, 0.2732, 0.8655, 0.2499, 0.7457, 0.1973, 0.6866, 0.0038, 0.8373,
       0.5923, 0.267, 0.1857, 0.5303, 0.173, 0.4877, 0.3195, 0.0374, 0.5566,

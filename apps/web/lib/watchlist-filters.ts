@@ -2,8 +2,7 @@ import type { DashboardRow } from '@crypto-screener/contracts';
 import { sourceParts } from './dashboard-row';
 
 export interface WatchlistFilterState {
-  /** Raw text as typed into the filter input; trimmed/lowercased at match-time in `rowMatches()`
-   * (not on every keystroke) so the input never rewrites what the user is typing. */
+  /** trimmed/lowercased at match-time in rowMatches(), not on every keystroke, so typing isn't rewritten. */
   query: string;
   quality: number;
   source: string;
@@ -57,7 +56,7 @@ export function filterRows(rows: DashboardRow[], filters: WatchlistFilterState):
   return rows.filter((row) => rowMatches(row, filters));
 }
 
-/** Sources available across every watchlist tab (not just the active one), for the Source select. */
+/** Every watchlist tab, not just the active one — feeds the Source select. */
 export function collectSources(watchlists: { rows: DashboardRow[] }[]): string[] {
   const sources = new Set<string>();
   for (const list of watchlists) {

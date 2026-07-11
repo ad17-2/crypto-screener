@@ -10,7 +10,6 @@ import { factorLabel } from './taxonomy.js';
 
 const MIN_HISTORY_POINTS = 6;
 
-/** One point of factor_history built by dashboard/payload.ts::historyBySymbol. */
 export interface HistoryPoint {
   generated_at: string;
   price_usd: number | null;
@@ -38,7 +37,6 @@ export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-/** Same idea as numberOrNull, for string fields. */
 export function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
@@ -425,11 +423,7 @@ const TECHNICAL_STATE_KEYS = [
   'technical_momentum_score',
 ] as const;
 
-/**
- * Copies every present (non-null/undefined) key through as-is, whatever its type. The cast back
- * to DashboardRow['technical_state'] is safe because these keys are only ever written by
- * technicals.ts (already-verified pipeline stage) as the string/number types the schema expects.
- */
+/** The cast to DashboardRow['technical_state'] is safe because these keys are only ever written by technicals.ts as the types the schema expects. */
 export function technicalState(row: Row): DashboardRow['technical_state'] {
   const state: Record<string, unknown> = {};
   for (const key of TECHNICAL_STATE_KEYS) {

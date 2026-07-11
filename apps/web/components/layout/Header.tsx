@@ -4,7 +4,6 @@ import { RunSelector } from './RunSelector';
 import { ThemeToggle } from './ThemeToggle';
 
 export interface HeaderProps {
-  /** Subtitle line, e.g. "2026-07-08T19:10:00+07:00 / 50 symbols · ... Freshness: old." */
   subtitle: string;
   runs: RunSummary[];
   selectedRunId?: string | undefined;

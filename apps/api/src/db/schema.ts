@@ -1,12 +1,6 @@
 import type Database from 'better-sqlite3';
 
-/**
- * CREATE TABLE IF NOT EXISTS is idempotent against the existing production database and never
- * rewrites existing rows.
- *
- * factor_history deliberately has NO FOREIGN KEY on run_id — backfill jobs write factor_history
- * rows with no matching runs row. Do not add one.
- */
+/** factor_history deliberately has no FOREIGN KEY on run_id — backfill jobs write rows with no matching runs row. Do not add one. */
 const DDL = `
 CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY,
@@ -64,10 +58,6 @@ CREATE INDEX IF NOT EXISTS idx_market_regime_history_time
     ON market_regime_history(generated_at);
 `;
 
-/**
- * Creates all tables/indexes if missing, then adds any legacy `runs` columns
- * (regime_json, factor_weights_json) that older database files predate.
- */
 export function ensureSchema(db: Database.Database): void {
   db.exec(DDL);
   ensureColumn(db, 'runs', 'regime_json', "TEXT NOT NULL DEFAULT '{}'");

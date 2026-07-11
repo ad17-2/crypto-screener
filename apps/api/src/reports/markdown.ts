@@ -13,17 +13,12 @@ import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { formatPct, formatUsd } from './format.js';
 
-/**
- * Substitutes `fallback` only when `key` is absent from the record, never when its value is
- * explicitly `null` -- an explicit `null` is returned as-is.
- */
+/** Fallback applies only when `key` is absent, not when its value is explicit `null`. */
 function get(record: Record<string, unknown>, key: string, fallback: unknown): unknown {
   return key in record ? record[key] : fallback;
 }
 
-/** Deliberately renders null as 'None' and booleans as 'True'/'False', not JS's default
- * `String()` output, for raw (non format_usd/format_pct) values interpolated from config/regime
- * dicts. */
+/** Renders null as 'None', booleans as 'True'/'False' -- not JS's default `String()` output. */
 function pyStr(value: unknown): string {
   if (value === null) {
     return 'None';
@@ -134,7 +129,6 @@ function providerStatusBlock(providerStatus: Record<string, unknown>): string {
   return lines.join('\n');
 }
 
-/** Returns the first non-empty string among `values`, else '-'. */
 function stringOrDash(...values: unknown[]): string {
   for (const value of values) {
     if (typeof value === 'string' && value !== '') {

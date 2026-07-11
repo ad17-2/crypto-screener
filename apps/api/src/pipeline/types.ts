@@ -1,41 +1,25 @@
-/**
- * Shared shapes for the factor-ranking stage (factors.ts, weighting.ts, regime.ts, market.ts,
- * validation.ts, rowScoring.ts, independence.ts). Rows/context/config are treated as open bags of
- * fields rather than fully-required shapes, because callers (and the parity fixtures) routinely
- * build partial objects -- the `[key: string]: unknown` index signatures preserve that tolerance
- * intentionally; do not tighten these into closed interfaces.
- */
+// Rows/context/config are open bags of fields (index signatures), not closed interfaces --
+// callers and parity fixtures build partial objects. Do not tighten these.
 
-/** A market/factor row flowing through the scoring pipeline: an open bag of metric fields. */
 export interface Row {
   symbol?: string | null;
   is_trusted?: boolean;
   [key: string]: unknown;
 }
 
-/** The enriched market-context dict (breadth, categories, sector_rotation, dominance, ...). */
 export type MarketContext = Record<string, unknown>;
 
-/** Narrows an unknown value to a plain object; missing/wrong-shaped input becomes `{}` rather
- * than throwing. */
 export function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
 
-/** Narrows an unknown value to an array; missing/wrong-shaped input becomes `[]` rather than
- * throwing. */
 export function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-// ---------------------------------------------------------------------------
-// config.factors, as an all-optional shape: every field may be absent (a partially-populated
-// config), so every reader below supplies its own default. Structurally compatible with
-// `AppConfig['factors']` from ../config/schema.ts, so a config loaded/validated through the zod
-// schema can be passed here as-is.
-
+// Structurally compatible with AppConfig['factors'] (config/schema.ts) -- a zod-validated config can be passed here as-is.
 export interface RegimeWeightingConfigInput {
   enabled?: boolean;
   max_factor_multiplier?: number;
@@ -81,7 +65,6 @@ export interface FactorsConfigInput {
   priors?: Record<string, number>;
 }
 
-/** The `{factors: {...}}` slice of AppConfig that every factor-engine function reads. */
 export interface PipelineConfig {
   factors?: FactorsConfigInput;
 }

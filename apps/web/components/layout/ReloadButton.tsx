@@ -5,10 +5,8 @@ import { useState, useTransition } from 'react';
 import { triggerRefresh } from '@/lib/actions';
 
 /**
- * Triggers a backend refresh (POST /api/refresh via the triggerRefresh server action), then asks
- * Next.js to re-render this server component tree so the freshly reported refresh_status shows up.
- * The pipeline run itself is async on the API side, so the dashboard rows won't update
- * instantly — this mirrors what /api/refresh actually guarantees (a 202 acknowledgement).
+ * router.refresh() re-renders once the refresh is acknowledged, but /api/refresh only returns a
+ * 202 — the pipeline run is async, so rows won't update instantly.
  */
 export function ReloadButton() {
   const router = useRouter();

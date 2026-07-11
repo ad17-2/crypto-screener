@@ -4,9 +4,8 @@ import Database from 'better-sqlite3';
 import { ensureSchema } from './schema.js';
 
 /**
- * `foreign_keys` is forced OFF: better-sqlite3 defaults it to ON, but the production database
- * has factor_history rows whose run_id has no matching `runs` row (backfills write directly to
- * factor_history). Turning the pragma on would make those inserts fail.
+ * `foreign_keys` forced OFF: better-sqlite3 defaults it ON, but backfills write factor_history
+ * rows with no matching `runs` row — the pragma on would make those inserts fail.
  */
 export function openDatabase(path: string): Database.Database {
   mkdirSync(dirname(path), { recursive: true });

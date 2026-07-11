@@ -8,7 +8,6 @@ export interface FreshnessPanelProps {
   runs: RunSummary[];
 }
 
-/** Freshness of the selected run, then a list of recent runs, shown together as one panel. */
 export function FreshnessPanel({ freshness, runs }: FreshnessPanelProps) {
   const meta = freshness.label || `${runs.length} loaded`;
 

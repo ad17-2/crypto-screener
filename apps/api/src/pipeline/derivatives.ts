@@ -42,8 +42,7 @@ interface TakerRow {
   sell: number;
 }
 
-/** Keys whose computed value is `null` are dropped from the returned object entirely, rather than
- * included as `null`. */
+// Keys whose value is null are dropped from the result entirely, not kept as null.
 export function derivativesSnapshot(
   oiHistory: RawHistoryRow[],
   fundingHistory: RawHistoryRow[],
@@ -126,7 +125,6 @@ export function derivativesSnapshot(
   return Object.fromEntries(Object.entries(result).filter(([, value]) => value !== null));
 }
 
-/** Shared by the three normalize* functions below: sorts raw rows into chronological order. */
 function sortByTime(rows: RawHistoryRow[]): RawHistoryRow[] {
   return [...rows].sort((a, b) => (toFloat(a.time, 0.0) ?? 0.0) - (toFloat(b.time, 0.0) ?? 0.0));
 }

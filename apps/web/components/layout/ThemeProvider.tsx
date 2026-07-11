@@ -14,11 +14,9 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 /**
- * Owns the light/dark toggle state. The actual flash-of-wrong-theme prevention happens before
- * hydration via the `beforeInteractive` script in app/layout.tsx, which stamps `data-theme` on
- * `<html>` directly from localStorage; this provider's initial render always assumes "dark" (the
- * server-safe default) and syncs to the real value on mount, so there is no hydration mismatch —
- * only a same-frame correction of dependent UI (e.g. the toggle button's label).
+ * Initial render always assumes "dark" (server-safe default) and syncs on mount — no hydration
+ * mismatch. Flash-of-wrong-theme is prevented separately by the beforeInteractive script in
+ * app/layout.tsx, which stamps data-theme on <html> from localStorage before hydration.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');

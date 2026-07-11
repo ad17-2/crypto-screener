@@ -2,7 +2,6 @@ import type Database from 'better-sqlite3';
 import { stableStringify } from './json.js';
 import type { RegimeStateSummary, SnapshotPayload } from './types.js';
 
-/** Best-effort numeric coercion: null/undefined/unparseable all become null. */
 function toFloat(value: unknown): number | null {
   if (value === null || value === undefined) {
     return null;
@@ -11,10 +10,7 @@ function toFloat(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/**
- * Appends one row per run to market_regime_history. Plain INSERT, not INSERT OR REPLACE — this
- * table has no primary key and is meant to accumulate a full history.
- */
+/** Plain INSERT, not INSERT OR REPLACE — this table has no primary key and must accumulate full history. */
 export function recordRegimeHistory(db: Database.Database, payload: SnapshotPayload): void {
   const regime = payload.regime ?? {};
   const marketContext = payload.market_context ?? {};

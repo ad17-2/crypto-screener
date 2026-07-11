@@ -6,7 +6,6 @@ import { WatchlistTable } from './WatchlistTable';
 
 export type Density = 'comfortable' | 'compact';
 
-/** Filtered+sorted rows for the active tab, plus the unfiltered count for the "n / N" meta. */
 export interface WatchlistPanelRows {
   visible: DashboardRow[];
   total: number;
@@ -29,11 +28,7 @@ export interface WatchlistPanelProps {
   onSelectRow: (key: string) => void;
 }
 
-/**
- * Watchlist tabs, density toggle, filter row, and the sortable row table. Fully controlled — all
- * interactive state (active tab, density, filters, sort, selection) is owned by
- * WatchlistWorkbench so it can be shared with SelectedCoinRail.
- */
+/** Fully controlled by WatchlistWorkbench (shared with SelectedCoinRail) — no local state here. */
 export function WatchlistPanel({
   watchlists,
   activeTab,
@@ -73,10 +68,8 @@ export function WatchlistPanel({
     >
       <div className="flex gap-1.5 flex-wrap px-3 pt-2.5">
         {watchlists.map((list) => (
-          // The border/bg/text utilities are applied ONLY when inactive, and must stay that way.
-          // Tailwind v4 orders its cascade layers theme, base, components, utilities, so a utility
-          // beats `.tab-btn.active` (a components-layer rule) no matter how specific the selector
-          // is. Hoisting them onto every tab would silently erase the active tab's highlight.
+          // Tailwind v4 cascade layers put utilities above components regardless of specificity —
+          // these border/bg/text utilities must stay conditional or they'd erase .active's look.
           <button
             key={list.id}
             type="button"

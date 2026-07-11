@@ -3,9 +3,7 @@ import { toFloat } from './scoring.js';
 import type { Row } from './types.js';
 import { asRecord } from './types.js';
 
-/** Fixed-point with an explicit sign; the sign is taken from the pre-rounding value so a value
- * that rounds to zero still shows its original sign (handles -0 correctly). Exported for reuse by
- * dashboard/rows.ts. */
+// Sign comes from the pre-rounding value (handles -0), not the rounded value.
 export function formatSigned(value: number, decimals: number): string {
   const sign = value < 0 || Object.is(value, -0) ? '-' : '+';
   return `${sign}${Math.abs(value).toFixed(decimals)}`;

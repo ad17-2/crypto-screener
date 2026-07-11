@@ -7,21 +7,15 @@ import { renderJson } from './json.js';
 import { renderMarkdown } from './markdown.js';
 
 /**
- * Derives "YYYYMMDD-HHMMSS" from `generated_at`, already formatted as Jakarta-local ISO-8601 with
- * an explicit offset (see db/time.ts::formatJakartaIso). This intentionally does not share code
- * with runPipeline.ts's similar-looking run_id stamp -- the two independently format the same
- * instant; do not "deduplicate" them into a shared dependency.
+ * Assumes `generated_at` is Jakarta-local ISO-8601 with an explicit offset (formatJakartaIso).
+ * Deliberately not shared with runPipeline.ts's similar-looking run_id stamp -- do not dedupe them.
  */
 function compactJakartaStamp(generatedAtIso: string): string {
   const [datePart, timePart] = generatedAtIso.slice(0, 19).split('T');
   return `${(datePart ?? '').replace(/-/g, '')}-${(timePart ?? '').replace(/:/g, '')}`;
 }
 
-/**
- * Writes the JSON/CSV/Markdown trio for one run and returns their paths keyed `json`/`csv`/
- * `markdown` -- cli/screener.ts's stdout contract iterates these keys directly, in this insertion
- * order.
- */
+/** Return key order (json/csv/markdown) matters -- cli/screener.ts's stdout contract iterates these keys directly. */
 export function writeReports(
   payload: RunPayload,
   config: AppConfig,

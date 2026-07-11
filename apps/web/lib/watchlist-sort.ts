@@ -1,11 +1,7 @@
 import type { DashboardRow } from '@crypto-screener/contracts';
 import { numeric } from './format';
 
-/**
- * Column sort config for the watchlist table. There is no default sort — rows render in whatever
- * order the API returned them (already ranked server-side) until a header is clicked.
- */
-
+// No default sort — rows render in the API's pre-ranked order until a header is clicked.
 export type SortColumnKey =
   | 'symbol'
   | 'setup'
@@ -55,8 +51,6 @@ export const SORT_COLUMNS: Record<SortColumnKey, SortColumnConfig> = {
   source: { field: 'data_source', type: 'string' },
 };
 
-/** Default direction the first click on a column applies: ascending for strings, descending for
- * numerics. */
 export function defaultSortDirection(key: SortColumnKey): SortDirection {
   return SORT_COLUMNS[key].type === 'string' ? 'asc' : 'desc';
 }

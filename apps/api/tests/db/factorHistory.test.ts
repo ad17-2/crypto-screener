@@ -118,9 +118,7 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
     const hoursAgo = (hours: number) =>
       formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
-    // horizon=24h -> tolerance band [18h, 36h] -> midpoint target = 27h.
-    // Candidates at +20h and +30h from the base row are both inside the
-    // band; +30h (distance 3 from the 27h midpoint) beats +20h (distance 7).
+    // 24h band is [18h,36h], midpoint 27h: near-30h (dist 3) beats near-20h (dist 7).
     saveFactorHistoryRecords(db, [
       {
         run_id: 'base',
@@ -182,8 +180,7 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
 
     expect(fourHourRecord?.forward_return_pct).toBeCloseTo(5.0); // (105-100)/100*100
     expect(twentyFourHourRecord?.forward_return_pct).toBeCloseTo(30.0); // (130-100)/100*100
-    // load_labeled_records_by_horizon does not merge regime -- unlike
-    // load_labeled_factor_records, the key must be absent entirely.
+    // Unlike loadLabeledFactorRecords, this does not merge regime -- key must be absent.
     expect(fourHourRecord).not.toHaveProperty('regime');
   });
 });

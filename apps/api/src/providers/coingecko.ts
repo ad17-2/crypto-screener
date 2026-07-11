@@ -20,7 +20,6 @@ export interface CoinGeckoClientOptions {
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
-/** Real HTTP implementation of {@link CoinGeckoClient}, including the 429 backoff-with-jitter loop. */
 export class CoinGeckoHttpClient implements CoinGeckoClient {
   private readonly baseUrl: string;
   private readonly apiKey: string | null;

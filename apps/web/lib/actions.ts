@@ -3,15 +3,12 @@
 import { errorMessage } from './errors';
 
 /**
- * Server Actions must live in their own "use server" file when they're called from Client
- * Components (Next.js forbids inline `'use server'` functions inside a module that also ends up
- * in a client bundle — see https://nextjs.org/docs/app/api-reference/directives/use-server). This
- * is why triggerRefresh() lives here rather than alongside getDashboard() in lib/api.ts: it's
- * called from ReloadButton.tsx (a 'use client' component), which pulled lib/api.ts into the
- * client graph and made the inline directive there illegal at build time.
+ * Server Actions used from Client Components need their own 'use server' file — Next.js forbids
+ * an inline directive in a module that also ends up in a client bundle (ReloadButton.tsx pulls
+ * lib/api.ts into the client graph, which is why triggerRefresh() can't live there).
  */
 
-/** Same Express API origin lib/api.ts talks to; see that file for the rewrite-parity note. */
+/** Must match lib/api.ts's API_BASE_URL — same Express origin, keep the two in sync. */
 const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:4000';
 
 export type RefreshResult =
@@ -19,10 +16,8 @@ export type RefreshResult =
   | { ok: false; error: string };
 
 /**
- * Server action backing the Reload button. POSTs /api/refresh with the refresh token forwarded as
- * `X-Refresh-Token`. The token is a server-only secret — apps/web and apps/api run as sibling
- * processes sharing one env (see scripts/start.mjs), so CRYPTO_DASHBOARD_REFRESH_TOKEN is readable
- * here without ever reaching the browser.
+ * Token is a server-only secret. apps/web and apps/api run as sibling processes sharing one env
+ * (scripts/start.mjs), so it's safe to read here — it never reaches the browser.
  */
 export async function triggerRefresh(): Promise<RefreshResult> {
   const token = process.env.CRYPTO_DASHBOARD_REFRESH_TOKEN;
@@ -48,7 +43,7 @@ export async function triggerRefresh(): Promise<RefreshResult> {
   try {
     body = await response.json();
   } catch {
-    // Refresh acknowledgement is best-effort JSON; a non-JSON body still leaves status usable.
+    // Best-effort JSON; a non-JSON body still leaves status usable.
   }
 
   if (!response.ok) {

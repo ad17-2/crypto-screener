@@ -21,11 +21,6 @@ export interface SelectedCoinRailProps {
 const REASON_TOOLTIP =
   'Read left to right: 24h price move, OI positioning change, funding, L/S crowding, weighted factor score, confidence, 4h technical context, then the strongest normalized factor drivers. Green is positive, red is negative. Crowding and excluded notes are context flags, not automatic trade instructions.';
 
-/**
- * The right-hand detail rail for the currently selected watchlist row: the metric grid, the
- * reason chip stack, and the collapsible sections (How To Read This Coin, Signal Conflict,
- * Technical Context, Factor Breakdown, History).
- */
 export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
   if (!row) {
     return (

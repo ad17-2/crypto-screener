@@ -4,10 +4,6 @@ import { stableStringify } from './json.js';
 import { recordRegimeHistory } from './regimeHistory.js';
 import type { PruneResult, SnapshotPayload } from './types.js';
 
-/**
- * Upserts the `runs` row, upserts `market_rows` + `factor_history` for every row in the payload,
- * and appends a `market_regime_history` entry, all in one transaction.
- */
 export function saveSnapshot(
   db: Database.Database,
   payload: SnapshotPayload,
@@ -66,12 +62,8 @@ export function saveSnapshot(
 }
 
 /**
- * Deletes from `runs` and `market_rows` ONLY, keeping the `keep` most recent runs by
- * `generated_at`.
- *
- * factor_history and market_regime_history are NEVER touched here — the IC / decay / walk-forward
- * engine depends on the full, unpruned factor_history series. Do not add deletes for them, and do
- * not add ON DELETE CASCADE to the schema.
+ * Deletes only from `runs` and `market_rows`. factor_history and market_regime_history must never
+ * be touched here — the IC/decay/walk-forward engine needs the full, unpruned series.
  */
 export function pruneOldRuns(db: Database.Database, keep: number): PruneResult {
   if (keep <= 0) {

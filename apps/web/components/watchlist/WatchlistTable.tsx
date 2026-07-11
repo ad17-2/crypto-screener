@@ -44,10 +44,9 @@ const COLUMNS: Array<{ key: SortColumnKey; label: string }> = [
 ];
 
 /**
- * The watchlist grid itself: sortable headers + row rendering. Uses a real `<table>` for correct
- * data-table semantics, even though `.watch-head`/`.watch-row` override row/cell `display` to
- * `grid` for the column layout — implicit table/row/cell roles survive a `display` override, so
- * screen readers keep table navigation without any explicit `role` attributes.
+ * Real `<table>`, not `<div>`s: `.watch-head`/`.watch-row` override row/cell `display` to `grid`
+ * for layout, but implicit table/row/cell roles survive a `display` override, so screen readers
+ * keep table navigation without explicit `role` attributes.
  */
 export function WatchlistTable({
   rows,

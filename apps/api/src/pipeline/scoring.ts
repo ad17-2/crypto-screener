@@ -1,10 +1,3 @@
-/**
- * Numeric primitives shared by the collector/enrichment/quality stages and the factor-ranking
- * stage. median/zscore/rank/correlation helpers below back the factor engine
- * (factors.ts, weighting.ts, regime.ts, ...).
- */
-
-/** An empty or non-numeric string returns `defaultValue` rather than parsing to 0/NaN. */
 export function toFloat(value: unknown, defaultValue: number | null = null): number | null {
   if (value === null || value === undefined) {
     return defaultValue;
@@ -59,18 +52,7 @@ export function stdev(values: number[]): number {
   return Math.sqrt(variance);
 }
 
-/**
- * Rounds to `digits` decimal places (non-negative only) using round-HALF-TO-EVEN tie-breaking
- * (`pyRound(2.5, 0) === 2`, `pyRound(-2.5, 0) === -2`), the convention used throughout the factor
- * engine -- `Number.prototype.toFixed` rounds exact ties AWAY from zero instead
- * (`(2.5).toFixed(0) === '3'`), which is the wrong rule for values that land on an exact decimal
- * tie (plausible here: e.g. a weight ratio of two simple priors).
- *
- * Correctness relies on `toFixed`'s *non-tie* digits being correctly rounded from the double's
- * exact value (true per the ECMA-262 spec and V8's implementation) -- this only overrides the
- * final tie-break decision, using extra precision digits to detect a genuine exact tie versus a
- * value merely close to one.
- */
+// Round-half-to-even, matching the factor engine. toFixed() rounds ties away from zero.
 export function pyRound(value: number, digits = 0): number {
   if (!Number.isFinite(value) || value === 0) {
     return value;
@@ -78,10 +60,7 @@ export function pyRound(value: number, digits = 0): number {
   const negative = value < 0;
   const absValue = Math.abs(value);
 
-  // Extra fractional digits beyond `digits`, used only to distinguish an exact decimal tie from a
-  // value that merely rounds close to one. Doubles have a bounded exact decimal expansion, and 25
-  // extra digits comfortably covers it for this codebase's value magnitudes (correlations,
-  // weights, percentages -- all well within normal float range).
+  // Extra digits beyond `digits` to distinguish an exact tie from a value merely close to one.
   const extraPrecision = Math.min(100, digits + 25);
   const fixed = absValue.toFixed(extraPrecision);
   const [intPart, fracPart] = fixed.split('.') as [string, string];
@@ -97,7 +76,6 @@ export function pyRound(value: number, digits = 0): number {
   } else if (roundDigit < 5) {
     roundUp = false;
   } else {
-    // Exact tie: round to even (the last digit being kept).
     const lastKeptDigit = digitsStr.charCodeAt(digitsStr.length - 1) - 48;
     roundUp = lastKeptDigit % 2 === 1;
   }
@@ -108,10 +86,7 @@ export function pyRound(value: number, digits = 0): number {
   return negative ? -wholeUnits : wholeUnits;
 }
 
-/**
- * `|magnitude|` carrying the sign of `sign`, including the sign of a signed zero (`sign = -0.0`
- * yields a negative result).
- */
+// Treats -0 as negative (`sign < 0` alone misses it, since `-0 < 0` is false).
 export function copysign(magnitude: number, sign: number): number {
   const negative = sign < 0 || Object.is(sign, -0);
   const absMagnitude = Math.abs(magnitude);
@@ -137,8 +112,7 @@ export function median(values: number[]): number {
   return sorted[middle] as number;
 }
 
-/** Weighted average of `valueKey` by `weightKey`; rows with a missing value or non-positive
- * weight are excluded, and `null` is returned when total weight is 0. */
+// null (not 0) when no rows qualify or total weight is 0.
 export function weightedAverage(
   rows: Array<Record<string, unknown>>,
   valueKey: string,

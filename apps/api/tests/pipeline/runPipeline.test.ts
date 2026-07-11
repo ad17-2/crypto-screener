@@ -10,10 +10,8 @@ const { collectMarketMock, scoreSnapshotMock, saveSnapshotMock, writeReportsMock
   }),
 );
 
-// `db/index.js`'s read-path functions (loadLabeledFactorRecords, loadPriceLookback,
-// loadLatestRegimeState, loadLabeledRecordsByHorizon, openDatabase) are left real -- pointed at
-// config.storage_path=":memory:" below, they run against a genuine but freshly-empty in-memory
-// database and naturally return empty results, no network/disk touched.
+// db/index.js's read-path functions are left real, only saveSnapshot is stubbed -- with
+// storage_path=":memory:" below they run against a genuine, freshly-empty in-memory db.
 vi.mock('../../src/pipeline/collector.js', () => ({ collectMarket: collectMarketMock }));
 vi.mock('../../src/pipeline/factors.js', () => ({ scoreSnapshot: scoreSnapshotMock }));
 vi.mock('../../src/reports/writeReports.js', () => ({ writeReports: writeReportsMock }));
@@ -32,8 +30,7 @@ describe('runPipeline', () => {
       market_context: { btc_dominance_pct: 55 },
       provider_status: { coinglass: { status: 'ok' } },
     };
-    // `market_context` intentionally omitted from the mocked scoreSnapshot result, exercising
-    // runPipeline's fallback to collected.market_context when scored.market_context is absent.
+    // market_context omitted here on purpose: exercises the fallback to collected.market_context.
     const scored = {
       rows: [{ symbol: 'BTC', scores: {}, factors: {} }],
       factor_weights: { mode: 'prior' },

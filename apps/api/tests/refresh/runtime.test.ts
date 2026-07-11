@@ -118,8 +118,7 @@ describe('RefreshRuntime.refresh', () => {
     });
 
     const first = runtime.refresh('daily');
-    // The busy flag is set synchronously before run_pipeline's first await, so this second call
-    // is guaranteed to observe state=running, regardless of scheduling.
+    // Busy flag is set synchronously before run_pipeline's first await, so this deterministically observes state=running.
     const second = await runtime.refresh('manual');
 
     expect(second).toMatchObject({ state: 'running', reason: 'daily' });

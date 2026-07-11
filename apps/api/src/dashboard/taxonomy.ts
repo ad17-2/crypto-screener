@@ -14,10 +14,8 @@ const FACTOR_LABELS: Record<string, string> = {
 };
 
 /**
- * A "word" starts wherever the previous character was not a cased letter, so digits and
- * punctuation also reset capitalization (e.g. "reversal_1d" -> "reversal 1d" -> "Reversal 1D",
- * with the D capitalized because it follows the digit "1"). A naive "capitalize first letter of
- * each space-split word" implementation would miss that digit case.
+ * A word boundary is any non-cased-letter (digits count too), so "reversal_1d" -> "Reversal 1D"
+ * (D capitalizes after the digit 1). A naive space-split capitalize-first would miss this.
  */
 function titleCase(text: string): string {
   let result = '';

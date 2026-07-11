@@ -7,7 +7,6 @@ export interface DataQualityPanelProps {
   quality: Quality;
 }
 
-/** Renders an "All clear" row, or one card per flagged row. */
 export function DataQualityPanel({ quality }: DataQualityPanelProps) {
   const flags = quality.flagged_rows;
 

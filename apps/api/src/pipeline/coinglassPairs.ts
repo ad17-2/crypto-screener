@@ -15,8 +15,7 @@ export function pairSymbolMatchesQuote(pair: CoinGlassPair, quoteAsset: string):
   return symbol.endsWith(`/${expected}`) || instrumentId.includes(expected);
 }
 
-/** A pair counts as perpetual unless its instrument id ends in a dated-contract suffix
- * (`_YYMMDD`/`_YYYYMMDD`-style, 6-8 trailing digits) and doesn't explicitly say "perp"/"swap". */
+// Non-perpetual only if the id ends in a dated-contract suffix (_YYMMDD/_YYYYMMDD, 6-8 digits) with no "perp"/"swap".
 export function isLikelyPerpetualInstrument(instrumentId: string): boolean {
   const lowered = instrumentId.toLowerCase();
   if (lowered.includes('perp') || lowered.includes('swap')) {
@@ -39,10 +38,6 @@ export function baseFromPair(pair: CoinGlassPair, quoteAsset = 'USDT'): string {
   return stripped.split(quoteAsset.toUpperCase()).join('');
 }
 
-/**
- * Used only by backfill.ts: returns the first configured exchange (in caller-supplied preference
- * order) that supports a likely-perpetual `symbol/quoteAsset` pair.
- */
 export function selectPricePair(
   supportedPairs: Record<string, CoinGlassPair[]>,
   exchanges: string[],

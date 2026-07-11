@@ -3,9 +3,8 @@ import { DashboardPayloadSchema } from '@crypto-screener/contracts';
 import { errorMessage } from './errors';
 
 /**
- * Express API origin. Must match next.config.ts's rewrite target — this module talks to the API
- * directly (server-side fetch during render), the rewrite exists for external clients hitting the
- * public origin (curl /api/dashboard, curl /health).
+ * Must match next.config.ts's rewrite target — this module fetches the API directly (server-side
+ * render); the rewrite is only for external clients hitting the public origin.
  */
 const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:4000';
 
@@ -13,11 +12,7 @@ export type DashboardResult =
   | { ok: true; payload: DashboardPayload }
   | { ok: false; error: string };
 
-/**
- * Fetches GET /api/dashboard from the Express API, server-side, and validates the response
- * through the shared contracts schema. Never throws — callers get a typed ok/error result instead
- * of having to wrap every call site in try/catch.
- */
+/** Never throws; callers get a typed ok/error result instead of wrapping every call in try/catch. */
 export async function getDashboard(runId?: string): Promise<DashboardResult> {
   const url = new URL('/api/dashboard', API_BASE_URL);
   if (runId) {
@@ -26,7 +21,7 @@ export async function getDashboard(runId?: string): Promise<DashboardResult> {
 
   let response: Response;
   try {
-    // Dashboard reads live DB state; never let Next.js cache this fetch.
+    // Live DB state — never cache this fetch.
     response = await fetch(url, { cache: 'no-store' });
   } catch (cause) {
     return {
@@ -56,6 +51,3 @@ export async function getDashboard(runId?: string): Promise<DashboardResult> {
 
   return { ok: true, payload: parsed.data };
 }
-
-// triggerRefresh() (the Reload button's server action) lives in lib/actions.ts, not here — see
-// that file's header comment for why it can't share a module with getDashboard().

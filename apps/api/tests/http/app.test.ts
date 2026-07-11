@@ -10,11 +10,6 @@ import { saveSnapshot } from '../../src/db/runs.js';
 import { createApp } from '../../src/http/app.js';
 import { RefreshRuntime } from '../../src/refresh/runtime.js';
 
-/**
- * Covers the refresh-token gating (default-deny, timing-safe compare) end-to-end via HTTP,
- * alongside the dashboard/health/refresh route wiring.
- */
-
 let dir: string;
 let dbPath: string;
 let db: Database.Database;

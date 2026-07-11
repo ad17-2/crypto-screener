@@ -10,8 +10,6 @@ import { renderMarkdown } from '../../src/reports/markdown.js';
 import { REPORT_FIELDS } from '../../src/reports/reportFields.js';
 import { writeReports } from '../../src/reports/writeReports.js';
 
-/** Tests REPORT_FIELDS' fixed CSV column allowlist and writeReports()'s file-naming/content
- * contracts. */
 const EXPECTED_REPORT_FIELDS = [
   'symbol',
   'contract_symbol',
@@ -89,8 +87,7 @@ function buildPayload(): RunPayload {
         technical_setup: 'Trend Continuation',
         is_trusted: true,
         data_quality_score: 100,
-        // Intentionally omitted from REPORT_FIELDS coverage: open_interest_usd, etc. -- exercises
-        // the CSV writer's missing-key -> empty-cell behavior.
+        // open_interest_usd intentionally omitted -- exercises missing-key -> empty-cell behavior.
         not_a_report_field: 'must be ignored by extrasaction=ignore equivalent',
       },
       {
@@ -134,8 +131,7 @@ function buildPayload(): RunPayload {
   };
 }
 
-/** Minimal RFC4180-ish CSV cell splitter for a single line, just enough to un-escape the quoted
- * `"FLAGGED, ""COIN"""` cell in these tests' fixture rows. */
+// Minimal CSV splitter -- just enough to un-escape this fixture's quoted cell, not general-purpose.
 function parseCsvLine(line: string): string[] {
   const cells: string[] = [];
   let current = '';
@@ -177,8 +173,6 @@ describe('renderCsv', () => {
     const csv = renderCsv(payload.rows);
     expect(csv).not.toContain('not_a_report_field');
     expect(csv).not.toContain('must be ignored');
-    // BTC row has no `open_interest_usd` -- its cell (column 7) must be empty, i.e. ",," adjacent
-    // to the `price_change_24h_pct`/`oi_change_24h_pct` cells around it.
     const btcRow = csv.split('\r\n')[1] as string;
     const cells = btcRow.split(',');
     expect(cells[REPORT_FIELDS.indexOf('open_interest_usd')]).toBe('');

@@ -2,9 +2,6 @@ import { clamp, mean, pyRound, toFloat } from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 
-/** Regime classification (btc-led/alts-strong/neutral/chaos) and the higher-level risk-on/off
- * inference built on top of it. */
-
 export const REGIME_STATES = ['btc-led', 'alts-strong', 'neutral', 'chaos'] as const;
 export type RegimeState = (typeof REGIME_STATES)[number];
 
@@ -82,7 +79,6 @@ export function classifyRegime(
     scores[state] > scores[best] ? state : best,
   );
   let state: string = rawState;
-  // Full transition-matrix / HMM smoothing is deferred to Phase 5.
   if (
     priorState !== null &&
     priorState !== undefined &&
@@ -131,11 +127,7 @@ export interface InferredRegime {
   sector_rotation_label: string;
 }
 
-/**
- * `_weights` is accepted but intentionally unused (see regime.test.ts's "is independent of factor
- * weights" test); it is kept in the signature purely for call-site parity with scoreSnapshot's
- * `inferRegime(weights, rows, marketContext, priorState, config)`.
- */
+// `_weights` is unused on purpose, kept for call-site parity with scoreSnapshot's inferRegime(weights, rows, marketContext, priorState, config).
 export function inferRegime(
   _weights: unknown,
   rows: Row[],

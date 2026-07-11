@@ -8,9 +8,6 @@ import {
   zscoreByKey,
 } from '../../src/pipeline/scoring.js';
 
-/** Covers the factor-engine math primitives: median/zscore/robust-zscore/spearman, plus
- * pyRound/copysign. */
-
 describe('median', () => {
   it('returns 0 for an empty list', () => {
     expect(median([])).toBe(0.0);

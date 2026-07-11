@@ -17,15 +17,11 @@ import type {
 import { ProviderError } from '../../src/providers/errors';
 import fixture from '../fixtures/parity-run.json';
 
-/** No network: every CoinGlass client is a hand-written stub implementing the `CoinGlassClient`
- * interface. */
-
 function buildConfig(overrides: Record<string, unknown> = {}): AppConfig {
   return AppConfigSchema.parse(overrides);
 }
 
 describe('coinglassCandidateStats + rankCoinglassCandidates', () => {
-  // Mirrors test_coinglass_candidate_stats_filter_and_rank_supported_pairs.
   it('filters excluded/stablecoin bases and thin exchange coverage, then ranks by coverage', () => {
     const supportedPairs: Record<string, CoinGlassPair[]> = {
       MEXC: [
@@ -74,7 +70,6 @@ describe('coinglassCandidateStats + rankCoinglassCandidates', () => {
 });
 
 describe('aggregateCoinglassPairs', () => {
-  // Mirrors test_aggregate_coinglass_pairs_builds_primary_row.
   it('builds a volume-weighted cross-exchange aggregate row, keyed off the highest-volume pair', () => {
     const pairs: CoinGlassPair[] = [
       {
@@ -179,7 +174,6 @@ describe('aggregateCoinglassPairs', () => {
   });
 });
 
-/** A hand-written CoinGlassClient stub. No network. */
 class StubCoinGlassClient implements CoinGlassClient {
   calls: string[] = [];
 
@@ -354,15 +348,13 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
     const rows = await collectCoinglassFutures(config, {}, client);
     expect(rows).toHaveLength(1);
 
-    // applyDataQuality is a separate step invoked from collectMarket(), not
-    // collectCoinglassFutures() directly -- call it here the same way collectMarket() does.
+    // applyDataQuality is invoked separately -- collectCoinglassFutures doesn't call it directly.
     const { applyDataQuality } = await import('../../src/pipeline/quality');
     applyDataQuality(rows, config);
 
     const fixtureRow = (fixture as { input_rows: Array<Record<string, unknown>> })
       .input_rows[0] as Record<string, unknown>;
-    // price_change_72h_pct is added by a later historical-lookback pipeline stage, outside the
-    // collector/enrichment/quality boundary this test covers.
+    // price_change_72h_pct is added by a later historical-lookback stage, not this boundary.
     const expectedKeys = Object.keys(fixtureRow).filter((key) => key !== 'price_change_72h_pct');
 
     for (const key of expectedKeys) {
@@ -371,7 +363,6 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
   });
 });
 
-/** Stub CoinGeckoClient -- no network. */
 class StubCoinGeckoClient implements CoinGeckoClient {
   async globalData(): Promise<Record<string, unknown>> {
     return {
@@ -406,8 +397,6 @@ class StubCoinGeckoClient implements CoinGeckoClient {
 }
 
 describe('collectMarket', () => {
-  // Exercises the full orchestrator: CoinGlass futures -> CoinGecko context -> data quality,
-  // wired together the same way collectMarket() does.
   it('assembles rows, market_context, and provider_status from both providers, and quality-flags rows', async () => {
     const config = buildConfig({
       providers: {
@@ -424,8 +413,7 @@ describe('collectMarket', () => {
       universe: { exclude_base_assets: ['USDT'], min_quote_volume_usd: 20_000_000 },
       report: { core_symbols: ['BTC'] },
     });
-    // Two exchanges' worth of BTC pairs, so the aggregate clears the quality stage's
-    // min_coinglass_exchange_count(2) floor and comes back is_trusted=true.
+    // Two exchanges clear min_coinglass_exchange_count(2), so the aggregate is_trusted=true.
     const coinglassClient = new StubCoinGlassClient(SUPPORTED_PAIRS, {
       BTC: [btcOkxPair(), btcOkxPair({ exchange_name: 'Bybit', instrument_id: 'BTCUSDT' })],
     });

@@ -3,9 +3,6 @@ import { DEFAULT_PRIORS } from '../../src/pipeline/factorDefinitions.js';
 import type { FactorRecord } from '../../src/pipeline/ic.js';
 import { factorWeights } from '../../src/pipeline/weighting.js';
 
-/** Covers factorWeights()-level walk-forward GATING plus regime-conditional IC (walkForward()'s
- * own direct tests are in validation.test.ts). */
-
 function strongPositive(
   periodIdx: number,
   symIdx: number,

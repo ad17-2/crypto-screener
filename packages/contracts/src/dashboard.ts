@@ -1,25 +1,12 @@
 import { z } from 'zod';
 
 /**
- * Zod schema for the `GET /api/dashboard` wire contract.
- *
- * Keys stay snake_case — this is a preserved wire contract consumed by an existing client, not a
- * TS-idiomatic API.
- *
- * Scope note: unlike the config schema, these schemas are intentionally NOT `.strict()`.
- * `regime`, `market_context`, `provider_status`, `factor_weights`, `factor_decay`, `walk_forward`,
- * and `validation` carry no fixed schema on the producing side — they're free-form blobs the
- * factor pipeline assembles incrementally. Modeling them as `z.record(z.string(), z.unknown())`
- * reflects that; the well-defined, stable pieces (the row shape, run summaries, quality,
- * watchlists) are fully typed below.
+ * snake_case keys: preserved wire contract for an existing client, not idiomatic TS.
+ * regime/market_context/provider_status/factor_weights/factor_decay/walk_forward/validation are
+ * intentionally non-strict + jsonRecord — the pipeline assembles them as free-form blobs.
  */
 
-/** Opaque JSON blob with no fixed schema. */
 const jsonRecord = z.record(z.string(), z.unknown());
-
-// ---------------------------------------------------------------------------
-// Dashboard row
-// ---------------------------------------------------------------------------
 
 const FactorPartSchema = z.object({
   name: z.string(),
@@ -32,11 +19,7 @@ const ConfluenceFamilySchema = z.object({
   key: z.string(),
   label: z.string(),
   tone: z.string(),
-  /**
-   * Null (not zero) when none of this family's factors are present on the row — e.g. an
-   * excluded/untrusted row that still reaches this shape, such as the "core" section's
-   * BTC/ETH/SOL rows, which are included unconditionally with no `is_trusted` filter.
-   */
+  /** null (not zero) when none of this family's factors are present — don't treat as falsy. */
   value: z.number().nullable(),
 });
 
@@ -83,7 +66,6 @@ const RowScoresSchema = z.object({
   breadth_alignment_score: z.number().nullable(),
 });
 
-/** Technical indicator fields; each is optional since not every row has technical data. */
 const TechnicalStateSchema = z.object({
   technical_interval: z.string().optional(),
   technical_candle_count: z.number().optional(),
@@ -101,7 +83,6 @@ const TechnicalStateSchema = z.object({
   technical_momentum_score: z.number().optional(),
 });
 
-/** One point of a dashboard row's `history` time series. */
 const HistoryPointSchema = z.object({
   generated_at: z.string(),
   price_usd: z.number().nullable(),
@@ -178,10 +159,6 @@ export const DashboardRowSchema = z.object({
   explanation: RowExplanationSchema,
 });
 
-// ---------------------------------------------------------------------------
-// Runs
-// ---------------------------------------------------------------------------
-
 export const RunSummarySchema = z.object({
   run_id: z.string(),
   generated_at: z.string(),
@@ -198,10 +175,6 @@ export const SelectedRunSchema = RunSummarySchema.pick({
   row_count: true,
 });
 
-// ---------------------------------------------------------------------------
-// Freshness
-// ---------------------------------------------------------------------------
-
 export const FreshnessSchema = z.object({
   status: z.string(),
   label: z.string(),
@@ -210,10 +183,6 @@ export const FreshnessSchema = z.object({
   age_minutes: z.number().nullable(),
   help: z.string().optional(),
 });
-
-// ---------------------------------------------------------------------------
-// Quality
-// ---------------------------------------------------------------------------
 
 const FlaggedRowSchema = z.object({
   symbol: z.string().nullable(),
@@ -230,20 +199,12 @@ export const QualitySchema = z.object({
   flagged_rows: z.array(FlaggedRowSchema),
 });
 
-// ---------------------------------------------------------------------------
-// Factor correlations
-// ---------------------------------------------------------------------------
-
 export const FactorCorrelationSchema = z.object({
   a: z.string(),
   b: z.string(),
   rho: z.number(),
   verdict: z.string(),
 });
-
-// ---------------------------------------------------------------------------
-// Model weights
-// ---------------------------------------------------------------------------
 
 const ModelWeightFactorSchema = z.object({
   name: z.string(),
@@ -271,10 +232,6 @@ export const ModelWeightsSchema = z.object({
   walk_forward: jsonRecord,
 });
 
-// ---------------------------------------------------------------------------
-// Sections / watchlists
-// ---------------------------------------------------------------------------
-
 export const SectionsSchema = z.object({
   core: z.array(DashboardRowSchema),
   long: z.array(DashboardRowSchema),
@@ -300,15 +257,11 @@ export const WatchlistSchema = z.object({
   rows: z.array(DashboardRowSchema),
 });
 
-// ---------------------------------------------------------------------------
-// Top-level payload
-// ---------------------------------------------------------------------------
-
 const DashboardPayloadEmptySchema = z.object({
   status: z.literal('empty'),
   database: z.string(),
   runs: z.array(RunSummarySchema),
-  /** Injected by the HTTP route handler, not the payload builder; null until a refresh has run. */
+  /** set by the route handler, not the payload builder; null until a refresh has run. */
   refresh_status: z.unknown().nullable(),
 });
 
@@ -330,10 +283,7 @@ const DashboardPayloadOkSchema = z.object({
   quality: QualitySchema,
   sections: SectionsSchema,
   watchlists: z.array(WatchlistSchema),
-  /**
-   * Injected by the HTTP route handler, not the payload builder itself — optional here so this
-   * schema also validates the payload builder's raw return value.
-   */
+  /** set by the route handler; optional here so this schema also validates the builder's raw return. */
   refresh_status: z.unknown().nullable().optional(),
 });
 

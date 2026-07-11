@@ -1,14 +1,11 @@
 import type { DashboardRow } from '@crypto-screener/contracts';
 import { numeric } from './format';
 
-/** Stable identity for a row within a single watchlist tab: symbol + side + score field. The same
- * triple can appear in more than one watchlist, so this key is only unique within the currently
- * active list — selection is reset on tab change. */
+/** symbol+side+score_field. Unique only within the active watchlist tab — selection resets on tab change. */
 export function rowKey(row: DashboardRow): string {
   return `${row.symbol || '-'}:${row.side || '-'}:${row.score_field || '-'}`;
 }
 
-/** `"coinglass+binance"` -> `["coinglass", "binance"]`. */
 export function sourceParts(source: string | null | undefined): string[] {
   return String(source || '-')
     .split('+')
@@ -54,7 +51,6 @@ export interface PositioningDivergence {
 const POSITIONING_LONG_THRESHOLD = 1.2;
 const POSITIONING_SHORT_THRESHOLD = 0.85;
 
-/** Reads retail (`long_short_account_ratio`) vs top-trader positioning to flag crowding. */
 export function positioningDivergence(
   row: Pick<DashboardRow, 'long_short_account_ratio' | 'top_trader_long_short_ratio'>,
 ): PositioningDivergence | null {
@@ -99,8 +95,6 @@ export function positioningDivergence(
 
 const HIDDEN_CONFLICT_LABELS = new Set(['aligned', 'neutral', 'unknown']);
 
-/** The conflict sub-label shown under the SETUP badge (e.g. "high-conflict"); null when the label
- * is non-actionable (aligned/neutral/unknown) and shouldn't be surfaced. */
 export function setupConflictMeta(row: Pick<DashboardRow, 'signal_conflict_label'>): string | null {
   const conflict = String(row.signal_conflict_label || '');
   return conflict && !HIDDEN_CONFLICT_LABELS.has(conflict) ? conflict : null;

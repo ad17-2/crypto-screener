@@ -8,13 +8,8 @@ import { runPipeline as runPipelineDefault } from '../pipeline/runPipeline.js';
 import { pyRound } from '../pipeline/scoring.js';
 
 /**
- * Tracks four status shapes: idle / running / ok / error. When a refresh is already in flight,
- * both `refresh` and `refreshAsync` return the current status with `state` forced to "running"
- * rather than starting a second one.
- *
  * Re-entrancy is guarded by a plain boolean flag, checked and set synchronously with no `await`
- * between the check and the set -- there is no window for a second caller to interleave and see a
- * stale `false`.
+ * between the check and the set — do not add one, or a second caller could interleave past a stale `false`.
  */
 
 export type RefreshStatus =
@@ -32,7 +27,7 @@ export type RefreshStatus =
     }
   | { state: 'error'; reason: string; error: string; finished_at: string };
 
-/** `RefreshRuntime.refresh_async`'s immediate return value, distinct from the polled status. */
+/** Immediate return value of `refreshAsync`, distinct from the polled `RefreshStatus`. */
 export interface RefreshAsyncResult {
   state: string;
   reason: string;
@@ -49,7 +44,6 @@ export interface RefreshRuntimeSettings {
 export interface RefreshRuntimeDeps {
   db: Database.Database;
   settings: RefreshRuntimeSettings;
-  /** Injectable for tests; defaults to the real config loader / pipeline runner. */
   loadConfig?: (path: string) => AppConfig;
   runPipeline?: (
     config: AppConfig,
@@ -58,7 +52,7 @@ export interface RefreshRuntimeDeps {
   ) => Promise<RunPipelineResult>;
 }
 
-/** Formats an instant as "YYYY-MM-DDTHH:mm:ss+00:00" -- an explicit "+00:00" suffix, not "Z". */
+/** Explicit "+00:00" suffix, not "Z" -- do not swap for a bare toISOString(). */
 function isoSecondsUtc(date: Date): string {
   return `${date.toISOString().slice(0, 19)}+00:00`;
 }
@@ -86,11 +80,6 @@ export class RefreshRuntime {
     return this.status;
   }
 
-  /**
-   * Runs the pipeline, saves the snapshot, applies retention, and records the outcome. Returns
-   * the current status with state forced to "running" if a refresh is already in flight, instead
-   * of starting a second one.
-   */
   async refresh(reason: string): Promise<RefreshStatus> {
     if (this.busy) {
       return { ...this.status, state: 'running' } as RefreshStatus;
@@ -134,7 +123,6 @@ export class RefreshRuntime {
     return this.status;
   }
 
-  /** Fires the refresh in the background (never awaited here) and returns immediately. */
   refreshAsync(reason: string): RefreshAsyncResult {
     if (this.busy) {
       return { ...this.status, state: 'running' } as RefreshAsyncResult;
@@ -143,8 +131,7 @@ export class RefreshRuntime {
     return { state: 'queued', reason };
   }
 
-  /** Reloads the config file fresh on every refresh (in case it changed on disk) and overrides
-   * `storage_path` with the runtime DB path. */
+  /** Reloads config fresh each refresh (the file may change on disk) and overrides storage_path with the runtime DB path. */
   private loadRuntimeConfig(): AppConfig {
     const config = this.loadConfigFn(this.settings.configPath);
     return { ...config, storage_path: this.settings.dbPath };

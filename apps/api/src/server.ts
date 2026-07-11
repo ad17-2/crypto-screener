@@ -5,10 +5,7 @@ import { createApp } from './http/app.js';
 import { RefreshRuntime } from './refresh/runtime.js';
 import { startAutoRefresh } from './refresh/scheduler.js';
 
-/**
- * Bound to 127.0.0.1: apps/web owns the public port and proxies /api/* and /health to this
- * process, so it only ever needs to be reachable from the same host.
- */
+/** Binds 127.0.0.1 only -- apps/web owns the public port and proxies /api/* and /health here. */
 
 const env = loadEnv();
 mkdirSync(env.reportDir, { recursive: true });
