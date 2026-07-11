@@ -13,6 +13,10 @@ export function ProvidersPanel({ providerStatus }: ProvidersPanelProps) {
 
   return (
     <Panel title="Providers" meta={meta} accent="blue">
+      <p className="px-3 pt-2.5 text-muted text-xs leading-snug">
+        Health of each upstream data source feeding the model: whether it's responding, and how many
+        rows it returned.
+      </p>
       {entries.length === 0 ? (
         <div className="py-7 px-3 text-muted text-center">No providers</div>
       ) : (

@@ -1,10 +1,9 @@
 import type { DashboardRow, Watchlist, WatchlistId } from '@crypto-screener/contracts';
 import { Panel } from '@/components/layout/Panel';
+import { lookupWatchlist } from '@/lib/copy';
 import type { WatchlistFilterState } from '@/lib/watchlist-filters';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 import { WatchlistTable } from './WatchlistTable';
-
-export type Density = 'comfortable' | 'compact';
 
 export interface WatchlistPanelRows {
   visible: DashboardRow[];
@@ -15,11 +14,8 @@ export interface WatchlistPanelProps {
   watchlists: Watchlist[];
   activeTab: WatchlistId;
   onTabChange: (id: WatchlistId) => void;
-  density: Density;
-  onDensityChange: (density: Density) => void;
   filters: WatchlistFilterState;
   onFiltersChange: (patch: Partial<WatchlistFilterState>) => void;
-  sourceOptions: string[];
   sortKey: SortColumnKey | null;
   sortDir: SortDirection;
   onSort: (key: SortColumnKey) => void;
@@ -28,16 +24,35 @@ export interface WatchlistPanelProps {
   onSelectRow: (key: string) => void;
 }
 
+// Two intents, not one flat list: "worth trading" setups vs "crowding risk" fade/squeeze
+// candidates to avoid or fade, not chase.
+const WORTH_TRADING_IDS: readonly WatchlistId[] = ['chart_next', 'regime_fit', 'long', 'short'];
+const CROWDING_RISK_IDS: readonly WatchlistId[] = ['crowded_longs', 'squeeze_risks'];
+
+const EMPTY_WATCHLIST_MESSAGE: Record<WatchlistId, string> = {
+  chart_next: 'No standout setups right now.',
+  regime_fit: "Nothing fits today's regime right now.",
+  long: 'No long candidates right now.',
+  short: 'No short candidates right now.',
+  crowded_longs: 'Nothing is crowded long right now.',
+  squeeze_risks: 'No squeeze risk right now.',
+  // Unreachable -- the core list is filtered out before it reaches this panel; mapped for type completeness.
+  core: 'No majors to show.',
+};
+
+function emptyStateMessage(watchlistId: WatchlistId, hasQuery: boolean, totalRows: number): string {
+  if (totalRows === 0) return EMPTY_WATCHLIST_MESSAGE[watchlistId];
+  if (hasQuery) return 'No coins match your search.';
+  return 'Nothing to show.';
+}
+
 /** Fully controlled by WatchlistWorkbench (shared with SelectedCoinRail) — no local state here. */
 export function WatchlistPanel({
   watchlists,
   activeTab,
   onTabChange,
-  density,
-  onDensityChange,
   filters,
   onFiltersChange,
-  sourceOptions,
   sortKey,
   sortDir,
   onSort,
@@ -45,29 +60,74 @@ export function WatchlistPanel({
   selectedKey,
   onSelectRow,
 }: WatchlistPanelProps) {
+  const worthTrading = watchlists.filter((list) => WORTH_TRADING_IDS.includes(list.id));
+  const crowdingRisk = watchlists.filter((list) => CROWDING_RISK_IDS.includes(list.id));
+
   return (
     <Panel
       title="Watchlist"
       meta={
-        <div className="inline-flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Toggle row density"
-            onClick={() => onDensityChange(density === 'compact' ? 'comfortable' : 'compact')}
-            className="density-btn h-[26px] px-2 rounded-full border border-line bg-panel text-muted text-[11px] font-bold tracking-wide uppercase cursor-pointer"
-          >
-            {density === 'compact' ? 'Compact' : 'Comfortable'}
-          </button>
-          <span className="text-muted text-xs font-mono tabular-nums">
-            {rows.visible.length} / {rows.total}
-          </span>
-        </div>
+        <span className="text-muted text-xs font-mono tabular-nums">
+          {rows.visible.length} / {rows.total}
+        </span>
       }
       aria-label="Watchlist workbench"
       className="overflow-visible"
     >
-      <div className="flex gap-1.5 flex-wrap px-3 pt-2.5">
-        {watchlists.map((list) => (
+      <div className="grid gap-2 px-3 pt-2.5">
+        <TabGroup
+          label="Worth trading"
+          lists={worthTrading}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+        <TabGroup
+          label="Crowding risk"
+          lists={crowdingRisk}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+      </div>
+      <div className="flex gap-2 items-center flex-wrap px-3 py-2.5 border-b border-line bg-panel">
+        <input
+          className="h-8 min-w-[180px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs"
+          type="search"
+          placeholder="Find a coin"
+          aria-label="Find a coin"
+          value={filters.query}
+          onChange={(event) => onFiltersChange({ query: event.target.value })}
+        />
+      </div>
+      <WatchlistTable
+        rows={rows.visible}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSort={onSort}
+        selectedKey={selectedKey}
+        onSelectRow={onSelectRow}
+        emptyMessage={emptyStateMessage(activeTab, filters.query.trim().length > 0, rows.total)}
+      />
+    </Panel>
+  );
+}
+
+function TabGroup({
+  label,
+  lists,
+  activeTab,
+  onTabChange,
+}: {
+  label: string;
+  lists: Watchlist[];
+  activeTab: WatchlistId;
+  onTabChange: (id: WatchlistId) => void;
+}) {
+  if (!lists.length) return null;
+  return (
+    <div>
+      <div className="label mb-1">{label}</div>
+      <div className="flex gap-1.5 flex-wrap">
+        {lists.map((list) => (
           // Tailwind v4 cascade layers put utilities above components regardless of specificity —
           // these border/bg/text utilities must stay conditional or they'd erase .active's look.
           <button
@@ -78,80 +138,10 @@ export function WatchlistPanel({
               list.id === activeTab ? ' active' : ' border-line bg-panel-2 text-muted'
             }`}
           >
-            {list.label}
+            {lookupWatchlist(list.id).label}
           </button>
         ))}
       </div>
-      <div className="flex gap-2 items-center flex-wrap px-3 py-2.5 border-b border-line bg-panel">
-        <input
-          className="h-8 min-w-[180px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs"
-          type="search"
-          placeholder="Filter symbol or setup"
-          aria-label="Filter symbol or setup"
-          value={filters.query}
-          onChange={(event) => onFiltersChange({ query: event.target.value })}
-        />
-        <select
-          className="h-8 min-w-[132px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs"
-          aria-label="Minimum quality"
-          value={filters.quality}
-          onChange={(event) => onFiltersChange({ quality: Number(event.target.value) })}
-        >
-          <option value={0}>Q 0+</option>
-          <option value={50}>Q 50+</option>
-          <option value={75}>Q 75+</option>
-          <option value={90}>Q 90+</option>
-        </select>
-        <select
-          className="h-8 min-w-[132px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs"
-          aria-label="Source"
-          value={filters.source}
-          onChange={(event) => onFiltersChange({ source: event.target.value })}
-        >
-          <option value="all">All sources</option>
-          {sourceOptions.map((source) => (
-            <option key={source} value={source}>
-              {source}
-            </option>
-          ))}
-        </select>
-        <select
-          className="h-8 min-w-[132px] max-[680px]:w-full border border-line rounded-md bg-panel text-ink px-2 text-xs"
-          aria-label="Minimum volume"
-          value={filters.volume}
-          onChange={(event) => onFiltersChange({ volume: Number(event.target.value) })}
-        >
-          <option value={0}>Any volume</option>
-          <option value={20000000}>$20M+</option>
-          <option value={100000000}>$100M+</option>
-          <option value={1000000000}>$1B+</option>
-        </select>
-        <label className="filter-toggle inline-flex items-center gap-1.5 h-8 px-2 border border-line rounded-md text-ink bg-panel text-xs whitespace-nowrap max-[680px]:w-full">
-          <input
-            type="checkbox"
-            checked={filters.positiveOi}
-            onChange={(event) => onFiltersChange({ positiveOi: event.target.checked })}
-          />{' '}
-          OI &gt; 0
-        </label>
-        <label className="filter-toggle inline-flex items-center gap-1.5 h-8 px-2 border border-line rounded-md text-ink bg-panel text-xs whitespace-nowrap max-[680px]:w-full">
-          <input
-            type="checkbox"
-            checked={filters.negativeFunding}
-            onChange={(event) => onFiltersChange({ negativeFunding: event.target.checked })}
-          />{' '}
-          Funding &lt; 0
-        </label>
-      </div>
-      <WatchlistTable
-        rows={rows.visible}
-        density={density}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={onSort}
-        selectedKey={selectedKey}
-        onSelectRow={onSelectRow}
-      />
-    </Panel>
+    </div>
   );
 }

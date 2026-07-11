@@ -13,6 +13,10 @@ export function FreshnessPanel({ freshness, runs }: FreshnessPanelProps) {
 
   return (
     <Panel title="Freshness / Runs" meta={meta} accent="blue">
+      <p className="px-3 pt-2.5 text-muted text-xs leading-snug">
+        When the selected run was generated and how old it is, plus a history of recent runs and
+        their status.
+      </p>
       <FreshnessBlock freshness={freshness} />
       <RunsBlock runs={runs} />
     </Panel>

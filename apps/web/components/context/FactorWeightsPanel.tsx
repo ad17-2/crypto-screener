@@ -44,6 +44,10 @@ export function FactorWeightsPanel({ modelWeights }: FactorWeightsPanelProps) {
 
   return (
     <Panel title="Factor Weights" meta={meta} accent="gold">
+      <p className="px-3 pt-2.5 text-muted text-xs leading-snug">
+        Each factor's current weight. 'IC' is how well the factor predicted 24h returns; higher
+        t-stat means more reliable.
+      </p>
       {factors.length === 0 ? (
         <div className="py-7 px-3 text-muted text-center">No factor weights</div>
       ) : (

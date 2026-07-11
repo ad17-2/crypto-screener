@@ -1,19 +1,16 @@
 import type { DashboardRow } from '@crypto-screener/contracts';
 import { numeric } from './format';
 
-// No default sort — rows render in the API's pre-ranked order until a header is clicked.
+/** Default sort is 'rank' (row.priority) descending — set by WatchlistWorkbench. */
 export type SortColumnKey =
   | 'symbol'
   | 'setup'
-  | 'score'
-  | 'conf'
-  | 'quality'
+  | 'rank'
+  | 'conviction'
   | 'price'
   | 'oi'
   | 'funding'
-  | 'ls'
-  | 'volume'
-  | 'source';
+  | 'crowding';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -21,15 +18,12 @@ type SortableField = Extract<
   keyof DashboardRow,
   | 'symbol'
   | 'setup'
-  | 'score'
-  | 'confluence_score'
-  | 'quality'
+  | 'priority'
+  | 'confidence_score'
   | 'price_change_24h_pct'
   | 'oi_change_24h_pct'
   | 'funding_rate_pct'
-  | 'positioning_ratio'
-  | 'quote_volume_usd'
-  | 'data_source'
+  | 'long_short_ratio'
 >;
 
 interface SortColumnConfig {
@@ -40,15 +34,12 @@ interface SortColumnConfig {
 export const SORT_COLUMNS: Record<SortColumnKey, SortColumnConfig> = {
   symbol: { field: 'symbol', type: 'string' },
   setup: { field: 'setup', type: 'string' },
-  score: { field: 'score', type: 'numeric' },
-  conf: { field: 'confluence_score', type: 'numeric' },
-  quality: { field: 'quality', type: 'numeric' },
+  rank: { field: 'priority', type: 'numeric' },
+  conviction: { field: 'confidence_score', type: 'numeric' },
   price: { field: 'price_change_24h_pct', type: 'numeric' },
   oi: { field: 'oi_change_24h_pct', type: 'numeric' },
   funding: { field: 'funding_rate_pct', type: 'numeric' },
-  ls: { field: 'positioning_ratio', type: 'numeric' },
-  volume: { field: 'quote_volume_usd', type: 'numeric' },
-  source: { field: 'data_source', type: 'string' },
+  crowding: { field: 'long_short_ratio', type: 'numeric' },
 };
 
 export function defaultSortDirection(key: SortColumnKey): SortDirection {

@@ -5,11 +5,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { rowKey } from '@/lib/dashboard-row';
 import { readPrefs, writePrefs } from '@/lib/prefs';
 import type { WatchlistFilterState } from '@/lib/watchlist-filters';
-import { collectSources, DEFAULT_WATCHLIST_FILTERS, filterRows } from '@/lib/watchlist-filters';
+import { DEFAULT_WATCHLIST_FILTERS, filterRows } from '@/lib/watchlist-filters';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 import { defaultSortDirection, sortRows } from '@/lib/watchlist-sort';
 import { SelectedCoinRail } from './SelectedCoinRail';
-import { type Density, WatchlistPanel } from './WatchlistPanel';
+import { WatchlistPanel } from './WatchlistPanel';
 
 export interface WatchlistWorkbenchProps {
   watchlists: Watchlist[];
@@ -18,15 +18,12 @@ export interface WatchlistWorkbenchProps {
 const SORT_KEYS: readonly SortColumnKey[] = [
   'symbol',
   'setup',
-  'score',
-  'conf',
-  'quality',
+  'rank',
+  'conviction',
   'price',
   'oi',
   'funding',
-  'ls',
-  'volume',
-  'source',
+  'crowding',
 ];
 
 function defaultTab(watchlists: Watchlist[]): WatchlistId {
@@ -35,25 +32,28 @@ function defaultTab(watchlists: Watchlist[]): WatchlistId {
     : (watchlists[0]?.id ?? 'chart_next');
 }
 
-export function WatchlistWorkbench({ watchlists }: WatchlistWorkbenchProps) {
+export function WatchlistWorkbench({ watchlists: allWatchlists }: WatchlistWorkbenchProps) {
+  // The core (BTC/ETH/SOL) watchlist is promoted into the market section elsewhere in the
+  // redesign — it never belongs in this tab strip.
+  const watchlists = useMemo(
+    () => allWatchlists.filter((list) => list.id !== 'core'),
+    [allWatchlists],
+  );
+
   const [activeTab, setActiveTab] = useState<WatchlistId>(() => defaultTab(watchlists));
-  const [density, setDensity] = useState<Density>('comfortable');
   const [filters, setFilters] = useState<WatchlistFilterState>(DEFAULT_WATCHLIST_FILTERS);
-  const [sortKey, setSortKey] = useState<SortColumnKey | null>(null);
+  const [sortKey, setSortKey] = useState<SortColumnKey | null>('rank');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  // Post-mount only, matching ThemeProvider: server-safe default renders first (no hydration
-  // mismatch), then this syncs from localStorage once real prefs are known.
+  // Post-mount only, matching ThemeProvider: server-safe default (Rank, desc) renders first (no
+  // hydration mismatch), then this syncs from localStorage once a saved sort is known.
   useEffect(() => {
     const prefs = readPrefs();
-    if (prefs.density === 'compact' || prefs.density === 'comfortable') setDensity(prefs.density);
     const matchedSortKey = SORT_KEYS.find((key) => key === prefs.sortKey);
     if (matchedSortKey) setSortKey(matchedSortKey);
     if (prefs.sortDir === 'asc' || prefs.sortDir === 'desc') setSortDir(prefs.sortDir);
   }, []);
-
-  const sourceOptions = useMemo(() => collectSources(watchlists), [watchlists]);
 
   const activeList = useMemo(
     () =>
@@ -79,11 +79,6 @@ export function WatchlistWorkbench({ watchlists }: WatchlistWorkbenchProps) {
     setSelectedKey(null);
   };
 
-  const handleDensityChange = (next: Density) => {
-    setDensity(next);
-    writePrefs({ density: next });
-  };
-
   const handleFiltersChange = (patch: Partial<WatchlistFilterState>) => {
     setFilters((previous) => ({ ...previous, ...patch }));
   };
@@ -107,11 +102,8 @@ export function WatchlistWorkbench({ watchlists }: WatchlistWorkbenchProps) {
         watchlists={watchlists}
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        density={density}
-        onDensityChange={handleDensityChange}
         filters={filters}
         onFiltersChange={handleFiltersChange}
-        sourceOptions={sourceOptions}
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={handleSort}

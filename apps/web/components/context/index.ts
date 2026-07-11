@@ -6,7 +6,5 @@ export type { FreshnessPanelProps } from './FreshnessPanel';
 export { FreshnessPanel } from './FreshnessPanel';
 export type { ProvidersPanelProps } from './ProvidersPanel';
 export { ProvidersPanel } from './ProvidersPanel';
-export type { SectorRotationPanelProps } from './SectorRotationPanel';
-export { SectorRotationPanel } from './SectorRotationPanel';
 export type { ValidationPanelProps } from './ValidationPanel';
 export { ValidationPanel } from './ValidationPanel';

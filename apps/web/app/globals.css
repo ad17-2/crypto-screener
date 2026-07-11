@@ -17,8 +17,19 @@
   --color-gold: var(--gold);
   --color-warn: var(--warn);
   --color-blue: var(--blue);
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/*
+ * --font-plex-sans / --font-plex-mono are CSS variables next/font stamps onto <html>
+ * (see app/layout.tsx). `inline` is required whenever a theme variable references another
+ * custom property — without it Tailwind emits a var(--font-sans) chain that resolves before
+ * the font-loader variable is in scope, and the system fallback wins instead of Plex.
+ */
+@theme inline {
+  --font-sans:
+    var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 }
 
 @layer base {
@@ -35,7 +46,9 @@
     --gold: #e8b84b;
     --warn: #e0a33a;
     --blue: #5b8def;
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+    /* Legacy alias kept because ~40 component rules already reference var(--mono). Repointed at
+       Plex Mono so those numbers pick up the real face; renaming it would touch every one. */
+    --mono: var(--font-plex-mono), ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
   }
   :root[data-theme="light"] {
     /* refined paper-white mirror of the same token names */
@@ -73,6 +86,9 @@
 }
 
 @layer components {
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -86,9 +102,6 @@
     border-radius: 50%;
     background: var(--up);
     flex: 0 0 auto;
-  }
-  .tape-live + .tape-seg {
-    border-left: 0;
   }
   .label {
     color: var(--muted);
@@ -109,7 +122,6 @@
     text-underline-offset: 3px;
   }
   .tag,
-  .source-tag,
   .status-pill,
   .quality-flag-chip {
     display: inline-flex;
@@ -123,27 +135,6 @@
   .tag {
     background: color-mix(in srgb, var(--gold) 14%, var(--panel));
     color: var(--gold);
-  }
-  .source-stack {
-    display: flex;
-    justify-content: flex-end;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-  .source-tag {
-    max-width: 100%;
-    font-family: var(--mono);
-    background: color-mix(in srgb, var(--blue) 15%, var(--panel));
-    color: var(--blue);
-  }
-  .source-tag:nth-child(2n) {
-    background: color-mix(in srgb, var(--gold) 14%, var(--panel));
-    color: var(--gold);
-  }
-  .reason-head {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
   }
   .help-tip {
     position: relative;
@@ -161,20 +152,47 @@
     cursor: help;
     outline: none;
   }
+  .tooltip-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
   .tooltip-popover {
-    position: fixed;
-    z-index: 1000;
-    max-width: min(360px, calc(100vw - 32px));
-    padding: 10px 11px;
-    border: 1px solid color-mix(in srgb, var(--ink) 40%, var(--line));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--ink) 92%, var(--bg));
-    color: var(--bg);
+    position: absolute;
+    z-index: 40;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: max-content;
+    max-width: min(260px, calc(100vw - 32px));
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--ink);
     font-size: 12px;
     font-weight: 500;
     line-height: 1.45;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    /* Triggers live inside uppercase, letter-spaced labels (.stat-label, .watch-head, .sieve-label)
+       and the popover would inherit both. Definitions are prose — reset, or they render shouting. */
+    text-transform: none;
+    letter-spacing: normal;
+    text-align: left;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
     pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  /* Opens below the trigger instead of above. Required inside `overflow: hidden` boxes whose
+     trigger sits at the top edge — the coin table clips its own sticky header row, so a tooltip
+     opening upward from a column header is invisible. */
+  .tooltip-popover.below {
+    top: calc(100% + 8px);
+    bottom: auto;
+  }
+  .tooltip-popover.open {
+    visibility: visible;
+    opacity: 1;
   }
   .reason-stack {
     display: flex;
@@ -230,10 +248,6 @@
   .list-row span:last-child {
     color: var(--muted);
     text-align: right;
-    font-family: var(--mono);
-    font-variant-numeric: tabular-nums;
-  }
-  .factor-row strong {
     font-family: var(--mono);
     font-variant-numeric: tabular-nums;
   }
@@ -297,10 +311,6 @@
     border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
     color: var(--gold);
   }
-  .filter-toggle input {
-    margin: 0;
-    accent-color: var(--gold);
-  }
   .watch-head,
   .watch-row {
     display: grid;
@@ -336,13 +346,6 @@
   }
   .watch-row.active {
     box-shadow: inset 3px 0 0 var(--gold);
-  }
-  .watch-table[data-density="compact"] .watch-row {
-    padding-top: 5px;
-    padding-bottom: 5px;
-  }
-  .watch-table[data-density="compact"] .watch-cell {
-    font-size: 11px;
   }
   .watch-cell {
     min-width: 0;
@@ -394,12 +397,6 @@
     display: grid;
     gap: 3px;
     justify-items: end;
-  }
-  .conf-count {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1;
   }
   .conf-bar {
     display: inline-flex;
@@ -541,27 +538,6 @@
     background: color-mix(in srgb, var(--down) 13%, var(--panel));
     color: var(--down);
   }
-  .quality-badge {
-    display: inline-flex;
-    justify-content: center;
-    min-width: 36px;
-    border-radius: 999px;
-    padding: 3px 7px;
-    background: color-mix(in srgb, var(--up) 16%, var(--panel));
-    color: var(--up);
-    font-size: 11px;
-    font-weight: 800;
-    font-family: var(--mono);
-    font-variant-numeric: tabular-nums;
-  }
-  .quality-badge.warn {
-    background: color-mix(in srgb, var(--warn) 16%, var(--panel));
-    color: var(--warn);
-  }
-  .quality-badge.bad {
-    background: color-mix(in srgb, var(--down) 16%, var(--panel));
-    color: var(--down);
-  }
   .sparkline polyline {
     fill: none;
     stroke-width: 2;
@@ -580,14 +556,6 @@
   .sparkline .axis {
     stroke: var(--line);
     stroke-width: 1;
-  }
-  .detail-metric strong {
-    display: block;
-    margin-top: 4px;
-    font-size: 14px;
-    font-family: var(--mono);
-    font-variant-numeric: tabular-nums;
-    overflow-wrap: anywhere;
   }
   .detail-section summary::-webkit-details-marker {
     display: none;
@@ -681,50 +649,15 @@
   .pos-dot.neutral {
     color: var(--muted);
   }
-  .explanation-box,
-  .conflict-block,
-  .conflict-summary {
+  .conflict-block {
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--panel-2);
     padding: 10px;
   }
-  .explanation-box {
-    display: grid;
-    gap: 10px;
-  }
-  .explanation-box p {
-    margin: 0;
-    color: var(--ink);
-    font-size: 13px;
-    line-height: 1.45;
-  }
-  .explanation-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-  .explanation-list {
-    margin: 6px 0 0;
-    padding-left: 16px;
-    color: var(--ink);
-    font-size: 12px;
-    line-height: 1.4;
-  }
-  .explanation-list.risk {
-    color: var(--warn);
-  }
   .conflict-block {
     display: grid;
     gap: 8px;
-  }
-  .conflict-summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    color: var(--muted);
-    font-size: 12px;
   }
   .conflict-row {
     display: grid;
@@ -735,32 +668,6 @@
   .conflict-row span {
     color: var(--muted);
     overflow-wrap: anywhere;
-  }
-  .provider-dots {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .provider-dot {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 22px;
-    border-radius: 999px;
-    padding: 0 7px;
-    background: color-mix(in srgb, var(--up) 16%, var(--panel));
-    color: var(--up);
-    font-size: 11px;
-    font-weight: 760;
-  }
-  .provider-dot.warn {
-    background: color-mix(in srgb, var(--warn) 16%, var(--panel));
-    color: var(--warn);
-  }
-  .provider-dot.bad {
-    background: color-mix(in srgb, var(--down) 16%, var(--panel));
-    color: var(--down);
   }
   .history-block {
     display: grid;
@@ -789,6 +696,135 @@
     border: 2px solid var(--line);
   }
 
+  /*
+   * Redesign primitives: top-down analysis flow (stage bands), the sieve funnel,
+   * verdict hero, stat tiles, and the breadth bar. See app/globals.css header note —
+   * these class names are the contract other components key off.
+   */
+  .stage {
+    position: relative;
+    padding: 40px 0;
+    border-top: 1px solid var(--line);
+  }
+  .stage-eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+  }
+  .stage-title {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .sieve {
+    display: flex;
+    align-items: flex-end;
+  }
+  .sieve-seg {
+    --seg-h: 56px;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: var(--seg-h);
+    padding: 0 8px;
+    border: 0;
+    background: color-mix(in srgb, var(--blue) 10%, var(--panel));
+    clip-path: polygon(0 0, 100% 14%, 100% 100%, 0 100%);
+    color: inherit;
+    font: inherit;
+    text-align: center;
+    transform-origin: left center;
+  }
+  .sieve-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .sieve-seg.final {
+    background: color-mix(in srgb, var(--gold) 24%, var(--panel));
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .sieve-seg.final:hover {
+    background: color-mix(in srgb, var(--gold) 34%, var(--panel));
+  }
+  .sieve-seg.final .sieve-count {
+    color: var(--gold);
+  }
+  .sieve-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .verdict {
+    font-size: clamp(26px, 3.2vw, 40px);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+  }
+  .verdict-sub {
+    margin-top: 8px;
+    max-width: 62ch;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .stat {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  .stat-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .stat-value {
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 19px;
+    font-weight: 500;
+  }
+  .stat.pos .stat-value {
+    color: var(--up);
+  }
+  .stat.neg .stat-value {
+    color: var(--down);
+  }
+  .stat.warn .stat-value {
+    color: var(--warn);
+  }
+
+  .breadth-bar {
+    display: flex;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--panel-2);
+  }
+  .breadth-up,
+  .breadth-down {
+    height: 100%;
+  }
+  .breadth-up {
+    background: var(--up);
+  }
+  .breadth-down {
+    background: var(--down);
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     .live-dot {
       animation: tape-pulse 2.4s ease-out infinite;
@@ -804,17 +840,32 @@
         box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 0%, transparent);
       }
     }
+    .sieve-seg {
+      animation: sieve-grow 500ms ease-out backwards;
+      animation-delay: calc(var(--i, 0) * 80ms);
+    }
+    @keyframes sieve-grow {
+      from {
+        transform: scaleX(0);
+      }
+      to {
+        transform: scaleX(1);
+      }
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     * {
       animation: none !important;
       transition: none !important;
     }
+    /* Belt-and-suspenders: .sieve-seg's grow-in keyframes only exist inside the
+       no-preference query above, so this just guarantees the funnel renders at
+       full size with zero motion instead of stuck mid-animation. */
+    .sieve-seg {
+      transform: none;
+    }
   }
   @media (max-width: 900px) {
-    .source-stack {
-      justify-content: flex-start;
-    }
     .watch-head {
       display: none;
     }
@@ -835,8 +886,17 @@
     }
   }
   @media (max-width: 680px) {
-    .explanation-grid {
-      grid-template-columns: 1fr;
+    /* Four sieve segments share the width, so each gets ~90px here — "SHORTLISTED" at the default
+       size and tracking overflows that. Shrink rather than wrap; the funnel must stay one row. */
+    .sieve-seg {
+      padding: 0 4px;
+    }
+    .sieve-count {
+      font-size: 16px;
+    }
+    .sieve-label {
+      font-size: 9px;
+      letter-spacing: 0.03em;
     }
   }
 }

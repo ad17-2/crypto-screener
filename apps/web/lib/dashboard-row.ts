@@ -6,13 +6,6 @@ export function rowKey(row: DashboardRow): string {
   return `${row.symbol || '-'}:${row.side || '-'}:${row.score_field || '-'}`;
 }
 
-export function sourceParts(source: string | null | undefined): string[] {
-  return String(source || '-')
-    .split('+')
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 const TRADINGVIEW_EXCHANGES: Record<string, string> = {
   binance: 'BINANCE',
   okx: 'OKX',
@@ -91,11 +84,4 @@ export function positioningDivergence(
     label: 'Mixed',
     title: `Retail ${retail.toFixed(2)}x / top ${top.toFixed(2)}x`,
   };
-}
-
-const HIDDEN_CONFLICT_LABELS = new Set(['aligned', 'neutral', 'unknown']);
-
-export function setupConflictMeta(row: Pick<DashboardRow, 'signal_conflict_label'>): string | null {
-  const conflict = String(row.signal_conflict_label || '');
-  return conflict && !HIDDEN_CONFLICT_LABELS.has(conflict) ? conflict : null;
 }

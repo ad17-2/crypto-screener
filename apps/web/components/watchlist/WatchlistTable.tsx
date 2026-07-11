@@ -1,47 +1,67 @@
-import type { DashboardRow } from '@crypto-screener/contracts';
+import type { DashboardRow, DashboardRowSide } from '@crypto-screener/contracts';
 import type { KeyboardEvent, MouseEvent } from 'react';
-import {
-  positioningDivergence,
-  rowKey,
-  setupConflictMeta,
-  sourceParts,
-  tradingViewUrl,
-} from '@/lib/dashboard-row';
-import {
-  arrowPct,
-  clsFor,
-  confluenceToneClass,
-  fmtNum,
-  fmtPct,
-  fmtUsd,
-  numeric,
-  qualityTone,
-} from '@/lib/format';
+import { Term } from '@/components/ui/Tooltip';
+import { lookupMetric, lookupQualityFlag, lookupSetup } from '@/lib/copy';
+import { rowKey, tradingViewUrl } from '@/lib/dashboard-row';
+import { arrowPct, clsFor, confluenceToneClass, fmtNum, fmtPct } from '@/lib/format';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 
 export interface WatchlistTableProps {
   rows: DashboardRow[];
-  density: 'comfortable' | 'compact';
   sortKey: SortColumnKey | null;
   sortDir: SortDirection;
   onSort: (key: SortColumnKey) => void;
   selectedKey: string | null;
   onSelectRow: (key: string) => void;
+  emptyMessage: string;
 }
 
-const COLUMNS: Array<{ key: SortColumnKey; label: string }> = [
-  { key: 'symbol', label: 'Symbol' },
+interface ColumnDef {
+  key: SortColumnKey;
+  label: string;
+  /** Present only where the term isn't self-evident -- renders via Term (label + ⓘ). */
+  definition?: string;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: 'symbol', label: 'Coin' },
   { key: 'setup', label: 'Setup' },
-  { key: 'score', label: 'Score' },
-  { key: 'conf', label: 'Conf' },
-  { key: 'quality', label: 'Q' },
+  { key: 'rank', ...lookupMetric('priority') },
+  { key: 'conviction', ...lookupMetric('conviction') },
   { key: 'price', label: '24h' },
-  { key: 'oi', label: 'OI 24h' },
-  { key: 'funding', label: 'Funding' },
-  { key: 'ls', label: 'L/S' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'source', label: 'Source' },
+  { key: 'oi', label: 'OI 24h', definition: lookupMetric('open_interest').definition },
+  { key: 'funding', ...lookupMetric('funding') },
+  { key: 'crowding', ...lookupMetric('crowding') },
 ];
+
+/**
+ * 8-column desktop layout, overriding `.watch-head`/`.watch-row`'s 11-column
+ * `grid-template-columns` in app/globals.css (out of scope for this change -- owned elsewhere).
+ * Tailwind v4 utilities beat components in the cascade layers regardless of specificity, so this
+ * arbitrary grid-cols utility wins over the component rule -- including globals.css's own
+ * `@media (max-width: 900px)` 2-column override, which is why that override is repeated here too
+ * (it would otherwise be shadowed the same way, breaking the mobile card collapse).
+ */
+const GRID_COLUMNS =
+  'grid-cols-[minmax(96px,1.05fr)_minmax(150px,1.5fr)_minmax(80px,0.7fr)_minmax(84px,0.76fr)_minmax(64px,0.58fr)_minmax(72px,0.64fr)_minmax(78px,0.7fr)_minmax(72px,0.64fr)] max-[900px]:grid-cols-2';
+
+export interface SideMeta {
+  label: string;
+  tone: 'pos' | 'neg' | 'warn' | 'neutral';
+}
+
+const SIDE_META: Record<DashboardRowSide, SideMeta> = {
+  long: { label: 'Long', tone: 'pos' },
+  short: { label: 'Short', tone: 'neg' },
+  'fade-long': { label: 'Fade', tone: 'warn' },
+  'squeeze-risk': { label: 'Squeeze', tone: 'warn' },
+  core: { label: 'Core', tone: 'neutral' },
+};
+
+/** Shared with SelectedCoinRail -- both need the same side -> direction-chip label/tone mapping. */
+export function sideMeta(side: DashboardRowSide): SideMeta {
+  return SIDE_META[side];
+}
 
 /**
  * Real `<table>`, not `<div>`s: `.watch-head`/`.watch-row` override row/cell `display` to `grid`
@@ -50,34 +70,31 @@ const COLUMNS: Array<{ key: SortColumnKey; label: string }> = [
  */
 export function WatchlistTable({
   rows,
-  density,
   sortKey,
   sortDir,
   onSort,
   selectedKey,
   onSelectRow,
+  emptyMessage,
 }: WatchlistTableProps) {
   if (rows.length === 0) {
-    return (
-      <div className="py-7 px-3 text-muted text-center">No rows match the current filters</div>
-    );
+    return <div className="py-7 px-3 text-muted text-center">{emptyMessage}</div>;
   }
 
-  const maxScore = Math.max(...rows.map((row) => Math.abs(numeric(row.score) ?? 0)), 1);
+  const maxPriority = Math.max(...rows.map((row) => row.priority), 1);
 
   return (
-    <table
-      aria-label="Watchlist rows"
-      className="watch-table w-full overflow-hidden block"
-      data-density={density}
-    >
+    <table aria-label="Watchlist rows" className="watch-table w-full overflow-hidden block">
       <thead className="block">
-        <tr className="watch-head sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-muted text-[11px] font-bold tracking-wide uppercase text-right">
+        <tr
+          className={`watch-head ${GRID_COLUMNS} sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-muted text-[11px] font-bold tracking-wide uppercase text-right`}
+        >
           {COLUMNS.map((column) => (
             <HeaderCell
               key={column.key}
               columnKey={column.key}
               label={column.label}
+              definition={column.definition}
               active={sortKey === column.key}
               dir={sortDir}
               onSort={onSort}
@@ -94,7 +111,7 @@ export function WatchlistTable({
               row={row}
               rowKeyValue={key}
               active={key === selectedKey}
-              maxScore={maxScore}
+              maxPriority={maxPriority}
               onSelectRow={onSelectRow}
             />
           );
@@ -107,12 +124,14 @@ export function WatchlistTable({
 function HeaderCell({
   columnKey,
   label,
+  definition,
   active,
   dir,
   onSort,
 }: {
   columnKey: SortColumnKey;
   label: string;
+  definition?: string | undefined;
   active: boolean;
   dir: SortDirection;
   onSort: (key: SortColumnKey) => void;
@@ -120,20 +139,32 @@ function HeaderCell({
   const arrow = active ? (dir === 'asc' ? '▲' : '▼') : '';
   const ariaSort = active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none';
 
+  // The ⓘ trigger can sit inside this clickable/keydown-handled header cell — bail out of
+  // sorting when the interaction originated there, the same `.closest()` guard WatchlistRow
+  // uses for its nested <a> links, rather than giving the tooltip trigger its own handlers.
+  const fromTooltipTrigger = (target: EventTarget | null) =>
+    target instanceof Element && target.closest('.tooltip-trigger') !== null;
+
   return (
     <th
       scope="col"
       tabIndex={0}
       aria-sort={ariaSort}
-      onClick={() => onSort(columnKey)}
+      onClick={(event) => {
+        if (fromTooltipTrigger(event.target)) return;
+        onSort(columnKey);
+      }}
       onKeyDown={(event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (fromTooltipTrigger(event.target)) return;
         event.preventDefault();
         onSort(columnKey);
       }}
       className={`watch-th inline-flex items-center justify-end gap-0.5 cursor-pointer select-none whitespace-nowrap hover:text-ink${active ? ' sorted text-gold' : ''}`}
     >
-      {label}
+      {/* placement="bottom": .watch-table sets overflow:hidden, so a tooltip opening upward from
+          this sticky header row is clipped out of existence. */}
+      {definition ? <Term label={label} definition={definition} placement="bottom" /> : label}
       <span className="sort-arrow text-[9px] leading-none transition-colors duration-100">
         {arrow}
       </span>
@@ -145,13 +176,13 @@ function WatchlistRow({
   row,
   rowKeyValue,
   active,
-  maxScore,
+  maxPriority,
   onSelectRow,
 }: {
   row: DashboardRow;
   rowKeyValue: string;
   active: boolean;
-  maxScore: number;
+  maxPriority: number;
   onSelectRow: (key: string) => void;
 }) {
   const handleClick = (event: MouseEvent<HTMLTableRowElement>) => {
@@ -166,7 +197,7 @@ function WatchlistRow({
 
   return (
     <tr
-      className={`watch-row${active ? ' active' : ''}`}
+      className={`watch-row ${GRID_COLUMNS}${active ? ' active' : ''}`}
       aria-selected={active}
       tabIndex={0}
       onClick={handleClick}
@@ -174,11 +205,8 @@ function WatchlistRow({
     >
       <SymbolCell row={row} />
       <SetupCell row={row} />
-      <ScoreCell row={row} maxScore={maxScore} />
-      <ConfluenceCell row={row} />
-      <td className="watch-cell" data-label="Q">
-        <span className={`quality-badge ${qualityTone(row.quality)}`}>{row.quality ?? '-'}</span>
-      </td>
+      <RankCell row={row} maxPriority={maxPriority} />
+      <ConvictionCell row={row} />
       <td className={`watch-cell ${clsFor(row.price_change_24h_pct)}`} data-label="24h">
         {arrowPct(row.price_change_24h_pct)}
       </td>
@@ -188,18 +216,8 @@ function WatchlistRow({
       <td className={`watch-cell ${clsFor(row.funding_rate_pct)}`} data-label="Funding">
         {fmtPct(row.funding_rate_pct, 4)}
       </td>
-      <PositioningCell row={row} />
-      <td className="watch-cell" data-label="Volume">
-        {fmtUsd(row.quote_volume_usd)}
-      </td>
-      <td className="watch-cell" data-label="Source">
-        <div className="source-stack">
-          {sourceParts(row.data_source).map((part) => (
-            <span key={part} className="source-tag">
-              {part}
-            </span>
-          ))}
-        </div>
+      <td className="watch-cell" data-label="Crowding">
+        {row.long_short_ratio == null ? '-' : fmtNum(row.long_short_ratio)}
       </td>
     </tr>
   );
@@ -207,96 +225,90 @@ function WatchlistRow({
 
 function SymbolCell({ row }: { row: DashboardRow }) {
   const href = tradingViewUrl(row);
-  const driverLine = row.primary_driver?.label || row.side || '-';
+  const flagged = row.data_quality_flags.length > 0 || row.is_trusted === false;
   return (
-    <td className="watch-cell left watch-symbol" data-label="Symbol">
-      {href !== '#' ? (
-        <a
-          className="symbol-link"
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Open ${row.symbol} on TradingView`}
-        >
-          {row.symbol || '-'}
-        </a>
-      ) : (
-        row.symbol || '-'
-      )}
-      <span className="driver-line">{driverLine}</span>
+    <td className="watch-cell left watch-symbol" data-label="Coin">
+      <span className="inline-flex items-center gap-1.5">
+        {href !== '#' ? (
+          <a
+            className="symbol-link"
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Open ${row.symbol} on TradingView`}
+          >
+            {row.symbol || '-'}
+          </a>
+        ) : (
+          <span className="symbol-link">{row.symbol || '-'}</span>
+        )}
+        {flagged ? <QualityWarningMark row={row} /> : null}
+      </span>
     </td>
+  );
+}
+
+function QualityWarningMark({ row }: { row: DashboardRow }) {
+  const flags = row.data_quality_flags;
+  const title = flags.length
+    ? flags
+        .map((flag) => {
+          const entry = lookupQualityFlag(flag);
+          return entry.detail ? `${entry.label}: ${entry.detail}` : entry.label;
+        })
+        .join('; ')
+    : "This row didn't pass data-quality checks.";
+  return (
+    <span className="pos-dot warn" title={title}>
+      ⚠
+    </span>
   );
 }
 
 function SetupCell({ row }: { row: DashboardRow }) {
-  const conflictMeta = setupConflictMeta(row);
+  const side = sideMeta(row.side);
+  const setup = lookupSetup(row.setup);
   return (
     <td className="watch-cell left watch-setup" data-label="Setup">
-      <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>
-        {row.setup || 'Watchlist'}
-      </span>
-      {conflictMeta ? <span className="driver-line">{conflictMeta}</span> : null}
+      <span className={`setup-badge ${side.tone}`}>{side.label}</span>
+      <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
     </td>
   );
 }
 
-function ScoreCell({ row, maxScore }: { row: DashboardRow; maxScore: number }) {
-  const score = numeric(row.score);
-  const width =
-    maxScore > 0 && score !== null ? Math.round(Math.min(Math.abs(score) / maxScore, 1) * 100) : 0;
-  const confidence = row.confidence_score == null ? '' : ` / C ${fmtNum(row.confidence_score, 0)}`;
+function RankCell({ row, maxPriority }: { row: DashboardRow; maxPriority: number }) {
+  const width = maxPriority > 0 ? Math.round(Math.min(row.priority / maxPriority, 1) * 100) : 0;
   return (
-    <td className="watch-cell" data-label="Score">
-      <span className="score-val">{fmtNum(row.score)}</span>
+    <td className="watch-cell" data-label="Rank">
+      <span className="score-val">{fmtNum(row.priority)}</span>
       <span className="score-bar">
         <span className="score-fill" style={{ width: `${width}%` }} />
       </span>
-      <div className="driver-line">
-        P {fmtNum(row.priority)}
-        {confidence}
-      </div>
     </td>
   );
 }
 
-function ConfluenceCell({ row }: { row: DashboardRow }) {
+function ConvictionCell({ row }: { row: DashboardRow }) {
   const conf = row.confluence;
-  if (!conf.families.length) {
-    return (
-      <td className="watch-cell" data-label="Conf">
-        -
-      </td>
-    );
-  }
-  const title = `${conf.aligned} align / ${conf.against} against / ${conf.neutral} neutral (${conf.direction})`;
   return (
-    <td className="watch-cell conf-cell" data-label="Conf" title={title}>
-      <span className="conf-count">
-        {conf.aligned}/{conf.total}
+    <td className="watch-cell conf-cell" data-label="Conviction">
+      <span className="score-val">
+        {row.confidence_score == null ? '-' : fmtNum(row.confidence_score, 0)}
       </span>
-      <span className="conf-bar">
-        {conf.families.map((family) => (
+      {conf.families.length > 0 ? (
+        <>
+          <span className="driver-line">
+            {conf.aligned}/{conf.total} agree
+          </span>
           <span
-            key={family.key}
-            className={`conf-seg ${confluenceToneClass(family.tone)}`}
-            title={`${family.label}${family.value == null ? '' : `: ${family.value}`}`}
-          />
-        ))}
-      </span>
-    </td>
-  );
-}
-
-function PositioningCell({ row }: { row: DashboardRow }) {
-  const divergence = positioningDivergence(row);
-  const value = row.positioning_ratio == null ? '-' : fmtNum(row.positioning_ratio);
-  return (
-    <td className="watch-cell" data-label="L/S" title={divergence?.title}>
-      {value}
-      {divergence?.mark ? (
-        <span className={`pos-dot ${divergence.tone}`} title={divergence.title}>
-          {divergence.mark}
-        </span>
+            className="conf-bar"
+            title={`${conf.aligned} align / ${conf.against} against / ${conf.neutral} neutral (${conf.direction})`}
+          >
+            {conf.families.map((family) => (
+              <span key={family.key} className={`conf-seg ${confluenceToneClass(family.tone)}`} />
+            ))}
+          </span>
+        </>
       ) : null}
     </td>
   );

@@ -16,31 +16,25 @@ Most daily crypto screening is noisy because it mixes three different questions:
 
 This screener keeps those questions separate. It ranks symbols into watchlists, explains the factor drivers, flags bad provider rows, and shows when the model direction conflicts with trend, derivatives, breadth, or regime. The goal is not to predict trades automatically. The goal is to compress the market into a small set of symbols worth reviewing by hand.
 
-The intended workflow is:
+The dashboard is a top-down read. You do not pick a tab and start hunting; you scroll, and the page narrows the market for you:
 
-1. Open the dashboard or latest report.
-2. Start with `Top Setups`.
-3. Check long, short, crowded-long fade, and short-squeeze tabs.
-4. Inspect factor reasons, data quality, and signal conflicts.
-5. Confirm the setup manually on a chart before doing anything.
+1. **The market** — a plain-English verdict ("Risk-off, and it's broad."), the regime and bias, and a funnel showing the run's real counts: symbols scanned, priced, trusted, shortlisted.
+2. **Breadth and rotation** — how many coins are up vs down, and which sectors lead and lag.
+3. **The majors** — BTC, ETH, SOL. They are context, not candidates.
+4. **Screened coins** — what actually cleared the screen, split into what's worth trading and what's a crowding risk. Click a row for the drivers, the chart read, and the conflicts.
+
+Then confirm the setup on a chart before doing anything.
+
+Quant terms are not printed on the page. Every jargon term (confidence, open interest, funding, crowding, rank) sits behind an ⓘ that gives the plain-English definition and names the underlying field. The model's own diagnostics — factor weights, IC, t-stats, collinearity, calibration, provider health — live on a separate `/model` page, because that is how you check the model is sane, not how you read a market.
 
 ## What It Produces
 
 - A SQLite database at `data/crypto_screener.sqlite3` by default.
 - Optional Markdown, JSON, and CSV reports under `reports/`.
-- A local or Railway-hosted dashboard.
+- A local or Railway-hosted dashboard (`/`) and model-health page (`/model`).
 - Compact factor history for rolling validation and sparklines.
 
-Core dashboard/report sections:
-
-- Market Bias
-- Factor Regime
-- Dominance And Sector Rotation
-- BTC / ETH / SOL Core Read
-- Top Long Watchlist
-- Top Short Watchlist
-- Crowded Longs To Fade
-- Crowded Shorts / Squeeze Risk
+The screener ranks symbols into watchlists, explains the factor drivers, flags bad provider rows, and shows when the model direction conflicts with trend, derivatives, breadth, or regime.
 
 ## How The Screener Works
 

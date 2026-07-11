@@ -26,12 +26,12 @@ export function ReloadButton() {
   };
 
   return (
-    <span className="inline-flex flex-col items-end gap-1 max-[680px]:w-full">
+    <span className="inline-flex flex-col items-end gap-1">
       <button
         type="button"
         onClick={handleClick}
         disabled={isPending}
-        className="h-9 border border-line bg-panel text-ink rounded-md px-2.5 text-[13px] cursor-pointer font-semibold max-[680px]:w-full disabled:cursor-wait disabled:opacity-60"
+        className="h-9 border border-line bg-panel text-ink rounded-md px-2.5 text-[13px] cursor-pointer font-semibold disabled:cursor-wait disabled:opacity-60"
       >
         {isPending ? 'Reloading…' : 'Reload'}
       </button>

@@ -37,6 +37,23 @@ export function fmtUsd(value: unknown): string {
   return `$${n.toFixed(2)}`;
 }
 
+/** "1st", "2nd", "3rd", "11th", "21st". The teens are the trap: 11/12/13 take "th", not st/nd/rd. */
+export function ordinal(value: number): string {
+  const n = Math.round(value);
+  const mod100 = Math.abs(n) % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (Math.abs(n) % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 export function clsFor(value: unknown): string {
   const n = Number(value || 0);
   if (n > 0) return 'text-up';

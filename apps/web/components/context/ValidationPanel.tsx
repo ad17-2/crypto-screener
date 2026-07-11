@@ -32,6 +32,10 @@ export function ValidationPanel({ validation }: ValidationPanelProps) {
 
   return (
     <Panel title="Validation" meta={meta} accent="blue">
+      <p className="px-3 pt-2.5 text-muted text-xs leading-snug">
+        How well recent calls actually did: model hit rate, the best- and worst-performing factors,
+        and the current mix of signal-conflict buckets.
+      </p>
       {!hasData ? (
         <div className="py-7 px-3 text-muted text-center">No validation data</div>
       ) : (

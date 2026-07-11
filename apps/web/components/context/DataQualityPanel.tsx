@@ -12,6 +12,10 @@ export function DataQualityPanel({ quality }: DataQualityPanelProps) {
 
   return (
     <Panel title="Data Quality" meta={`${quality.excluded_count} excluded`} accent="blue">
+      <p className="px-3 pt-2.5 text-muted text-xs leading-snug">
+        Rows this run excluded or flagged for failing sanity checks, with the 24h price/OI moves
+        that triggered the flag.
+      </p>
       <div className="quality-flags p-3 grid gap-2.5">
         {flags.length === 0 ? (
           <div className="quality-card grid gap-1.5 p-2 rounded-md">
