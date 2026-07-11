@@ -32,6 +32,13 @@ export interface LabeledFactorRecord {
   generated_at: string;
   forward_return_pct: number;
   factors: Record<string, unknown>;
+  /**
+   * The blended output (`factor_score` et al.) this row was scored with. Carried alongside `factors`
+   * so validationMetrics() can score the ENSEMBLE against realised returns, not just the individual
+   * factors -- the blend is what the product actually ranks on. Empty when the source row has no
+   * persisted scores (the parity fixture's history, for one).
+   */
+  scores: Record<string, unknown>;
 }
 
 export interface LabeledFactorRecordWithRegime extends LabeledFactorRecord {

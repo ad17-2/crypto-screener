@@ -128,6 +128,23 @@ interface LabelingItem {
   symbol: string;
   price_usd: number;
   factors: Record<string, unknown>;
+  scores: Record<string, unknown>;
+}
+
+/** `scores_json` is NOT NULL in schema.ts, but the market_rows fallback and older rows can still be
+ *  empty text -- degrade to {} rather than throwing mid-load. */
+function parseJsonObject(text: string | null): Record<string, unknown> {
+  if (!text) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 /** Rows grouped by symbol, keeping only positive prices; falls back to market_rows if factor_history has none yet. */
@@ -160,6 +177,7 @@ function labelingRowsBySymbol(
       symbol: row.symbol,
       price_usd: price,
       factors: JSON.parse(row.factors_json) as Record<string, unknown>,
+      scores: parseJsonObject(row.scores_json),
     };
     const existing = bySymbol.get(item.symbol);
     if (existing) {
@@ -219,6 +237,7 @@ function labeledRecordsForHorizon(
         generated_at: current.generatedAt,
         forward_return_pct: forwardReturnPct,
         factors: current.factors,
+        scores: current.scores,
       });
     }
   }
