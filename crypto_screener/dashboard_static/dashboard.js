@@ -697,7 +697,11 @@
         "blue"
       );
       const mw = data.model_weights || {};
-      const mwSub = `${mw.mode || "prior"} · ${mw.regime?.label || data.regime?.label || "mixed"}`;
+      const regimeAdj = mw.regime || {};
+      const regimeIcCount = (regimeAdj.factors_using_regime_ic || []).length;
+      const factorCount = (mw.factors || []).length;
+      const pooledCount = Math.max(0, factorCount - regimeIcCount);
+      const mwSub = `${mw.mode || "prior"} · ${regimeAdj.label || data.regime?.label || "mixed"} · ${regimeIcCount} regime-IC / ${pooledCount} pooled`;
       $("weightsPanel").innerHTML = modulePanel("Factor Weights", mwSub, weightsBlock(mw), "gold");
       $("sectorPanel").innerHTML = modulePanel(
         "Sector Rotation",
@@ -776,9 +780,10 @@
       return `<div class="list p-3 grid gap-2">${factors.map((f) => {
         const width = Math.round((Math.abs(Number(f.weight || 0)) / maxAbs) * 100);
         const tone = f.weight > 0 ? "pos" : f.weight < 0 ? "neg" : "neutral";
+        const regimeMarker = f.regime_mode === "regime-ic" ? ` · R:IC ${fmtNum(f.regime_ic, 2)}` : "";
         const driver = f.mode === "ic"
-          ? `<span class="driver-line">IC ${fmtNum(f.ic, 2)} · t ${fmtNum(f.t_stat, 1)} · k ${fmtNum(f.credibility_k, 2)} · ${esc(f.n_periods)}p${f.regime_multiplier != null && Math.abs(f.regime_multiplier - 1) >= 0.01 ? ` · x${fmtNum(f.regime_multiplier, 2)}` : ""}</span>`
-          : "";
+          ? `<span class="driver-line">IC ${fmtNum(f.ic, 2)} · t ${fmtNum(f.t_stat, 1)} · k ${fmtNum(f.credibility_k, 2)} · ${esc(f.n_periods)}p${regimeMarker}${f.regime_multiplier != null && Math.abs(f.regime_multiplier - 1) >= 0.01 ? ` · x${fmtNum(f.regime_multiplier, 2)}` : ""}</span>`
+          : (f.regime_mode === "regime-ic" ? `<span class="driver-line">R:IC ${fmtNum(f.regime_ic, 2)}</span>` : "");
         const decay = decayByFactor[f.name] || {};
         const decayLine = `<div class="decay-row flex items-center gap-1.5 flex-wrap">${factorDecaySparkline(decay.curve)}${factorDecayHoldsTag(decay)}${factorRobustnessBadge(f)}</div>`;
         return `<div class="weight-row grid grid-cols-[minmax(90px,1fr)_minmax(0,1.2fr)_auto] gap-2 items-center text-xs">

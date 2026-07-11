@@ -215,7 +215,10 @@ class FactorDecayTests(unittest.TestCase):
 
             default_records = load_labeled_factor_records(config)
             by_horizon = load_labeled_records_by_horizon(config, [24.0])
-            self.assertEqual(by_horizon[24.0], default_records)
+            default_without_regime = [
+                {key: value for key, value in record.items() if key != "regime"} for record in default_records
+            ]
+            self.assertEqual(by_horizon[24.0], default_without_regime)
 
 
 if __name__ == "__main__":

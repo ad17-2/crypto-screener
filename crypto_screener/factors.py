@@ -29,7 +29,11 @@ def score_snapshot(
     base_weights = factor_weights(history_records, config)
     prior_state = (prior_market_state or {}).get("regime_state")
     base_regime = infer_regime(base_weights, trusted_rows, enriched_context, prior_state, config)
-    weights = apply_regime_weighting(base_weights, base_regime, config)
+    weights = factor_weights(
+        history_records,
+        config,
+        current_regime=base_regime.get("regime_state"),
+    )
     regime = infer_regime(weights, trusted_rows, enriched_context, prior_state, config)
 
     for row, raw, factors in zip(trusted_rows, raw_factors, normalized, strict=True):
@@ -241,7 +245,11 @@ def walk_forward(history_records: list[dict[str, Any]], config: dict[str, Any]) 
     }
 
 
-def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
+def factor_weights(
+    history_records: list[dict[str, Any]],
+    config: dict[str, Any],
+    current_regime: str | None = None,
+) -> dict[str, Any]:
     factor_cfg = config.get("factors", {})
     priors = factor_cfg.get("priors", DEFAULT_PRIORS)
     max_abs_weight = float(factor_cfg.get("max_abs_weight", 0.35))
@@ -250,12 +258,14 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
     min_abs_t = float(factor_cfg.get("min_abs_t", 2.0))
     ic_prior_strength = float(factor_cfg.get("ic_prior_strength", 10))
     ic_min_cross_section = int(factor_cfg.get("ic_min_cross_section", 5))
+    regime_conditional_prior_strength = float(factor_cfg.get("regime_conditional_prior_strength", 12.0))
+    regime_min_periods = int(factor_cfg.get("regime_min_periods", 8))
     walk_forward_gating = bool(factor_cfg.get("walk_forward_gating", False))
     overfit_penalty = float(factor_cfg.get("walk_forward_overfit_penalty", 0.0))
     wf = walk_forward(history_records, config)
 
+    pooled_raw: dict[str, float] = {}
     factor_stats: dict[str, dict[str, Any]] = {}
-    raw_weights: dict[str, float] = {}
 
     for factor in DIRECTIONAL_FACTORS:
         cs_ic = _cross_sectional_ic(history_records, factor, ic_min_cross_section)
@@ -276,12 +286,13 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
         if walk_forward_gating and wf["factors"].get(factor, {}).get("verdict") == "overfit":
             k_effective *= overfit_penalty
         if use_observed and mean_ic is not None and k_effective > 0:
-            raw = (1.0 - k_effective) * prior_signed + k_effective * clamp(mean_ic, -max_abs_weight, max_abs_weight)
+            pooled_raw[factor] = (1.0 - k_effective) * prior_signed + k_effective * clamp(
+                mean_ic, -max_abs_weight, max_abs_weight
+            )
             mode = "ic"
         else:
-            raw = prior_signed
+            pooled_raw[factor] = prior_signed
             mode = "prior"
-        raw_weights[factor] = raw
         wf_factor = wf["factors"].get(factor, {})
         factor_stats[factor] = {
             "ic": mean_ic,
@@ -290,21 +301,93 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
             "t_stat": t_stat,
             "credibility_k": k_effective,
             "mode": mode,
-            "raw_weight": raw,
+            "raw_weight": pooled_raw[factor],
             "robustness": wf_factor.get("verdict"),
             "oos_ic": wf_factor.get("oos_ic"),
         }
 
-    abs_total = sum(abs(value) for value in raw_weights.values()) or 1.0
-    normalized = {factor: raw_weights[factor] / abs_total for factor in DIRECTIONAL_FACTORS}
-    for factor, value in normalized.items():
-        factor_stats[factor]["weight"] = value
+    pooled_abs_total = sum(abs(value) for value in pooled_raw.values()) or 1.0
+    base_directional = {factor: pooled_raw[factor] / pooled_abs_total for factor in DIRECTIONAL_FACTORS}
+
+    final_raw: dict[str, float] = {}
+    factors_using_regime_ic: list[str] = []
+    regime_n_by_factor: dict[str, int] = {}
+
+    for factor in DIRECTIONAL_FACTORS:
+        k_regime = 0.0
+        regime_mean_ic = None
+        regime_t_stat = None
+        regime_n_periods = 0
+        regime_mode = "pooled"
+
+        if current_regime is not None:
+            regime_records = [record for record in history_records if record.get("regime") == current_regime]
+            regime_ic = _cross_sectional_ic(regime_records, factor, ic_min_cross_section)
+            regime_mean_ic = regime_ic["mean_ic"]
+            regime_t_stat = regime_ic["t_stat"]
+            regime_n_periods = regime_ic["n_periods"]
+            regime_n_by_factor[factor] = regime_n_periods
+            use_regime = (
+                regime_n_periods >= regime_min_periods
+                and regime_t_stat is not None
+                and abs(regime_t_stat) >= min_abs_t
+                and regime_mean_ic is not None
+                and abs(regime_mean_ic) >= min_abs_ic
+            )
+            if use_regime:
+                k_regime = regime_n_periods / (regime_n_periods + regime_conditional_prior_strength)
+                regime_mode = "regime-ic"
+                factors_using_regime_ic.append(factor)
+            final_raw[factor] = (1.0 - k_regime) * pooled_raw[factor] + k_regime * clamp(
+                regime_mean_ic or 0.0,
+                -max_abs_weight,
+                max_abs_weight,
+            )
+        else:
+            final_raw[factor] = pooled_raw[factor]
+
+        factor_stats[factor].update(
+            {
+                "regime_ic": regime_mean_ic,
+                "regime_t_stat": regime_t_stat,
+                "regime_n_periods": regime_n_periods,
+                "regime_k": k_regime,
+                "regime_mode": regime_mode,
+                "base_weight": base_directional[factor],
+            }
+        )
+
+    final_abs_total = sum(abs(value) for value in final_raw.values()) or 1.0
+    directional = {factor: final_raw[factor] / final_abs_total for factor in DIRECTIONAL_FACTORS}
+
+    for factor, weight in directional.items():
+        base_weight = factor_stats[factor]["base_weight"]
+        factor_stats[factor]["weight"] = weight
+        factor_stats[factor]["raw_weight"] = final_raw[factor]
+        if base_weight not in (0, None):
+            factor_stats[factor]["regime_multiplier"] = round(weight / base_weight, 3)
+        else:
+            factor_stats[factor]["regime_multiplier"] = 1.0
 
     return {
-        "directional": normalized,
+        "directional": directional,
+        "base_directional": base_directional,
         "stats": factor_stats,
         "history_records": len(history_records),
         "mode": "ic" if any(item["mode"] == "ic" for item in factor_stats.values()) else "prior",
+        "regime_adjusted": current_regime is not None,
+        "regime_adjustment": {
+            "label": current_regime or "pooled",
+            "method": "regime-conditional-ic",
+            "factors_using_regime_ic": factors_using_regime_ic,
+            "regime_n_periods": regime_n_by_factor,
+        },
+        "regime_conditional": {
+            "current_regime": current_regime,
+            "prior_strength": regime_conditional_prior_strength,
+            "min_periods": regime_min_periods,
+            "factors_using_regime_ic": factors_using_regime_ic,
+        },
         "validation": validation_metrics(history_records, config),
         "walk_forward": wf,
     }
@@ -425,48 +508,6 @@ def validation_metrics(history_records: list[dict[str, Any]], config: dict[str, 
     }
 
 
-def apply_regime_weighting(
-    weights: dict[str, Any],
-    regime: dict[str, Any],
-    config: dict[str, Any],
-) -> dict[str, Any]:
-    regime_cfg = config.get("factors", {}).get("regime_weighting", {})
-    if regime_cfg.get("enabled", True) is False:
-        return weights
-
-    directional = weights.get("directional", {})
-    multipliers = _regime_multipliers(regime, config)
-    max_multiplier = float(regime_cfg.get("max_factor_multiplier", 1.35))
-    adjusted_raw = {
-        factor: float(directional.get(factor, 0.0)) * min(max(multipliers.get(factor, 1.0), 0.35), max_multiplier)
-        for factor in DIRECTIONAL_FACTORS
-    }
-    abs_total = sum(abs(value) for value in adjusted_raw.values()) or 1.0
-    adjusted = {factor: adjusted_raw[factor] / abs_total for factor in DIRECTIONAL_FACTORS}
-    result = {
-        **weights,
-        "base_directional": dict(directional),
-        "directional": adjusted,
-        "regime_adjusted": True,
-        "regime_adjustment": {
-            "label": regime.get("label", "neutral"),
-            "bias": regime.get("bias", "mixed"),
-            "breadth_label": regime.get("breadth_label", "unknown"),
-            "multipliers": {factor: round(multipliers.get(factor, 1.0), 3) for factor in DIRECTIONAL_FACTORS},
-        },
-    }
-    result["stats"] = {
-        factor: {
-            **details,
-            "base_weight": directional.get(factor, 0.0),
-            "weight": adjusted.get(factor, 0.0),
-            "regime_multiplier": round(multipliers.get(factor, 1.0), 3),
-        }
-        for factor, details in weights.get("stats", {}).items()
-    }
-    return result
-
-
 def _directional_validation(pairs: Sequence[tuple[float | None, float | None]]) -> dict[str, Any]:
     valid = [
         (signal, forward) for signal, forward in pairs if signal is not None and forward is not None and signal != 0
@@ -497,55 +538,6 @@ def _hit_rate(pairs: list[tuple[float, float]], expected_direction: float) -> fl
         return None
     hits = sum(1 for _, forward in pairs if forward * expected_direction > 0)
     return round((hits / len(pairs)) * 100.0, 2)
-
-
-def _regime_multipliers(regime: dict[str, Any], config: dict[str, Any] | None = None) -> dict[str, float]:
-    multipliers = {factor: 1.0 for factor in DIRECTIONAL_FACTORS}
-    label = str(regime.get("label") or "neutral")
-    bias = str(regime.get("bias") or "mixed")
-    breadth_score = to_float(regime.get("breadth_score"), 0.0) or 0.0
-    regime_cfg = (config or {}).get("factors", {}).get("regime", {})
-
-    # Placeholder state nudges until Phase 5 makes weighting data-driven.
-    if label == "btc-led":
-        _multiply(
-            multipliers,
-            ["momentum_24h", "technical_trend_4h"],
-            float(regime_cfg.get("nudge_btc_led", 1.12)),
-        )
-    elif label == "alts-strong":
-        _multiply(
-            multipliers,
-            ["momentum_24h", "oi_price_signal", "taker_flow_24h"],
-            float(regime_cfg.get("nudge_alts_strong", 1.10)),
-        )
-    elif label == "chaos":
-        _multiply(
-            multipliers,
-            ["momentum_24h", "technical_trend_4h", "reversal_3d"],
-            float(regime_cfg.get("nudge_chaos_trend", 0.88)),
-        )
-        _multiply(
-            multipliers,
-            ["funding_rate_contrarian", "ls_ratio_contrarian", "liquidation_imbalance"],
-            float(regime_cfg.get("nudge_chaos_contrarian", 1.12)),
-        )
-
-    if bias == "risk-on":
-        _multiply(multipliers, ["momentum_24h", "oi_price_signal", "technical_trend_4h"], 1.08)
-        _multiply(multipliers, ["reversal_3d"], 0.92)
-    elif bias == "risk-off":
-        _multiply(multipliers, ["momentum_24h", "oi_price_signal", "technical_trend_4h", "taker_flow_24h"], 1.08)
-
-    if abs(breadth_score) >= 0.35:
-        _multiply(multipliers, ["momentum_24h", "oi_price_signal", "technical_trend_4h"], 1.06)
-    return multipliers
-
-
-def _multiply(multipliers: dict[str, float], factors: list[str], value: float) -> None:
-    for factor in factors:
-        if factor in multipliers:
-            multipliers[factor] *= value
 
 
 def infer_regime(

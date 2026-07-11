@@ -366,6 +366,8 @@ def _model_weights_summary(factor_weights: dict[str, Any]) -> dict[str, Any]:
                 "regime_multiplier": to_float(details.get("regime_multiplier")),
                 "robustness": details.get("robustness"),
                 "oos_ic": to_float(details.get("oos_ic")),
+                "regime_ic": to_float(details.get("regime_ic")),
+                "regime_mode": details.get("regime_mode"),
             }
         )
     factors.sort(key=lambda item: abs(item.get("weight") or 0), reverse=True)

@@ -228,11 +228,34 @@ def prune_old_runs(db_path: Path, keep: int) -> dict[str, int]:
         conn.close()
 
 
+def load_regime_states(config: dict[str, Any]) -> dict[str, str]:
+    db_path = Path(config.get("storage_path", "data/crypto_screener.sqlite3"))
+    if not db_path.exists():
+        return {}
+
+    conn = connect(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT generated_at, regime_state
+            FROM market_regime_history
+            WHERE regime_state IS NOT NULL
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+    return {row["generated_at"]: row["regime_state"] for row in rows}
+
+
 def load_labeled_factor_records(config: dict[str, Any]) -> list[dict[str, Any]]:
     factor_cfg = config.get("factors", {})
     horizon_hours = float(factor_cfg.get("forward_return_hours", 24))
     by_symbol = _labeling_rows_by_symbol(config)
-    return _labeled_records_for_horizon(by_symbol, horizon_hours)
+    records = _labeled_records_for_horizon(by_symbol, horizon_hours)
+    regime_map = load_regime_states(config)
+    for record in records:
+        record["regime"] = regime_map.get(record["generated_at"])
+    return records
 
 
 def load_labeled_records_by_horizon(

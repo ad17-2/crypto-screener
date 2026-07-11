@@ -131,6 +131,8 @@ class FactorsConfig(StrictModel):
     walk_forward_robust_min_ic: float = 0.02
     walk_forward_overfit_penalty: float = 0.0
     walk_forward_gating: bool = False
+    regime_conditional_prior_strength: float = 12.0
+    regime_min_periods: int = 8
     regime_weighting: RegimeWeightingConfig = Field(default_factory=RegimeWeightingConfig)
     regime: RegimeConfig = Field(default_factory=RegimeConfig)
     priors: dict[str, float] = Field(default_factory=dict)
