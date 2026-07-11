@@ -78,7 +78,9 @@ export function WatchlistPanel({
             key={list.id}
             type="button"
             onClick={() => onTabChange(list.id)}
-            className={`tab-btn h-[30px] rounded-full px-3 border border-line bg-panel-2 text-muted text-xs font-semibold cursor-pointer${list.id === activeTab ? ' active' : ''}`}
+            className={`tab-btn h-[30px] rounded-full px-3 border text-xs font-semibold cursor-pointer${
+              list.id === activeTab ? ' active' : ' border-line bg-panel-2 text-muted'
+            }`}
           >
             {list.label}
           </button>

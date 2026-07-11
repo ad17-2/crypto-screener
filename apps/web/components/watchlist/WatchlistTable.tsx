@@ -65,7 +65,7 @@ export function WatchlistTable({
       data-density={density}
     >
       <thead className="block">
-        <tr className="watch-head">
+        <tr className="watch-head sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-muted text-[11px] font-bold tracking-wide uppercase text-right">
           {COLUMNS.map((column) => (
             <HeaderCell
               key={column.key}
