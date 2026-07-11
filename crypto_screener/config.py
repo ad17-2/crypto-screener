@@ -125,6 +125,12 @@ class FactorsConfig(StrictModel):
     min_abs_t: float = 2.0
     ic_prior_strength: int = 10
     ic_min_cross_section: int = 5
+    walk_forward_train_fraction: float = 0.6
+    walk_forward_min_train_periods: int = 15
+    walk_forward_min_oos_periods: int = 10
+    walk_forward_robust_min_ic: float = 0.02
+    walk_forward_overfit_penalty: float = 0.0
+    walk_forward_gating: bool = False
     regime_weighting: RegimeWeightingConfig = Field(default_factory=RegimeWeightingConfig)
     regime: RegimeConfig = Field(default_factory=RegimeConfig)
     priors: dict[str, float] = Field(default_factory=dict)

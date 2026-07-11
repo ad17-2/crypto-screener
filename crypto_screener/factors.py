@@ -175,6 +175,72 @@ def _cross_sectional_ic(records: list[dict[str, Any]], factor: str, min_cross_se
     }
 
 
+def _sign_value(value: float) -> int:
+    return (value > 0) - (value < 0)
+
+
+def walk_forward(history_records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
+    factor_cfg = config.get("factors", {})
+    train_fraction = float(factor_cfg.get("walk_forward_train_fraction", 0.6))
+    min_train_periods = int(factor_cfg.get("walk_forward_min_train_periods", 15))
+    min_oos_periods = int(factor_cfg.get("walk_forward_min_oos_periods", 10))
+    robust_min_ic = float(factor_cfg.get("walk_forward_robust_min_ic", 0.02))
+    ic_min_cross_section = int(factor_cfg.get("ic_min_cross_section", 5))
+    ic_min_periods = int(factor_cfg.get("ic_min_periods", 10))
+    min_abs_t = float(factor_cfg.get("min_abs_t", 2.0))
+    min_abs_ic = float(factor_cfg.get("min_abs_ic", 0.02))
+
+    timestamps = sorted(
+        {str(generated_at) for record in history_records if (generated_at := record.get("generated_at")) is not None}
+    )
+    n_ts = len(timestamps)
+    split_index = max(min_train_periods, math.floor(train_fraction * n_ts))
+    train_timestamps = set(timestamps[:split_index])
+    test_timestamps = set(timestamps[split_index:])
+
+    train_records = [record for record in history_records if record.get("generated_at") in train_timestamps]
+    test_records = [record for record in history_records if record.get("generated_at") in test_timestamps]
+
+    factors_result: dict[str, Any] = {}
+    for factor in DIRECTIONAL_FACTORS:
+        is_ic = _cross_sectional_ic(train_records, factor, ic_min_cross_section)
+        oos_ic = _cross_sectional_ic(test_records, factor, ic_min_cross_section)
+        is_mean = is_ic["mean_ic"]
+        oos_mean = oos_ic["mean_ic"]
+        is_t = is_ic["t_stat"]
+
+        if is_ic["n_periods"] < ic_min_periods or oos_ic["n_periods"] < min_oos_periods:
+            verdict = "insufficient-data"
+        elif is_t is not None and abs(is_t) >= min_abs_t and is_mean is not None and abs(is_mean) >= min_abs_ic:
+            if (
+                oos_mean is not None
+                and _sign_value(oos_mean) == _sign_value(is_mean)
+                and abs(oos_mean) >= robust_min_ic
+            ):
+                verdict = "robust"
+            else:
+                verdict = "overfit"
+        else:
+            verdict = "insufficient-data"
+
+        factors_result[factor] = {
+            "verdict": verdict,
+            "is_ic": round(is_mean, 4) if is_mean is not None else None,
+            "is_t_stat": round(is_t, 3) if is_t is not None else None,
+            "is_n_periods": is_ic["n_periods"],
+            "oos_ic": round(oos_mean, 4) if oos_mean is not None else None,
+            "oos_t_stat": round(oos_ic["t_stat"], 3) if oos_ic["t_stat"] is not None else None,
+            "oos_n_periods": oos_ic["n_periods"],
+        }
+
+    return {
+        "split_index": split_index,
+        "n_timestamps": n_ts,
+        "train_periods": split_index,
+        "factors": factors_result,
+    }
+
+
 def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]) -> dict[str, Any]:
     factor_cfg = config.get("factors", {})
     priors = factor_cfg.get("priors", DEFAULT_PRIORS)
@@ -184,6 +250,9 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
     min_abs_t = float(factor_cfg.get("min_abs_t", 2.0))
     ic_prior_strength = float(factor_cfg.get("ic_prior_strength", 10))
     ic_min_cross_section = int(factor_cfg.get("ic_min_cross_section", 5))
+    walk_forward_gating = bool(factor_cfg.get("walk_forward_gating", False))
+    overfit_penalty = float(factor_cfg.get("walk_forward_overfit_penalty", 0.0))
+    wf = walk_forward(history_records, config)
 
     factor_stats: dict[str, dict[str, Any]] = {}
     raw_weights: dict[str, float] = {}
@@ -204,13 +273,16 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
             and abs(mean_ic) >= min_abs_ic
         )
         k_effective = k if use_observed else 0.0
-        if use_observed and mean_ic is not None:
+        if walk_forward_gating and wf["factors"].get(factor, {}).get("verdict") == "overfit":
+            k_effective *= overfit_penalty
+        if use_observed and mean_ic is not None and k_effective > 0:
             raw = (1.0 - k_effective) * prior_signed + k_effective * clamp(mean_ic, -max_abs_weight, max_abs_weight)
             mode = "ic"
         else:
             raw = prior_signed
             mode = "prior"
         raw_weights[factor] = raw
+        wf_factor = wf["factors"].get(factor, {})
         factor_stats[factor] = {
             "ic": mean_ic,
             "observations": observations,
@@ -219,6 +291,8 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
             "credibility_k": k_effective,
             "mode": mode,
             "raw_weight": raw,
+            "robustness": wf_factor.get("verdict"),
+            "oos_ic": wf_factor.get("oos_ic"),
         }
 
     abs_total = sum(abs(value) for value in raw_weights.values()) or 1.0
@@ -232,6 +306,7 @@ def factor_weights(history_records: list[dict[str, Any]], config: dict[str, Any]
         "history_records": len(history_records),
         "mode": "ic" if any(item["mode"] == "ic" for item in factor_stats.values()) else "prior",
         "validation": validation_metrics(history_records, config),
+        "walk_forward": wf,
     }
 
 

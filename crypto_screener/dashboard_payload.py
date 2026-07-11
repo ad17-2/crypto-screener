@@ -84,6 +84,7 @@ def build_dashboard_payload(db_path: Path, run_id: str | None = None, limit: int
         "model_weights": _model_weights_summary(factor_weights),
         "factor_correlations": factor_weights.get("factor_correlations", []),
         "factor_decay": factor_weights.get("factor_decay", {}) or {},
+        "walk_forward": factor_weights.get("walk_forward", {}) or {},
         "validation": _validation_summary(factor_weights.get("validation", {}), rows, sections),
         "freshness": freshness,
         "quality": _quality_summary(rows),
@@ -363,6 +364,8 @@ def _model_weights_summary(factor_weights: dict[str, Any]) -> dict[str, Any]:
                 "n_periods": int(to_float(details.get("n_periods"), 0) or 0),
                 "credibility_k": to_float(details.get("credibility_k")),
                 "regime_multiplier": to_float(details.get("regime_multiplier")),
+                "robustness": details.get("robustness"),
+                "oos_ic": to_float(details.get("oos_ic")),
             }
         )
     factors.sort(key=lambda item: abs(item.get("weight") or 0), reverse=True)
@@ -372,6 +375,7 @@ def _model_weights_summary(factor_weights: dict[str, Any]) -> dict[str, Any]:
         "factors": factors,
         "factor_correlations": factor_weights.get("factor_correlations", []) or [],
         "factor_decay": factor_weights.get("factor_decay", {}) or {},
+        "walk_forward": factor_weights.get("walk_forward", {}) or {},
     }
 
 

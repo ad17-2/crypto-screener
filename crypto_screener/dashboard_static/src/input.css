@@ -426,6 +426,7 @@
     .decay-bar.neg { background: var(--down); }
     .decay-bar.hollow { background: transparent; border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent); }
     .status-pill.decay-holds { height: 20px; font-size: 10px; padding: 0 6px; }
+    .status-pill.robustness-badge { height: 20px; font-size: 10px; padding: 0 6px; text-transform: lowercase; }
     .pos-dot {
       display: inline-block;
       font-size: 10px;

@@ -753,6 +753,20 @@
       if (decay.holds_hours == null) return `<span class="status-pill decay-holds">persistent</span>`;
       return `<span class="status-pill decay-holds">holds ~${esc(decay.holds_hours)}h</span>`;
     }
+    function robustnessTone(verdict) {
+      if (verdict === "robust") return "";
+      if (verdict === "overfit") return "bad";
+      return "neutral";
+    }
+    function factorRobustnessBadge(factor) {
+      const verdict = factor?.robustness;
+      if (!verdict) return "";
+      const label = verdict === "insufficient-data" ? "insufficient-data" : verdict;
+      const tooltip = factor.ic != null && factor.oos_ic != null
+        ? `IS IC ${fmtNum(factor.ic, 2)} vs OOS IC ${fmtNum(factor.oos_ic, 2)}`
+        : label;
+      return `<span class="status-pill ${robustnessTone(verdict)} robustness-badge" title="${esc(tooltip)}">${esc(label)}</span>`;
+    }
     function weightsBlock(modelWeights) {
       const factors = modelWeights?.factors || [];
       if (!factors.length) return `<div class="py-7 px-3 text-muted text-center">No factor weights</div>`;
@@ -766,7 +780,7 @@
           ? `<span class="driver-line">IC ${fmtNum(f.ic, 2)} · t ${fmtNum(f.t_stat, 1)} · k ${fmtNum(f.credibility_k, 2)} · ${esc(f.n_periods)}p${f.regime_multiplier != null && Math.abs(f.regime_multiplier - 1) >= 0.01 ? ` · x${fmtNum(f.regime_multiplier, 2)}` : ""}</span>`
           : "";
         const decay = decayByFactor[f.name] || {};
-        const decayLine = `<div class="decay-row flex items-center gap-1.5 flex-wrap">${factorDecaySparkline(decay.curve)}${factorDecayHoldsTag(decay)}</div>`;
+        const decayLine = `<div class="decay-row flex items-center gap-1.5 flex-wrap">${factorDecaySparkline(decay.curve)}${factorDecayHoldsTag(decay)}${factorRobustnessBadge(f)}</div>`;
         return `<div class="weight-row grid grid-cols-[minmax(90px,1fr)_minmax(0,1.2fr)_auto] gap-2 items-center text-xs">
           <div class="weight-label grid gap-0.5 min-w-0"><strong>${esc(f.label || f.name || "-")}</strong>${driver}${decayLine}</div>
           <span class="factor-track"><span class="factor-fill ${tone}" style="width:${width}%"></span></span>

@@ -118,7 +118,13 @@
     "ic_min_periods": 10,
     "min_abs_t": 2.0,
     "ic_prior_strength": 10,
-    "ic_min_cross_section": 5
+    "ic_min_cross_section": 5,
+    "walk_forward_train_fraction": 0.6,
+    "walk_forward_min_train_periods": 15,
+    "walk_forward_min_oos_periods": 10,
+    "walk_forward_robust_min_ic": 0.02,
+    "walk_forward_overfit_penalty": 0.0,
+    "walk_forward_gating": false
   },
   "report": {
     "limit": 12,
