@@ -1,12 +1,20 @@
-# Parity fixtures
+# Golden regression fixtures
 
-This directory holds the three fixtures that back the two parity gates
-(`apps/api/tests/parity.test.ts` and `apps/api/tests/dashboardPayload.test.ts`), which are the
-proof that the TypeScript port is numerically identical to the Python original. The Python that
-generated these fixtures has since been deleted from this repo (the rewrite to this TS monorepo
-removed `crypto_screener/`, `tests/`, and `tools/parity/gen_fixture.py` entirely). That makes all
-three fixtures below **frozen**: see "Frozen -- do not touch" at the bottom before changing
-anything in this directory.
+This directory holds the three fixtures that back the two golden regression gates
+(`apps/api/tests/parity.test.ts` and `apps/api/tests/dashboardPayload.test.ts`).
+
+They started life as proof that the TypeScript port was numerically identical to the Python
+original. That job is done and closed out: Python parity was last proven green at commit
+`db7f68f` (CI run 29171479923, 263 tests), and the Python implementation that generated these
+fixtures (`crypto_screener/`, `tests/`, `tools/parity/gen_fixture.py`) has since been deleted from
+this repo entirely.
+
+From here on, these three fixtures are **golden regression baselines for the current TypeScript
+model**, not a parity oracle for a Python implementation that no longer exists. They pin the
+model's behavior so that a change to the pipeline shows up as an explicit, reviewed diff instead
+of drifting silently. That means the two halves of each fixture are now governed by different
+rules -- see "Frozen inputs" and "Regenerating `expected`" at the bottom before changing anything
+in this directory.
 
 ## parity-run.json
 
@@ -36,10 +44,39 @@ every real screener run appends a run and new `factor_history` rows, which legit
 IC weights and decay curves and would break the comparison for reasons that have nothing to do
 with the port's correctness.
 
-## Frozen -- do not touch
+## Frozen inputs -- never edit
 
-These three fixtures cannot be regenerated: the Python implementation that produced them is gone
-from this repo. Do not edit, delete, or "refresh" them. Do not weaken a test's float tolerance or
-key-set assertions to work around a fixture mismatch. If the port's behavior ever needs to
-legitimately change, that is a signal to go investigate the TypeScript port -- not to touch these
-files.
+The following are irreplaceable captured market data (or, for `parity.sqlite3`, the last surviving
+artifact of the deleted Python implementation) and must never be edited, deleted, or "refreshed",
+regardless of what the model does:
+
+- `parity-run.json`'s `_meta`, `config`, `input_rows`, `market_context`, and `factor_history`
+- `parity.sqlite3` in its entirety (`dashboardPayload.test.ts` copies it to a temp path before
+  opening -- it must never be opened read-write)
+
+Do not weaken a test's float tolerance or key-set assertions to work around a fixture mismatch
+against these inputs -- that's a sign the pipeline broke, not the fixture.
+
+## Regenerating `expected` -- via the script only, delta always reviewed
+
+`parity-run.json`'s `expected` block, and the entirety of `dashboard-payload.json` (the whole file
+_is_ the expected output), are the one part of these fixtures that's allowed to change: they MAY
+be regenerated when a fix intentionally changes the model's behavior, but ONLY through
+`apps/api/scripts/regen-golden.ts`, and ONLY with the printed diff reviewed:
+
+```
+npx tsx apps/api/scripts/regen-golden.ts parity
+npx tsx apps/api/scripts/regen-golden.ts payload
+```
+
+Both commands print every leaf that changed vs. the previous baseline (path, old value, new
+value). Read that diff before committing the regenerated fixture: every changed value must be an
+intended consequence of the fix you just made. If, say, a fix to the t-stat computation also moves
+`oi_price_signal`'s raw factor value, that's a bug in the fix, not a new baseline -- go fix the
+fix, don't regenerate around it. Never regenerate blindly, and never hand-edit `expected`/
+`dashboard-payload.json` directly.
+
+A regen with no behaviour change must reproduce the fixtures byte-for-byte -- `git diff --stat --
+apps/api/tests/fixtures/` empty. If it isn't, either your fix changed something it shouldn't have,
+or the regen tool's serialization doesn't match (see `apps/api/scripts/lib/losslessJson.ts`'s
+header comment for why that's a real risk with JS/Python-authored JSON side by side).
