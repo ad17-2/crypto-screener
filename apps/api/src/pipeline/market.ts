@@ -1,4 +1,4 @@
-import { clamp, mean, pyRound, stdev, toFloat, weightedAverage } from './scoring.js';
+import { clamp, mean, numericValues, pyRound, stdev, toFloat, weightedAverage } from './scoring.js';
 import { asArray, asRecord, type MarketContext, type Row } from './types.js';
 
 function trustedRows(rows: Row[]): Row[] {
@@ -20,9 +20,7 @@ export function marketSensingSummary(
   const btcDominanceDeltaPct =
     currentBtcDom !== null && priorBtcDom !== null ? currentBtcDom - priorBtcDom : null;
 
-  const priceChanges = trusted
-    .map((row) => toFloat(row.price_change_24h_pct))
-    .filter((value): value is number => value !== null);
+  const priceChanges = numericValues(trusted.map((row) => row.price_change_24h_pct));
   const returnDispersionPct = priceChanges.length >= 2 ? stdev(priceChanges) : null;
 
   return {
@@ -60,15 +58,9 @@ export function marketStructureSummary(
 }
 
 export function breadthSummary(rows: Row[], marketContext: MarketContext): Record<string, unknown> {
-  const priceChanges = rows
-    .map((row) => toFloat(row.price_change_24h_pct))
-    .filter((value): value is number => value !== null);
-  const oiChanges = rows
-    .map((row) => toFloat(row.oi_change_24h_pct))
-    .filter((value): value is number => value !== null);
-  const fundingValues = rows
-    .map((row) => toFloat(row.funding_rate_pct))
-    .filter((value): value is number => value !== null);
+  const priceChanges = numericValues(rows.map((row) => row.price_change_24h_pct));
+  const oiChanges = numericValues(rows.map((row) => row.oi_change_24h_pct));
+  const fundingValues = numericValues(rows.map((row) => row.funding_rate_pct));
   const weightedReturn = volumeWeightedReturn(rows);
   const categoryScore = categoryMomentumScore(marketContext);
 
@@ -179,9 +171,7 @@ function categoryMomentumScore(marketContext: MarketContext): number | null {
 }
 
 function categoryChanges(categories: unknown[]): number[] {
-  return categories
-    .map((item) => toFloat(asRecord(item).market_cap_change_24h_pct))
-    .filter((value): value is number => value !== null);
+  return numericValues(categories.map((item) => asRecord(item).market_cap_change_24h_pct));
 }
 
 function breadthLabel(score: number, advancerPct: number): string {

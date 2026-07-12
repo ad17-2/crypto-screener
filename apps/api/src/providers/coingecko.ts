@@ -1,5 +1,4 @@
-import { ProviderError } from './errors.js';
-import { buildUrl, fetchWithTimeout, sleep } from './http.js';
+import { buildUrl, fetchWithTimeout, parseJsonResponse, sleep } from './http.js';
 
 export interface CoinGeckoClient {
   globalData(): Promise<Record<string, unknown>>;
@@ -62,23 +61,14 @@ export class CoinGeckoHttpClient implements CoinGeckoClient {
         headers,
       });
 
-      if (response.status >= 400) {
-        if (!this.shouldRetry429(response.status, attempt)) {
-          throw new ProviderError(
-            `${path} returned HTTP ${response.status}: ${response.text.slice(0, 500)}`,
-          );
-        }
+      if (response.status >= 400 && this.shouldRetry429(response.status, attempt)) {
         attempt += 1;
         await sleep(this.retry429Delay(response.headers, delay));
         delay = Math.min(Math.max(delay * 2, 1.0), this.retry429MaxDelaySeconds);
         continue;
       }
 
-      try {
-        return JSON.parse(response.text);
-      } catch {
-        throw new ProviderError(`${path} returned invalid JSON`);
-      }
+      return parseJsonResponse(path, response);
     }
   }
 

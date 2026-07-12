@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { sqlPlaceholders } from './client.js';
 import { historyMetrics, prepareFactorHistoryInsert } from './factorHistory.js';
 import { stableStringify } from './json.js';
 import { recordRegimeHistory } from './regimeHistory.js';
@@ -82,7 +83,7 @@ export function pruneOldRuns(db: Database.Database, keep: number): PruneResult {
       return { kept_runs: keepRunIds.length, deleted_runs: 0, deleted_rows: 0 };
     }
 
-    const placeholders = keepRunIds.map(() => '?').join(',');
+    const placeholders = sqlPlaceholders(keepRunIds.length);
     const rowDelete = db
       .prepare(`DELETE FROM market_rows WHERE run_id NOT IN (${placeholders})`)
       .run(...keepRunIds);

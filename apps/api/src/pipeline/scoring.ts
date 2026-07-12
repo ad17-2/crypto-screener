@@ -42,6 +42,17 @@ export function mean(values: number[]): number {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0.0;
 }
 
+/** `toFloat` on each value, dropping anything that doesn't parse. */
+export function numericValues(values: unknown[]): number[] {
+  return values.map((value) => toFloat(value)).filter((value): value is number => value !== null);
+}
+
+// null (not 0.0) when nothing survives -- an empty average must not read as "value is zero".
+export function meanOrNull(values: unknown[]): number | null {
+  const numeric = numericValues(values);
+  return numeric.length > 0 ? mean(numeric) : null;
+}
+
 /** Population standard deviation (ddof=0), not sample stdev. */
 export function stdev(values: number[]): number {
   if (values.length < 2) {
@@ -91,6 +102,23 @@ export function copysign(magnitude: number, sign: number): number {
   const negative = sign < 0 || Object.is(sign, -0);
   const absMagnitude = Math.abs(magnitude);
   return negative ? -absMagnitude : absMagnitude;
+}
+
+/** Python-style `str()`: `None`/`True`/`False` instead of JS's `undefined`/`true`/`false`. */
+export function pyStr(value: unknown): string {
+  if (value === null || value === undefined) {
+    return 'None';
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'True' : 'False';
+  }
+  return String(value);
+}
+
+// Sign comes from the pre-rounding value (handles -0), not the rounded value.
+export function formatSigned(value: number, decimals: number): string {
+  const sign = value < 0 || Object.is(value, -0) ? '-' : '+';
+  return `${sign}${Math.abs(value).toFixed(decimals)}`;
 }
 
 export function safeLog10(value: number | null): number {

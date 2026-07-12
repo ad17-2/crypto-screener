@@ -15,3 +15,8 @@ export function openDatabase(path: string): Database.Database {
   ensureSchema(db);
   return db;
 }
+
+/** Builds a `?,?,...` placeholder list of the given length for a SQL `IN (...)` clause. */
+export function sqlPlaceholders(count: number): string {
+  return Array.from({ length: count }, () => '?').join(',');
+}

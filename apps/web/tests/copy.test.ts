@@ -5,13 +5,11 @@ import { describe, expect, it } from 'vitest';
 import {
   BIAS,
   BREADTH_LABEL,
-  CALIBRATION,
   DATA_QUALITY_FLAG,
   EDGE_VERDICT,
   FACTOR,
   FIXED_SETUP,
   FRESHNESS,
-  lookupCalibration,
   lookupEdgeVerdict,
   lookupFactor,
   lookupFreshness,
@@ -127,9 +125,6 @@ const REGIME_STATES = ['btc-led', 'alts-strong', 'neutral', 'chaos', 'momentum']
 // apps/api/src/dashboard/freshness.ts label thresholds.
 const FRESHNESS_LABELS = ['fresh', 'aging', 'stale', 'old', 'unknown'];
 
-// apps/api/src/dashboard/payload.ts `calibrationLabel()`.
-const CALIBRATION_LABELS = ['learning', 'useful', 'neutral', 'weak'];
-
 // apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`.
 const EDGE_VERDICTS = ['validated', 'failed-forward', 'failed-train', 'insufficient-data'];
 
@@ -230,13 +225,6 @@ describe('copy dictionaries cover every source-derived key', () => {
     for (const label of FRESHNESS_LABELS) {
       expect(FRESHNESS[label], `FRESHNESS missing "${label}"`).toBeDefined();
       assertHuman(lookupFreshness(label).label);
-    }
-  });
-
-  it('covers every calibration label', () => {
-    for (const label of CALIBRATION_LABELS) {
-      expect(CALIBRATION[label], `CALIBRATION missing "${label}"`).toBeDefined();
-      assertHuman(lookupCalibration(label).label);
     }
   });
 

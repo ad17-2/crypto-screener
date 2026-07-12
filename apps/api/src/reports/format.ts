@@ -1,5 +1,4 @@
-import { formatSigned } from '../pipeline/factorExplanations.js';
-import { toFloat } from '../pipeline/scoring.js';
+import { formatSigned, toFloat } from '../pipeline/scoring.js';
 
 export function formatUsd(value: unknown): string {
   const numeric = toFloat(value);

@@ -1,6 +1,6 @@
 import { roundTripCostPct } from './costs.js';
 import { DIRECTIONAL_FACTORS } from './factorDefinitions.js';
-import { clamp, mean, pyRound, toFloat } from './scoring.js';
+import { clamp, meanOrNull, pyRound, toFloat } from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 
@@ -197,7 +197,7 @@ function signalConflictSummary(
     [
       'technical',
       '4h technicals',
-      avgSignal([row.technical_trend_score, row.technical_momentum_score]),
+      meanOrNull([row.technical_trend_score, row.technical_momentum_score]),
       0.2,
     ],
     ['derivatives', 'derivatives confirmation', toFloat(row.derivatives_confirmation_score), 0.2],
@@ -326,13 +326,6 @@ function directionValue(value: number | null, threshold = 0.0): -1 | 0 | 1 {
     return -1;
   }
   return 0;
-}
-
-function avgSignal(values: unknown[]): number | null {
-  const numeric = values
-    .map((value) => toFloat(value))
-    .filter((value): value is number => value !== null);
-  return numeric.length > 0 ? mean(numeric) : null;
 }
 
 function conflictItem(

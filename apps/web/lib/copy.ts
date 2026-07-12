@@ -451,35 +451,6 @@ export const lookupFreshness = makeLookup(FRESHNESS, {
   definition: 'Not reported.',
 });
 
-/** apps/api/src/dashboard/payload.ts `calibrationLabel()`. */
-export const CALIBRATION: Record<string, CopyEntry> = {
-  learning: {
-    label: 'Still learning',
-    definition:
-      "Fewer than 20 tracked outcomes so far (or no hit rate yet) — too early to trust the model's historical accuracy.",
-  },
-  useful: {
-    label: 'Track record: useful',
-    definition:
-      "Historical hit rate is 58% or higher across tracked outcomes — the model's calls have been right more often than not, by a solid margin.",
-  },
-  neutral: {
-    label: 'Track record: mixed',
-    definition:
-      "Historical hit rate is 50-58% — roughly a coin flip; the model isn't clearly adding value yet.",
-  },
-  weak: {
-    label: 'Track record: weak',
-    definition:
-      "Historical hit rate is below 50% — the model's calls have missed more often than they've hit recently.",
-  },
-};
-
-export const lookupCalibration = makeLookup(CALIBRATION, {
-  label: 'Unknown',
-  definition: 'Not reported.',
-});
-
 // Definitions for column/stat terms so ⓘ tooltips have text. These keys are not
 // machine enum values from the API; they're stable ids for the concepts the brief called out.
 export const METRIC: Record<string, CopyEntry> = {

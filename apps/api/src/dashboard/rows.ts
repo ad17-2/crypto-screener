@@ -1,7 +1,6 @@
 import type { DashboardRow, DashboardRowSide } from '@crypto-screener/contracts';
 import { DIRECTIONAL_FACTORS } from '../pipeline/factorDefinitions.js';
-import { formatSigned } from '../pipeline/factorExplanations.js';
-import { pyRound, toFloat } from '../pipeline/scoring.js';
+import { formatSigned, pyRound, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { factorLabel } from './taxonomy.js';

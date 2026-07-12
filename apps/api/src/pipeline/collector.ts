@@ -3,7 +3,7 @@ import type { CoinGeckoClient } from '../providers/coingecko.js';
 import { CoinGeckoHttpClient } from '../providers/coingecko.js';
 import type { CoinGlassClient, CoinGlassPair } from '../providers/coinglass.js';
 import { CoinGlassHttpClient } from '../providers/coinglass.js';
-import { ProviderError } from '../providers/errors.js';
+import { collectProviderError, ProviderError } from '../providers/errors.js';
 import { sleep } from '../providers/http.js';
 import {
   baseFromPair,
@@ -107,11 +107,7 @@ export async function collectCoinglassFutures(
         rows.push(aggregate);
       }
     } catch (error) {
-      if (error instanceof ProviderError) {
-        errors.push(`${symbol}: ${error.message}`);
-      } else {
-        throw error;
-      }
+      collectProviderError(errors, error, symbol);
     } finally {
       if (requestDelay > 0) {
         await sleep(requestDelay);
@@ -171,22 +167,14 @@ export async function collectCoingeckoContext(
     const globalData = await coingeckoClient.globalData();
     Object.assign(context, normalizeCoingeckoGlobal(globalData));
   } catch (error) {
-    if (error instanceof ProviderError) {
-      errors.push(error.message);
-    } else {
-      throw error;
-    }
+    collectProviderError(errors, error);
   }
 
   try {
     const categories = await coingeckoClient.categories();
     context.categories = normalizeCoingeckoCategories(categories, providerCfg.categories_limit);
   } catch (error) {
-    if (error instanceof ProviderError) {
-      errors.push(error.message);
-    } else {
-      throw error;
-    }
+    collectProviderError(errors, error);
   }
 
   status.coingecko = {

@@ -63,6 +63,8 @@ export default async function Page({ searchParams }: PageProps) {
     );
   }
 
+  const screenedWatchlists = payload.watchlists.filter((list) => list.id !== 'core');
+
   return (
     <main className={MAIN_CLASS}>
       <Header
@@ -91,10 +93,10 @@ export default async function Page({ searchParams }: PageProps) {
         <h2 id="screened-coins-title" className="stage-title mb-3">
           Screened coins
         </h2>
-        <WatchlistWorkbench watchlists={payload.watchlists} />
+        <WatchlistWorkbench watchlists={screenedWatchlists} />
       </section>
 
-      <OneBetStage modelWeights={payload.model_weights} watchlists={payload.watchlists} />
+      <OneBetStage modelWeights={payload.model_weights} watchlists={screenedWatchlists} />
 
       <ScoreboardStage scoreboard={payload.scoreboard} />
     </main>

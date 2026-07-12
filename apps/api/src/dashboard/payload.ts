@@ -12,6 +12,7 @@ import type {
 } from '@crypto-screener/contracts';
 import type Database from 'better-sqlite3';
 import type { AppConfig } from '../config/schema.js';
+import { sqlPlaceholders } from '../db/client.js';
 import { computeScoreboard, loadRecommendationsWithOutcomes } from '../db/recommendations.js';
 import { median, pyRound, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
@@ -65,7 +66,7 @@ function recentRuns(db: Database.Database, limit = 30): RunSummary[] {
   }
 
   const runIds = dbRows.map((row) => row.run_id);
-  const placeholders = runIds.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(runIds.length);
 
   const countRows = db
     .prepare(
@@ -146,7 +147,7 @@ function historyBySymbol(
   if (uniqueSymbols.length === 0) {
     return {};
   }
-  const placeholders = uniqueSymbols.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(uniqueSymbols.length);
   const rows = db
     .prepare(
       `SELECT symbol, generated_at, price_usd, factors_json, scores_json, metrics_json
@@ -178,74 +179,6 @@ function historyBySymbol(
       technical_trend_4h: numberOrNull(factors.technical_trend_4h),
       technical_momentum_4h: numberOrNull(factors.technical_momentum_4h),
       rsi_14: numberOrNull(item.rsi_14),
-      factor_score: numberOrNull(scores.factor_score),
-      long_score: numberOrNull(scores.long_score),
-      short_score: numberOrNull(scores.short_score),
-      crowded_long_score: numberOrNull(scores.crowded_long_score),
-      squeeze_risk_score: numberOrNull(scores.squeeze_risk_score),
-    });
-    bySymbol.set(dbRow.symbol, points);
-  }
-
-  const hasAnyPoints = [...bySymbol.values()].some((points) => points.length > 0);
-  if (!hasAnyPoints) {
-    return legacyHistoryBySymbol(db, uniqueSymbols, generatedAt, limit);
-  }
-  const result: Record<string, HistoryPoint[]> = {};
-  for (const [symbol, points] of bySymbol) {
-    result[symbol] = [...points].reverse();
-  }
-  return result;
-}
-
-interface MarketRowLegacyDbRow {
-  symbol: string;
-  generated_at: string;
-  row_json: string;
-}
-
-/**
- * Fallback when factor_history has no rows yet; unreachable against production (populated by
- * saveSnapshot), so not exercised by the parity fixture. row_json lacks factors_json/metrics_json,
- * so technical_trend_4h/technical_momentum_4h/rsi_14 are always null here.
- */
-function legacyHistoryBySymbol(
-  db: Database.Database,
-  symbols: string[],
-  generatedAt: string,
-  limit: number,
-): Record<string, HistoryPoint[]> {
-  const placeholders = symbols.map(() => '?').join(',');
-  const rows = db
-    .prepare(
-      `SELECT symbol, generated_at, row_json
-       FROM market_rows
-       WHERE symbol IN (${placeholders}) AND generated_at <= ?
-       ORDER BY symbol ASC, generated_at DESC`,
-    )
-    .all(...symbols, generatedAt) as MarketRowLegacyDbRow[];
-
-  const bySymbol = new Map<string, HistoryPoint[]>(symbols.map((symbol) => [symbol, []]));
-  for (const dbRow of rows) {
-    const points = bySymbol.get(dbRow.symbol) ?? [];
-    if (points.length >= limit) {
-      continue;
-    }
-    const item = loadsJson<Record<string, unknown>>(dbRow.row_json, {});
-    const scores = asRecord(item.scores);
-    points.push({
-      generated_at: dbRow.generated_at,
-      price_usd: numberOrNull(item.price_usd),
-      price_change_24h_pct: numberOrNull(item.price_change_24h_pct),
-      oi_change_24h_pct: numberOrNull(item.oi_change_24h_pct),
-      funding_rate_pct: numberOrNull(item.funding_rate_pct),
-      long_short_ratio: numberOrNull(item.long_short_ratio),
-      long_short_account_ratio: numberOrNull(item.long_short_account_ratio),
-      top_trader_long_short_ratio: numberOrNull(item.top_trader_long_short_ratio),
-      quote_volume_usd: numberOrNull(item.quote_volume_usd),
-      technical_trend_4h: null,
-      technical_momentum_4h: null,
-      rsi_14: null,
       factor_score: numberOrNull(scores.factor_score),
       long_score: numberOrNull(scores.long_score),
       short_score: numberOrNull(scores.short_score),
