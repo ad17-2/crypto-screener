@@ -61,8 +61,13 @@ export interface RecommendationRecordInput {
   generated_at: string;
   symbol: string;
   watchlist: string;
-  priority?: number | null;
-  factor_score?: number | null;
+  /** DashboardRow['side'] -- the call's directional thesis ('core' rows have none). */
+  side?: string | null;
+  /** Which score field drove this call (e.g. 'long_score', 'regime_fit_score'). */
+  score_field?: string | null;
+  /** The value of `score_field` at call time -- "the signal value that drove the call". */
+  signal_value?: number | null;
+  size_multiplier?: number | null;
   round_trip_cost_pct?: number | null;
 }
 
@@ -71,8 +76,10 @@ export interface RecommendationWatchlistInput {
   id: string;
   rows: Array<{
     symbol: string | null;
-    priority: number;
-    scores: { factor_score?: number | null; round_trip_cost_pct?: number | null };
+    side: string;
+    score_field: string;
+    score: number | null;
+    scores: { round_trip_cost_pct?: number | null; size_multiplier?: number | null };
   }>;
 }
 
@@ -81,9 +88,26 @@ export interface RecommendationOutcome {
   generated_at: string;
   symbol: string;
   watchlist: string;
-  priority: number | null;
-  factor_score: number | null;
+  side: string | null;
+  score_field: string | null;
+  signal_value: number | null;
+  size_multiplier: number | null;
   round_trip_cost_pct: number | null;
   /** null when no realised forward-return match exists yet (horizon not reached, or no later snapshot). */
   forward_return_pct: number | null;
+}
+
+/**
+ * Layer 4 accountability read. `n_calls` >= `n_resolved` (has a forward_return_pct) >= `n_scored`
+ * (resolved AND has a directional `side` AND a known cost -- 'core' rows are never scored, they
+ * have no thesis to grade). hit_rate/mean/cumulative are computed net of round_trip_cost_pct.
+ */
+export interface Scoreboard {
+  status: 'insufficient' | 'ok';
+  n_calls: number;
+  n_resolved: number;
+  n_scored: number;
+  hit_rate_pct: number | null;
+  mean_net_return_pct: number | null;
+  cumulative_net_return_pct: number | null;
 }

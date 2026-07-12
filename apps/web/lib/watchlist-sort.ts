@@ -1,16 +1,9 @@
 import type { DashboardRow } from '@crypto-screener/contracts';
 import { numeric } from './format';
 
-/** Default sort is 'rank' (row.priority) descending — set by WatchlistWorkbench. */
-export type SortColumnKey =
-  | 'symbol'
-  | 'setup'
-  | 'rank'
-  | 'conviction'
-  | 'price'
-  | 'oi'
-  | 'funding'
-  | 'crowding';
+/** Default sort is 'price' (24h change) descending — set by WatchlistWorkbench. Every column is
+ * an observable fact, not a model opinion -- there is no rank/conviction column to sort by. */
+export type SortColumnKey = 'symbol' | 'setup' | 'price' | 'volume' | 'oi' | 'funding' | 'crowding';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -18,9 +11,8 @@ type SortableField = Extract<
   keyof DashboardRow,
   | 'symbol'
   | 'setup'
-  | 'priority'
-  | 'confidence_score'
   | 'price_change_24h_pct'
+  | 'quote_volume_usd'
   | 'oi_change_24h_pct'
   | 'funding_rate_pct'
   | 'long_short_ratio'
@@ -34,9 +26,8 @@ interface SortColumnConfig {
 export const SORT_COLUMNS: Record<SortColumnKey, SortColumnConfig> = {
   symbol: { field: 'symbol', type: 'string' },
   setup: { field: 'setup', type: 'string' },
-  rank: { field: 'priority', type: 'numeric' },
-  conviction: { field: 'confidence_score', type: 'numeric' },
   price: { field: 'price_change_24h_pct', type: 'numeric' },
+  volume: { field: 'quote_volume_usd', type: 'numeric' },
   oi: { field: 'oi_change_24h_pct', type: 'numeric' },
   funding: { field: 'funding_rate_pct', type: 'numeric' },
   crowding: { field: 'long_short_ratio', type: 'numeric' },

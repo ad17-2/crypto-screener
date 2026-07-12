@@ -268,137 +268,7 @@ export const FACTOR: Record<string, CopyEntry> = {
 export const lookupFactor = makeLookup(FACTOR, NOT_REPORTED);
 
 // ---------------------------------------------------------------------------------------------
-// 3. CONFLUENCE_FAMILY -- apps/api/src/dashboard/confluence.ts `FAMILY_DEFINITIONS` (6 families).
-// ---------------------------------------------------------------------------------------------
-
-export const CONFLUENCE_FAMILY: Record<string, CopyEntry> = {
-  trend: {
-    label: 'Trend',
-    definition: 'Whether the 4h trend factor confirms this setup direction.',
-  },
-  momentum: {
-    label: 'Momentum',
-    definition:
-      'Whether the momentum-family factors (24h momentum, 4h momentum, 3-day reversal) confirm this setup direction.',
-  },
-  oi_flow: {
-    label: 'Positioning flow',
-    definition:
-      'Whether open interest, taker flow, and liquidations confirm this setup direction — is new money flowing the same way as price?',
-  },
-  funding: {
-    label: 'Funding',
-    definition:
-      'Whether the funding-rate factors confirm this setup direction (contrarian to crowded funding).',
-  },
-  crowding: {
-    label: 'Crowding',
-    definition:
-      'Whether the long/short ratio factor confirms this setup direction (contrarian to a crowded long/short ratio).',
-  },
-  regime: {
-    label: 'Regime & breadth',
-    definition:
-      'Whether the overall market regime and breadth (how many coins are moving the same way) support this setup direction.',
-  },
-};
-
-export const lookupConfluenceFamily = makeLookup(CONFLUENCE_FAMILY, {
-  label: 'Unknown family',
-  definition: 'Not reported for this row.',
-});
-
-// ---------------------------------------------------------------------------------------------
-// 4. CONFLICT_CODE -- apps/api/src/pipeline/rowScoring.ts `signalConflictSummary()` checks array
-// (technical, derivatives, funding, positioning, taker) plus regime_bias/market_breadth appended
-// separately. 7 codes total -- `positioning` is easy to miss since it isn't in the checks' names.
-// ---------------------------------------------------------------------------------------------
-
-export const CONFLICT_CODE: Record<string, CopyEntry> = {
-  technical: {
-    label: '4h chart disagrees',
-    definition:
-      'The 4h trend/momentum technical read points the other way from this setup direction.',
-  },
-  derivatives: {
-    label: 'Derivatives disagree',
-    definition:
-      'The combined derivatives confirmation score (OI, funding, taker flow together) points the other way from this setup direction.',
-  },
-  funding: {
-    label: 'Funding disagrees',
-    definition:
-      'The funding-rate signal is pointing against this setup direction (the contrarian funding read disagrees).',
-  },
-  positioning: {
-    label: 'OI/price disagrees',
-    definition: "Open interest isn't confirming the price move in this setup direction.",
-  },
-  taker: {
-    label: 'Taker flow disagrees',
-    definition:
-      'Aggressive buy/sell order flow over the last 24h is leaning the other way from this setup direction.',
-  },
-  regime_bias: {
-    label: 'Market regime disagrees',
-    definition:
-      'The overall market regime (risk-on/risk-off) is leaning against this setup direction.',
-  },
-  market_breadth: {
-    label: 'Market breadth disagrees',
-    definition: 'Most coins in the market are moving the other way from this setup direction.',
-  },
-};
-
-export const lookupConflictCode = makeLookup(CONFLICT_CODE, {
-  label: 'Unknown conflict',
-  definition: 'Not reported for this row.',
-});
-
-// ---------------------------------------------------------------------------------------------
-// 5. SIGNAL_CONFLICT_LABEL -- rowScoring.ts `conflictLabel()` (aligned/minor-conflict/
-// mixed-signals/high-conflict/neutral) plus `excluded` from `applyExcludedScores()`.
-// ---------------------------------------------------------------------------------------------
-
-export const SIGNAL_CONFLICT_LABEL: Record<string, CopyEntry> = {
-  aligned: {
-    label: 'Signals agree',
-    definition:
-      'None of the tracked signals (technicals, derivatives, funding, taker flow, OI/price, regime, breadth) disagree with this setup direction.',
-  },
-  'minor-conflict': {
-    label: 'Mostly agree',
-    definition:
-      'Exactly one signal disagrees, and only mildly — most of the picture still lines up.',
-  },
-  'mixed-signals': {
-    label: 'Mixed signals',
-    definition:
-      'More than one signal disagrees with this setup direction, or the disagreement is moderate — a genuinely mixed picture.',
-  },
-  'high-conflict': {
-    label: 'Signals disagree',
-    definition:
-      'Multiple signals disagree, or at least one disagrees strongly — treat this setup with real caution.',
-  },
-  neutral: {
-    label: 'No clear direction',
-    definition:
-      "The model's directional score is too close to zero to call a side, so no conflict check was run.",
-  },
-  excluded: {
-    label: 'Excluded from ranking',
-    definition: 'This row failed a data-quality check and was excluded from scoring and ranking.',
-  },
-};
-
-export const lookupSignalConflictLabel = makeLookup(SIGNAL_CONFLICT_LABEL, {
-  label: 'Unknown',
-  definition: 'Not reported for this row.',
-});
-
-// ---------------------------------------------------------------------------------------------
-// 6. WATCHLIST -- apps/api/src/dashboard/watchlists.ts `WATCHLIST_LABELS` keys (7 ids).
+// 3. WATCHLIST -- apps/api/src/dashboard/watchlists.ts `WATCHLIST_LABELS` keys (7 ids).
 // ---------------------------------------------------------------------------------------------
 
 export const WATCHLIST: Record<string, CopyEntry> = {
@@ -442,7 +312,7 @@ export const lookupWatchlist = makeLookup(WATCHLIST, {
 });
 
 // ---------------------------------------------------------------------------------------------
-// 7. BIAS / BREADTH_LABEL / SECTOR_ROTATION_LABEL / REGIME_STATE / FRESHNESS / CALIBRATION
+// 4. BIAS / BREADTH_LABEL / SECTOR_ROTATION_LABEL / REGIME_STATE / FRESHNESS / CALIBRATION
 // ---------------------------------------------------------------------------------------------
 
 /** apps/api/src/pipeline/regime.ts `inferRegime()` -- bias is 'risk-on' | 'risk-off' | 'mixed'. */
@@ -624,21 +494,11 @@ export const lookupCalibration = makeLookup(CALIBRATION, {
 });
 
 // ---------------------------------------------------------------------------------------------
-// 8. METRIC -- definitions for column/stat terms so ⓘ tooltips have text. These keys are not
+// 5. METRIC -- definitions for column/stat terms so ⓘ tooltips have text. These keys are not
 // machine enum values from the API; they're stable ids for the concepts the brief called out.
 // ---------------------------------------------------------------------------------------------
 
 export const METRIC: Record<string, CopyEntry> = {
-  priority: {
-    label: 'Rank',
-    definition:
-      "Where this row sits in its watchlist, highest first. Combines the model score with data quality and the model's own confidence -- not price or size alone.",
-  },
-  conviction: {
-    label: 'Conviction',
-    definition:
-      "The model's confidence score, 0-100. Combines how strong the driving factors are, data quality, liquidity, and whether the 4h chart agrees with the direction.",
-  },
   data_quality: {
     label: 'Data quality',
     definition:
@@ -654,11 +514,6 @@ export const METRIC: Record<string, CopyEntry> = {
     definition:
       'Total dollar value of open futures positions on this contract. Rising open interest alongside rising price usually means new money is entering, not just existing positions changing hands.',
   },
-  long_short_ratio: {
-    label: 'Long/short ratio',
-    definition:
-      'Ratio of accounts (or volume) positioned long vs short on this contract. Above 1 leans long, below 1 leans short.',
-  },
   crowding: {
     label: 'Crowding',
     definition:
@@ -668,10 +523,10 @@ export const METRIC: Record<string, CopyEntry> = {
     label: '24h change',
     definition: 'Spot or mark price change over the last 24 hours.',
   },
-  breadth: {
-    label: 'Breadth',
+  volume: {
+    label: 'Volume',
     definition:
-      'The share of scanned coins moving up vs down over 24h, weighted by the size of the move and confirmed by open interest. Broad means most coins agree; selective/narrow means only a few are moving.',
+      '24h quote volume traded on the primary exchange -- raw dollar turnover, not a ranking model output.',
   },
   btc_dominance: {
     label: 'BTC dominance',
@@ -701,98 +556,15 @@ export const METRIC: Record<string, CopyEntry> = {
   // -- Model-health terms (apps/web/app/model) -- definitions verified against apps/api/src/
   // pipeline/{weighting,ic,validation,independence}.ts; see the field-semantics audit this page
   // was built from. Same not-from-an-API-enum, stable-id convention as the rest of this dict.
-  ic: {
-    label: 'Information coefficient',
-    definition:
-      "How well this factor's value predicted the direction of the next price move, historically. It's the correlation (Spearman rank) between the factor's value and each coin's forward return, averaged across every past snapshot with enough coins to check. Zero means no relationship; further from zero means a stronger historical relationship, in either direction.",
-  },
-  t_stat: {
-    label: 't-stat',
-    definition:
-      'How consistent a factor\'s historical edge has been over time, not just how big it looks on average. As a rough rule of thumb, a t-stat of 2 or higher is normally treated as "probably not noise" — below that, the measured edge could easily be random.',
-  },
-  credibility: {
-    label: 'Credibility',
-    definition:
-      "How much of a factor's weight comes from its own measured track record (1.0) versus a starting assumption (0.0). It only rises once the factor clears a minimum reliability bar; until then it stays at 0 and the weight is entirely the starting assumption.",
-  },
-  prior_weight: {
-    label: 'Prior',
-    definition:
-      "This weight is a starting assumption about what should matter, not something measured from this factor's own track record — it hasn't cleared the bar to be trusted on its own measured numbers yet.",
-  },
-  measured_weight: {
-    label: 'Measured',
-    definition:
-      "This weight reflects the factor's own measured track record, not just a starting assumption — it cleared the reliability bar needed to earn that.",
-  },
-  unvalidated_weight: {
-    label: 'Zeroed',
-    definition:
-      "This factor was actively tested train-then-forward and failed — it earned nothing (or reversed) on unseen data, so its weight was set to zero instead of falling back to a starting assumption. Trading a factor's prior after it's been shown to lose money would mean the model keeps trading noise.",
-  },
-  robustness: {
-    label: 'Robustness',
-    definition:
-      "A train-then-test check: a factor's edge is measured on an earlier slice of history, then re-checked on a later slice it wasn't measured from. 'Held up' means the edge survived. 'Reversed' means it vanished or flipped on that unseen data. 'No clear edge' means the factor never showed a strong enough signal to test in the first place — the bar is a t-stat of 2 — or, rarely, that there wasn't enough history to run the test.",
-  },
-  walk_forward: {
-    label: 'Walk-forward test',
-    definition:
-      "A train-then-test check: history is split in time order, a factor's edge is measured on the earlier slice, then checked again on the later slice it wasn't measured from — a more honest test than checking a factor against the same data used to measure it.",
-  },
-  out_of_sample: {
-    label: 'Out-of-sample',
-    definition:
-      'The same historical-edge measurement, computed only on the later "test" slice of history that wasn\'t used to measure the factor in the first place — the more trustworthy of the two numbers.',
-  },
-  decay: {
-    label: 'Decay',
-    definition:
-      "How a signal's predictive strength changes the longer you wait after it fires. Most useful signals are strongest soon after they fire and fade afterward.",
-  },
-  half_life: {
-    label: 'Half-life',
-    definition:
-      "The first later point in time where a signal's predictive strength has faded to under half of its peak.",
-  },
-  /** apps/api/src/pipeline/validation.ts:184-204 -- holds_hours = the earlier of half-life or a
-   *  sign flip, only ever checked at the tested horizons (4/8/12/24/48/72h). Distinct from decay
-   *  and half_life individually; see FactorWeightsStage.tsx's per-factor decay stat. */
-  holds: {
-    label: 'Holds',
-    definition:
-      'The earlier of two things, checked only at the tested horizons (4h, 8h, 12h, 24h, 48h, 72h): the signal fading to under half its peak strength, or flipping sign entirely. If neither happened by the last horizon tested, nothing beyond that point was measured.',
-  },
-  collinearity: {
-    label: 'Collinearity',
-    definition:
-      "How closely two factors move together across coins, measured by Spearman correlation (rho, from -1 to +1). When it's high, the two are largely making the same bet on the same coins — counting both adds duplicate weight, not independent information.",
-  },
-  hit_rate: {
-    label: 'Hit rate',
-    definition:
-      'Of the times this factor took a directional stance, the share where price actually moved that way. A coin flip is 50% — real edges in data like this are usually only a few points above that, not dramatically higher.',
-  },
   calibration: {
     label: 'Calibration',
     definition:
       "A read on how much to trust the model's historical track record, based on how many outcomes have been checked and how often the calls were right.",
   },
-  regime_conditional_ic: {
-    label: 'Regime-conditional IC',
-    definition:
-      "A version of the historical-edge measurement computed only from snapshots taken during the same market regime the model is in right now, instead of pooling every regime together. It needs enough snapshots within that one regime before it's trusted over the pooled number.",
-  },
   observations: {
     label: 'Observations',
     definition:
       'The number of individual (coin, snapshot) pairs with a known outcome on record — not the same as the number of distinct time snapshots those pairs are drawn from.',
-  },
-  n_periods: {
-    label: 'Periods measured',
-    definition:
-      'The number of distinct historical snapshots that had enough coins with both a value for this factor and a known outcome to produce one reading.',
   },
   // Hardcoded prose, not read from config -- keep in sync with costs.ts / CostsConfigSchema by hand.
   round_trip_cost: {
@@ -800,14 +572,27 @@ export const METRIC: Record<string, CopyEntry> = {
     definition:
       "An estimated cost to enter and exit this position, not a measured number. Assumes 5bps taker fee and 2bps slippage per fill (both sides = 4x), plus a 2bps spread (used only because the real spread isn't available), plus funding over the model's forward-return horizon at 3 settlements/day -- charged if this side pays it, credited if this side receives it.",
   },
-  net_edge: {
-    label: 'Net edge after costs',
+  // -- Layer 4 (the scoreboard) -- what the screen actually called, net of estimated costs. See
+  // apps/api/src/db/recommendations.ts computeScoreboard(): a call is "scored" once it has both a
+  // realised forward return AND a directional thesis (a 'core' row is never scored).
+  hit_rate: {
+    label: 'Hit rate',
     definition:
-      "The model's average directional return, minus the estimated median round-trip cost across every coin that cleared data-quality checks this run -- not just the shortlist. This is the number that answers whether the model would make money after trading costs, not merely whether it calls direction correctly.",
+      'Share of scored calls that were net profitable after estimated trading costs, not merely whether price moved the right direction. A coin flip is 50%.',
   },
-  // -- Per-factor economic edge (apps/api/src/pipeline/economicEdge.ts) -- distinct from the
-  // whole-model `net_edge` above: this is one factor's own decile long-short spread, the number
-  // that decides whether that factor's weight comes from money instead of rank order.
+  mean_net_return: {
+    label: 'Avg. net return',
+    definition:
+      "The average return per scored call, net of the estimated round-trip trading cost for that call. Positive means the calls have made money on average after costs; negative means they haven't.",
+  },
+  cumulative_net_return: {
+    label: 'Cumulative net return',
+    definition:
+      "The sum (not compounded) of every scored call's net-of-cost return so far -- what a fixed one-unit bet on every call would have added up to, before compounding.",
+  },
+  // -- Per-factor economic edge (apps/api/src/pipeline/economicEdge.ts) -- one factor's own decile
+  // long-short spread, the number that decides whether that factor's weight comes from money
+  // instead of rank order.
   factor_net_spread: {
     label: 'Net spread',
     definition:
@@ -852,40 +637,9 @@ export const METRIC: Record<string, CopyEntry> = {
 export const lookupMetric = makeLookup(METRIC, NOT_REPORTED);
 
 // ---------------------------------------------------------------------------------------------
-// 9. ROBUSTNESS_VERDICT -- apps/api/src/pipeline/validation.ts `WalkForwardFactorResult['verdict']`
-// (3 values). 'insufficient-data' fires in two different branches there -- genuinely too little
-// history, OR ample history that simply failed the significance bar -- and the wire alone can't
-// tell you which, so this definition must never assert a history shortage as the cause.
-// ---------------------------------------------------------------------------------------------
-
-export const ROBUSTNESS_VERDICT: Record<string, CopyEntry> = {
-  robust: {
-    label: 'Held up',
-    definition:
-      "This factor's edge was measured on an earlier slice of history, then held up when re-checked on a later slice it wasn't measured from.",
-  },
-  overfit: {
-    label: 'Reversed',
-    definition:
-      "This factor cleared the significance bar on the earlier slice of history it was measured on, but its edge reversed or vanished when re-checked on a later slice it wasn't measured from.",
-  },
-  'insufficient-data': {
-    label: 'No clear edge',
-    definition:
-      "This factor never showed an edge strong enough to test in the first place — the bar is a t-stat of 2 — or, rarely, there wasn't enough history to run the test at all.",
-  },
-};
-
-export const lookupRobustnessVerdict = makeLookup(ROBUSTNESS_VERDICT, {
-  label: 'Unknown',
-  definition: 'Not reported.',
-});
-
-// ---------------------------------------------------------------------------------------------
-// 9b. EDGE_VERDICT -- apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`
-// (4 values). Distinct from ROBUSTNESS_VERDICT above: that one is a rank-IC train/test check;
-// this one is a MONEY train/test check (net-of-cost decile spread), and is what the evidence
-// ladder's "the signals that pass actually make money" rung is now based on.
+// 6. EDGE_VERDICT -- apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`
+// (4 values). A MONEY train/test check (net-of-cost decile spread) -- what the evidence ladder's
+// "the signals that pass actually make money" rung, and the one-bet section on /, are based on.
 // ---------------------------------------------------------------------------------------------
 
 export const EDGE_VERDICT: Record<string, CopyEntry> = {
@@ -917,7 +671,7 @@ export const lookupEdgeVerdict = makeLookup(EDGE_VERDICT, {
 });
 
 // ---------------------------------------------------------------------------------------------
-// 10. PROVIDER -- apps/api/src/pipeline/collector.ts and enrichment.ts `status.<key> = ...`
+// 7. PROVIDER -- apps/api/src/pipeline/collector.ts and enrichment.ts `status.<key> = ...`
 // assignment sites (6 hardcoded string-literal keys). Two are real external providers
 // (coingecko, coinglass); the other four are in-process checks or CoinGlass sub-checks, not
 // separate external providers.
@@ -957,7 +711,7 @@ export const PROVIDER: Record<string, CopyEntry> = {
 export const lookupProvider = makeLookup(PROVIDER, NOT_REPORTED);
 
 // ---------------------------------------------------------------------------------------------
-// DATA_QUALITY_FLAG -- apps/api/src/pipeline/quality.ts `dataQualityFlags()` (13 codes). Most
+// 8. DATA_QUALITY_FLAG -- apps/api/src/pipeline/quality.ts `dataQualityFlags()` (13 codes). Most
 // carry a dynamic `code:value` suffix -- lookupQualityFlag() splits on the first ':' and keys on
 // the prefix, so a suffixed flag never falls through to the raw fallback. This is the single
 // source of truth; apps/web/components/QualityFlagChip.tsx renders from it directly.

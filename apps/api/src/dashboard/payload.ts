@@ -12,6 +12,7 @@ import type {
 } from '@crypto-screener/contracts';
 import type Database from 'better-sqlite3';
 import type { AppConfig } from '../config/schema.js';
+import { computeScoreboard, loadRecommendationsWithOutcomes } from '../db/recommendations.js';
 import { median, pyRound, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
@@ -176,9 +177,6 @@ function historyBySymbol(
       long_short_account_ratio: numberOrNull(item.long_short_account_ratio),
       top_trader_long_short_ratio: numberOrNull(item.top_trader_long_short_ratio),
       quote_volume_usd: numberOrNull(item.quote_volume_usd),
-      // Deliberate `||`, not `??`: an explicit 0 in scores.confidence_score should still fall through.
-      confidence_score:
-        numberOrNull(scores.confidence_score) || numberOrNull(item.confidence_score),
       technical_trend_4h: numberOrNull(factors.technical_trend_4h),
       technical_momentum_4h: numberOrNull(factors.technical_momentum_4h),
       rsi_14: numberOrNull(item.rsi_14),
@@ -187,8 +185,6 @@ function historyBySymbol(
       short_score: numberOrNull(scores.short_score),
       crowded_long_score: numberOrNull(scores.crowded_long_score),
       squeeze_risk_score: numberOrNull(scores.squeeze_risk_score),
-      signal_conflict_score:
-        numberOrNull(scores.signal_conflict_score) || numberOrNull(item.signal_conflict_score),
     });
     bySymbol.set(dbRow.symbol, points);
   }
@@ -213,7 +209,7 @@ interface MarketRowLegacyDbRow {
 /**
  * Fallback when factor_history has no rows yet; unreachable against production (populated by
  * saveSnapshot), so not exercised by the parity fixture. row_json lacks factors_json/metrics_json,
- * so technical_trend_4h/technical_momentum_4h/rsi_14/signal_conflict_score are always null here.
+ * so technical_trend_4h/technical_momentum_4h/rsi_14 are always null here.
  */
 function legacyHistoryBySymbol(
   db: Database.Database,
@@ -249,7 +245,6 @@ function legacyHistoryBySymbol(
       long_short_account_ratio: numberOrNull(item.long_short_account_ratio),
       top_trader_long_short_ratio: numberOrNull(item.top_trader_long_short_ratio),
       quote_volume_usd: numberOrNull(item.quote_volume_usd),
-      confidence_score: numberOrNull(scores.confidence_score),
       technical_trend_4h: null,
       technical_momentum_4h: null,
       rsi_14: null,
@@ -258,7 +253,6 @@ function legacyHistoryBySymbol(
       short_score: numberOrNull(scores.short_score),
       crowded_long_score: numberOrNull(scores.crowded_long_score),
       squeeze_risk_score: numberOrNull(scores.squeeze_risk_score),
-      signal_conflict_score: null,
     });
     bySymbol.set(dbRow.symbol, points);
   }
@@ -324,22 +318,10 @@ function regimeFitRows(
     if (baseScore <= 0) {
       continue;
     }
-    const conflictScore = toFloat(row.signal_conflict_score, 0.0) ?? 0.0;
-    const conflictLabel = row.signal_conflict_label ? String(row.signal_conflict_label) : '';
-    if (conflictLabel === 'high-conflict' && conflictScore >= 70) {
-      continue;
-    }
-    const confidence = toFloat(row.confidence_score, 0.0) ?? 0.0;
+    // fitScore ranks purely on the side's own observable crowding/momentum score plus a
+    // data-quality tiebreaker -- no blend-derived alignment/confidence/conflict weighting.
     const quality = toFloat(row.data_quality_score, 100.0) ?? 100.0;
-    const regimeAlignment = toFloat(row.regime_alignment_score, 0.0) ?? 0.0;
-    const breadthAlignment = toFloat(row.breadth_alignment_score, 0.0) ?? 0.0;
-    const fitScore =
-      baseScore +
-      Math.max(0.0, regimeAlignment) * 8.0 +
-      Math.max(0.0, breadthAlignment) * 6.0 +
-      confidence * 0.18 +
-      quality * 0.05 -
-      conflictScore * 0.22;
+    const fitScore = baseScore + quality * 0.05;
     ranked.push({ fitScore, row, side });
   }
 
@@ -565,32 +547,6 @@ function rankValidationFactors(
     .slice(0, 3);
 }
 
-interface ConflictBucket {
-  label: string;
-  count: number;
-  avg_confidence: number | null;
-}
-
-function conflictBuckets(rows: Row[]): ConflictBucket[] {
-  const buckets = new Map<string, { label: string; count: number; avgConfidence: number }>();
-  for (const row of rows) {
-    const label = row.signal_conflict_label ? String(row.signal_conflict_label) : 'unknown';
-    const bucket = buckets.get(label) ?? { label, count: 0, avgConfidence: 0.0 };
-    bucket.count += 1;
-    bucket.avgConfidence += toFloat(row.confidence_score, 0.0) ?? 0.0;
-    buckets.set(label, bucket);
-  }
-  const result: ConflictBucket[] = [];
-  for (const bucket of buckets.values()) {
-    result.push({
-      label: bucket.label,
-      count: bucket.count,
-      avg_confidence: bucket.count ? pyRound(bucket.avgConfidence / bucket.count, 1) : null,
-    });
-  }
-  return result.sort((a, b) => b.count - a.count);
-}
-
 /** Trusted rows only: an excluded row's round_trip_cost_pct is a 0.0 placeholder (see rowScoring.ts applyExcludedScores), not a real cost estimate. */
 function medianRoundTripCostPct(rows: Row[]): number | null {
   const values = rows
@@ -618,7 +574,6 @@ function validationSummary(
   summary.calibration_label = calibrationLabel(hitRate, observations);
   summary.best_factors = rankValidationFactors(factors, true);
   summary.weakest_factors = rankValidationFactors(factors, false);
-  summary.conflict_buckets = conflictBuckets(rows);
 
   const avgDirectional = toFloat(model.avg_directional_return_pct);
   const medianCost = medianRoundTripCostPct(rows);
@@ -664,6 +619,14 @@ export function buildDashboardPayload(
   const factorWeights = loadsJson<Record<string, unknown>>(selected.factor_weights_json, {});
   const sections = buildSections(rows, options.limit, history, regime);
   const freshness = freshnessSummary(selected.generated_at);
+  // Not filtered to `selected.run_id`: the scoreboard is a track record across every run ever
+  // logged, not just the currently-selected one.
+  const scoreboard = computeScoreboard(
+    loadRecommendationsWithOutcomes(db, {
+      forwardReturnHours: config.factors.forward_return_hours,
+      icWindowDays: config.factors.ic_window_days,
+    }),
+  );
 
   return {
     status: 'ok',
@@ -683,5 +646,6 @@ export function buildDashboardPayload(
     quality: qualitySummary(rows),
     sections,
     watchlists: buildWatchlists(sections, options.limit),
+    scoreboard,
   };
 }

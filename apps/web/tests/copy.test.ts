@@ -6,32 +6,24 @@ import {
   BIAS,
   BREADTH_LABEL,
   CALIBRATION,
-  CONFLICT_CODE,
-  CONFLUENCE_FAMILY,
   DATA_QUALITY_FLAG,
   EDGE_VERDICT,
   FACTOR,
   FIXED_SETUP,
   FRESHNESS,
   lookupCalibration,
-  lookupConflictCode,
-  lookupConfluenceFamily,
   lookupEdgeVerdict,
   lookupFactor,
   lookupFreshness,
   lookupProvider,
   lookupQualityFlag,
-  lookupRobustnessVerdict,
   lookupSectorRotationLabel,
   lookupSetup,
-  lookupSignalConflictLabel,
   lookupTechnicalPattern,
   lookupWatchlist,
   PROVIDER,
   REGIME_STATE,
-  ROBUSTNESS_VERDICT,
   SECTOR_ROTATION_LABEL,
-  SIGNAL_CONFLICT_LABEL,
   TECHNICAL_PATTERN,
   WATCHLIST,
 } from '../lib/copy';
@@ -39,10 +31,10 @@ import {
 /**
  * Every key list below is verified against the API source directly (file:line noted per group),
  * NOT lifted from the frozen fixture -- the fixture is missing real values that the code emits
- * (2 technical patterns, the `positioning` conflict code, both retired factors, ...). Keep these
- * in sync with the cited source if it changes; the "every dict key resolves" assertions below
- * will fail loudly if a list here drifts from the dictionary in lib/copy.ts, and the fixture walk
- * at the bottom fails loudly if a real payload ever contains a key with no mapping at all.
+ * (2 technical patterns, both retired factors, ...). Keep these in sync with the cited source if
+ * it changes; the "every dict key resolves" assertions below will fail loudly if a list here
+ * drifts from the dictionary in lib/copy.ts, and the fixture walk at the bottom fails loudly if a
+ * real payload ever contains a key with no mapping at all.
  */
 
 // apps/api/src/pipeline/factorDefinitions.ts:2-15 (DIRECTIONAL_FACTORS)
@@ -94,31 +86,6 @@ const FIXED_SETUPS = [
   'Short Candidate',
 ];
 
-// apps/api/src/pipeline/rowScoring.ts:169-208 -- 5 checks (technical, derivatives, funding,
-// positioning, taker) plus regime_bias/market_breadth appended separately. 7 codes total.
-const CONFLICT_CODES = [
-  'technical',
-  'derivatives',
-  'funding',
-  'positioning',
-  'taker',
-  'regime_bias',
-  'market_breadth',
-];
-
-// apps/api/src/pipeline/rowScoring.ts `conflictLabel()` + `applyExcludedScores()`.
-const SIGNAL_CONFLICT_LABELS = [
-  'aligned',
-  'minor-conflict',
-  'mixed-signals',
-  'high-conflict',
-  'neutral',
-  'excluded',
-];
-
-// apps/api/src/dashboard/confluence.ts:11-28 FAMILY_DEFINITIONS.
-const CONFLUENCE_FAMILY_KEYS = ['trend', 'momentum', 'oi_flow', 'funding', 'crowding', 'regime'];
-
 // apps/api/src/dashboard/watchlists.ts:6-14 WATCHLIST_LABELS.
 const WATCHLIST_IDS = [
   'chart_next',
@@ -162,9 +129,6 @@ const FRESHNESS_LABELS = ['fresh', 'aging', 'stale', 'old', 'unknown'];
 
 // apps/api/src/dashboard/payload.ts `calibrationLabel()`.
 const CALIBRATION_LABELS = ['learning', 'useful', 'neutral', 'weak'];
-
-// apps/api/src/pipeline/validation.ts `WalkForwardFactorResult['verdict']`.
-const ROBUSTNESS_VERDICTS = ['robust', 'overfit', 'insufficient-data'];
 
 // apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`.
 const EDGE_VERDICTS = ['validated', 'failed-forward', 'failed-train', 'insufficient-data'];
@@ -227,30 +191,6 @@ describe('copy dictionaries cover every source-derived key', () => {
     }
   });
 
-  it('covers every signal-conflict code, including "positioning"', () => {
-    for (const code of CONFLICT_CODES) {
-      expect(CONFLICT_CODE[code], `CONFLICT_CODE missing "${code}"`).toBeDefined();
-      assertHuman(lookupConflictCode(code).label);
-    }
-  });
-
-  it('covers every signal_conflict_label value', () => {
-    for (const label of SIGNAL_CONFLICT_LABELS) {
-      expect(
-        SIGNAL_CONFLICT_LABEL[label],
-        `SIGNAL_CONFLICT_LABEL missing "${label}"`,
-      ).toBeDefined();
-      assertHuman(lookupSignalConflictLabel(label).label);
-    }
-  });
-
-  it('covers every confluence family key', () => {
-    for (const key of CONFLUENCE_FAMILY_KEYS) {
-      expect(CONFLUENCE_FAMILY[key], `CONFLUENCE_FAMILY missing "${key}"`).toBeDefined();
-      assertHuman(lookupConfluenceFamily(key).label);
-    }
-  });
-
   it('covers every watchlist id', () => {
     for (const id of WATCHLIST_IDS) {
       expect(WATCHLIST[id], `WATCHLIST missing "${id}"`).toBeDefined();
@@ -297,13 +237,6 @@ describe('copy dictionaries cover every source-derived key', () => {
     for (const label of CALIBRATION_LABELS) {
       expect(CALIBRATION[label], `CALIBRATION missing "${label}"`).toBeDefined();
       assertHuman(lookupCalibration(label).label);
-    }
-  });
-
-  it('covers every walk-forward robustness verdict', () => {
-    for (const verdict of ROBUSTNESS_VERDICTS) {
-      expect(ROBUSTNESS_VERDICT[verdict], `ROBUSTNESS_VERDICT missing "${verdict}"`).toBeDefined();
-      assertHuman(lookupRobustnessVerdict(verdict).label);
     }
   });
 
@@ -356,20 +289,16 @@ describe('copy fallbacks never leak a raw machine key', () => {
     assertHuman(lookupSetup(null).label);
   });
 
-  it('lookupConflictCode falls back to a humanized label for an unknown code', () => {
-    assertHuman(lookupConflictCode('some_unmapped_code').label);
-  });
-
   it('lookupQualityFlag falls back to a humanized label for an unknown flag code', () => {
     assertHuman(lookupQualityFlag('some_unmapped_flag:123').label);
   });
 });
 
 // ---------------------------------------------------------------------------------------------
-// Fixture walk -- the real leak-proof test. Every setup/factor/conflict-code/confluence-family
-// key that actually appears in a real (frozen) payload must resolve to a mapped, non-jargon
-// label. This does NOT replace the source-derived assertions above (the fixture is known to be
-// missing several real values -- see the file header comment).
+// Fixture walk -- the real leak-proof test. Every setup/quality-flag key that actually appears in
+// a real (frozen) payload must resolve to a mapped, non-jargon label. This does NOT replace the
+// source-derived assertions above (the fixture is known to be missing several real values -- see
+// the file header comment).
 // ---------------------------------------------------------------------------------------------
 
 const FIXTURE_PATH = join(
@@ -379,9 +308,6 @@ const FIXTURE_PATH = join(
 
 interface FixtureRow {
   setup: string;
-  factor_parts: Array<{ name: string }>;
-  signal_conflicts: Array<{ code: string }>;
-  confluence: { families: Array<{ key: string }> };
   data_quality_flags: string[];
 }
 
@@ -409,30 +335,6 @@ describe('fixture walk: no raw jargon reaches the UI for a real payload', () => 
   it('every row.setup resolves to a non-jargon label', () => {
     for (const row of rows) {
       assertHuman(lookupSetup(row.setup).label);
-    }
-  });
-
-  it('every factor_parts[].name resolves to a non-jargon label', () => {
-    for (const row of rows) {
-      for (const part of row.factor_parts) {
-        assertHuman(lookupFactor(part.name).label);
-      }
-    }
-  });
-
-  it('every signal_conflicts[].code resolves to a non-jargon label', () => {
-    for (const row of rows) {
-      for (const conflict of row.signal_conflicts) {
-        assertHuman(lookupConflictCode(conflict.code).label);
-      }
-    }
-  });
-
-  it('every confluence.families[].key resolves to a non-jargon label', () => {
-    for (const row of rows) {
-      for (const family of row.confluence.families) {
-        assertHuman(lookupConfluenceFamily(family.key).label);
-      }
     }
   });
 

@@ -76,19 +76,3 @@ export function qualityTone(value: unknown): QualityTone {
   if (q < 90) return 'warn';
   return '';
 }
-
-export type ConflictTone = 'pos' | 'neg' | 'warn' | 'neutral';
-
-export function conflictTone(label: unknown): ConflictTone {
-  const normalized = String(label ?? '').toLowerCase();
-  if (normalized === 'aligned' || normalized === 'neutral') return 'pos';
-  if (normalized === 'high-conflict' || normalized === 'excluded') return 'neg';
-  if (normalized && normalized !== 'unknown') return 'warn';
-  return 'neutral';
-}
-
-export function confluenceToneClass(tone: string): string {
-  if (tone === 'pos') return 'conf-pos';
-  if (tone === 'neg') return 'conf-neg';
-  return 'conf-neutral';
-}

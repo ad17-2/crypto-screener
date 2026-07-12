@@ -278,13 +278,6 @@
     border: 1px solid color-mix(in srgb, var(--gold) 30%, var(--line));
     background: color-mix(in srgb, var(--gold) 9%, var(--panel));
   }
-  /* Down-tinted twin of .quality-card -- the negative-weight callout on /model's factor stage. */
-  .risk-callout {
-    border: 1px solid color-mix(in srgb, var(--down) 35%, var(--line));
-    background: color-mix(in srgb, var(--down) 9%, var(--panel));
-    border-radius: 6px;
-    padding: 12px;
-  }
   .quality-card-head span {
     color: var(--muted);
     font-size: 12px;
@@ -373,103 +366,6 @@
   .driver-line {
     color: var(--muted);
     font-size: 11px;
-  }
-  /* Rank and conviction are magnitudes, not deviations -- weight and mono already make them the
-     loudest thing in the row. Painting all of them gold spent the accent colour on every line. */
-  .score-val {
-    font-family: var(--mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 14px;
-    font-weight: 800;
-    color: var(--ink);
-  }
-  .score-bar {
-    display: block;
-    width: 100%;
-    max-width: 64px;
-    height: 3px;
-    margin: 4px 0 0 auto;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--gold) 16%, var(--panel-2));
-    overflow: hidden;
-  }
-  /* Rank magnitude is already carried by the bar's length -- painting it gold spent the attention
-     colour on every row at once, which is how you end up with a table where nothing stands out. */
-  .score-fill {
-    display: block;
-    height: 100%;
-    background: color-mix(in srgb, var(--ink) 45%, transparent);
-  }
-  .conf-cell {
-    display: grid;
-    gap: 3px;
-    justify-items: end;
-  }
-  .conf-bar {
-    display: inline-flex;
-    gap: 2px;
-    width: 100%;
-    max-width: 42px;
-    margin-left: auto;
-  }
-  .conf-seg {
-    flex: 1 1 0;
-    height: 5px;
-    border-radius: 1px;
-    background: color-mix(in srgb, var(--muted) 35%, var(--panel-2));
-  }
-  .conf-seg.conf-pos {
-    background: var(--up);
-  }
-  .conf-seg.conf-neg {
-    background: var(--down);
-  }
-  .conf-seg.conf-neutral {
-    background: color-mix(in srgb, var(--muted) 45%, var(--panel-2));
-  }
-  .conf-strip {
-    display: grid;
-    gap: 6px;
-    padding: 8px 10px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--panel-2);
-  }
-  .conf-strip-headline {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--ink);
-  }
-  .conf-strip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .conf-strip-cell {
-    display: inline-flex;
-    align-items: center;
-    min-height: 22px;
-    padding: 2px 6px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--panel);
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 650;
-    line-height: 1.2;
-  }
-  .conf-strip-cell.conf-pos {
-    border-color: color-mix(in srgb, var(--up) 40%, var(--line));
-    background: color-mix(in srgb, var(--up) 12%, var(--panel));
-    color: var(--up);
-  }
-  .conf-strip-cell.conf-neg {
-    border-color: color-mix(in srgb, var(--down) 40%, var(--line));
-    background: color-mix(in srgb, var(--down) 12%, var(--panel));
-    color: var(--down);
-  }
-  .conf-strip-cell.conf-neutral {
-    color: var(--muted);
   }
   .reason-pct {
     margin-left: 4px;
@@ -587,23 +483,6 @@
     margin-top: 4px;
     transform: rotate(225deg);
   }
-  .factor-track {
-    height: 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--muted) 18%, var(--panel));
-    overflow: hidden;
-  }
-  .factor-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: var(--muted);
-  }
-  .factor-fill.pos {
-    background: var(--up);
-  }
-  .factor-fill.neg {
-    background: var(--down);
-  }
   .pos-dot {
     display: inline-block;
     font-size: 10px;
@@ -620,26 +499,6 @@
   }
   .pos-dot.neutral {
     color: var(--muted);
-  }
-  .conflict-block {
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--panel-2);
-    padding: 10px;
-  }
-  .conflict-block {
-    display: grid;
-    gap: 8px;
-  }
-  .conflict-row {
-    display: grid;
-    grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
-    gap: 8px;
-    font-size: 12px;
-  }
-  .conflict-row span {
-    color: var(--muted);
-    overflow-wrap: anywhere;
   }
   .history-block {
     display: grid;
@@ -872,43 +731,6 @@
     background: var(--down);
   }
 
-  /* Factor hit-rate rows (/model, "Is it working?") -- a diverging bar off a 50% baseline marker,
-     not a plain 0-100% bar, so a hit rate reads relative to a coin flip at a glance. */
-  .hitrate-row {
-    display: grid;
-    grid-template-columns: minmax(84px, 1fr) minmax(0, 2fr) auto;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 0;
-  }
-  .hitrate-track {
-    position: relative;
-    height: 8px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--muted) 14%, var(--panel));
-  }
-  .hitrate-baseline {
-    position: absolute;
-    top: -3px;
-    bottom: -3px;
-    left: 50%;
-    width: 2px;
-    background: var(--muted);
-  }
-  .hitrate-fill {
-    position: absolute;
-    top: 0;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--muted);
-  }
-  .hitrate-fill.pos {
-    background: var(--up);
-  }
-  .hitrate-fill.neg {
-    background: var(--down);
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     .live-dot {
       animation: tape-pulse 2.4s ease-out infinite;
@@ -964,9 +786,6 @@
       color: var(--muted);
       font-size: 11px;
       font-family: var(--font-sans);
-    }
-    .score-bar {
-      margin-left: 0;
     }
   }
   @media (max-width: 680px) {

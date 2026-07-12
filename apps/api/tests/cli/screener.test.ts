@@ -11,8 +11,21 @@ describe('screener CLI', () => {
     const payload = {
       run_id: 'run-cli',
       rows: [
-        { symbol: 'LONG', factor_score: 0.5, long_score: 10, is_trusted: true },
-        { symbol: 'SHORT', factor_score: -0.5, short_score: 11, is_trusted: true },
+        // Long/short membership is an observation (the coin advanced/declined), not a factor_score.
+        {
+          symbol: 'LONG',
+          price_change_24h_pct: 5,
+          factor_score: 0.5,
+          long_score: 10,
+          is_trusted: true,
+        },
+        {
+          symbol: 'SHORT',
+          price_change_24h_pct: -5,
+          factor_score: -0.5,
+          short_score: 11,
+          is_trusted: true,
+        },
         {
           symbol: 'FADE',
           factor_score: 0.1,

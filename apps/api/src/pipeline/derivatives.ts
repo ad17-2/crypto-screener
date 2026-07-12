@@ -80,9 +80,6 @@ export function derivativesSnapshot(
 
   const fundingWindow = fundingCloses.slice(-window);
   const fundingAvg = fundingCloses.length ? mean(fundingWindow) : null;
-  const fundingAbsAvg = fundingCloses.length
-    ? mean(fundingWindow.map((value) => Math.abs(value)))
-    : null;
   const fundingPersistence = signPersistence(fundingWindow);
 
   const longLiq = liqWindow.reduce((sum, row) => sum + row.long, 0);
@@ -109,14 +106,10 @@ export function derivativesSnapshot(
     oi_acceleration_4h_pct: oiAcceleration,
     oi_zscore_30: oiZscore,
     funding_avg_24h_pct: fundingAvg,
-    funding_abs_avg_24h_pct: fundingAbsAvg,
     funding_persistence_24h: fundingPersistence,
     long_liquidation_usd_24h_history: liqWindow.length ? longLiq : null,
     short_liquidation_usd_24h_history: liqWindow.length ? shortLiq : null,
-    liquidation_total_24h_usd: liqWindow.length ? liqTotal : null,
     liquidation_imbalance_24h_pct: liqImbalance,
-    taker_buy_volume_usd_24h: takerWindow.length ? buyVolume : null,
-    taker_sell_volume_usd_24h: takerWindow.length ? sellVolume : null,
     taker_buy_sell_ratio_24h: takerRatio,
     taker_imbalance_24h_pct: takerImbalance,
     derivatives_confirmation_score: confirmation,

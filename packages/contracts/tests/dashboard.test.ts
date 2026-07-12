@@ -9,10 +9,8 @@ const sampleRow = {
   score_field: 'long_score',
   score: 42.5,
   priority: 38.1,
-  confidence_score: 61,
   quality: 100,
   primary_exchange: 'Binance',
-  contract_symbol: 'BTCUSDT',
   price_usd: 65000.12,
   price_change_24h_pct: 2.4,
   oi_change_24h_pct: 1.1,
@@ -20,29 +18,13 @@ const sampleRow = {
   long_short_ratio: 1.05,
   long_short_account_ratio: 1.02,
   top_trader_long_short_ratio: 1.1,
-  positioning_ratio: 1.02,
   funding_percentile: 55,
   oi_change_percentile: 60,
   positioning_percentile: 50,
-  confluence: {
-    direction: 'long',
-    aligned: 3,
-    against: 1,
-    neutral: 1,
-    total: 5,
-    net_score: 2,
-    families: [{ key: 'technical', label: 'Technical', tone: 'pos', value: 0.4 }],
-  },
-  confluence_score: 2,
   quote_volume_usd: 500_000_000,
   open_interest_usd: 1_000_000_000,
   technical_setup: 'Bullish Trend',
   technical_state: { rsi_14: 58.2, ema_20: 64000.1 },
-  signal_conflict_label: 'aligned',
-  signal_conflict_score: 0,
-  signal_conflicts: [],
-  regime_alignment_score: 0.3,
-  breadth_alignment_score: 0.2,
   data_source: 'coinglass',
   is_trusted: true,
   data_quality_flags: [],
@@ -52,15 +34,9 @@ const sampleRow = {
     short_score: 0,
     crowded_long_score: 10,
     squeeze_risk_score: 5,
-    confidence_score: 61,
-    signal_conflict_score: 0,
-    regime_alignment_score: 0.3,
-    breadth_alignment_score: 0.2,
     round_trip_cost_pct: 0.16,
     size_multiplier: 1.1,
   },
-  factor_parts: [{ name: 'momentum_24h', label: 'Momentum', value: 0.42, tone: 'pos' }],
-  primary_driver: { name: 'momentum_24h', label: 'Momentum', value: 0.42, tone: 'pos' },
   history: [
     {
       generated_at: '2026-07-10T12:00:00+00:00',
@@ -72,7 +48,6 @@ const sampleRow = {
       long_short_account_ratio: 1.01,
       top_trader_long_short_ratio: 1.05,
       quote_volume_usd: 480_000_000,
-      confidence_score: 58,
       technical_trend_4h: 0.5,
       technical_momentum_4h: 0.3,
       rsi_14: 56.1,
@@ -81,10 +56,8 @@ const sampleRow = {
       short_score: 0,
       crowded_long_score: 8,
       squeeze_risk_score: 4,
-      signal_conflict_score: 0,
     },
   ],
-  reason: 'BTC is grouped as OI Momentum Long because Momentum +0.42 is the strongest driver.',
   reason_parts: [
     {
       kind: 'metric',
@@ -94,11 +67,6 @@ const sampleRow = {
       help: 'Spot or mark price change over the last 24 hours.',
     },
   ],
-  explanation: {
-    read: 'BTC is grouped as OI Momentum Long.',
-    confirm: ['Check the chart.'],
-    risk: ['Main risk is chart invalidation after manual review.'],
-  },
 };
 
 describe('DashboardRowSchema', () => {
@@ -209,6 +177,15 @@ describe('DashboardPayloadSchema', () => {
         { id: 'chart_next', label: 'Top Setups', rows: [sampleRow] },
         { id: 'core', label: 'Core', rows: [sampleRow] },
       ],
+      scoreboard: {
+        status: 'insufficient',
+        n_calls: 5,
+        n_resolved: 2,
+        n_scored: 2,
+        hit_rate_pct: 50,
+        mean_net_return_pct: 0.1,
+        cumulative_net_return_pct: 0.2,
+      },
     };
 
     expect(() => DashboardPayloadSchema.parse(payload)).not.toThrow();

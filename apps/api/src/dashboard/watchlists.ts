@@ -39,12 +39,14 @@ export function topBy(
   return ranked.filter((row) => (toFloat(row[field], 0) ?? 0) >= minimum).slice(0, limit);
 }
 
+// Membership is an OBSERVATION -- this coin is advancing / declining -- not a prediction. Gating on
+// factor_score would empty both lists the moment no factor validates, which is now the standing state.
 export function isLongCandidate(row: Row): boolean {
-  return (toFloat(row.factor_score, 0) ?? 0) > 0;
+  return (toFloat(row.price_change_24h_pct, 0) ?? 0) > 0;
 }
 
 export function isShortCandidate(row: Row): boolean {
-  return (toFloat(row.factor_score, 0) ?? 0) < 0;
+  return (toFloat(row.price_change_24h_pct, 0) ?? 0) < 0;
 }
 
 export function isCrowdedLong(row: Row): boolean {

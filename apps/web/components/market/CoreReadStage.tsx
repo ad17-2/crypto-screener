@@ -28,7 +28,6 @@ export function CoreReadStage({ rows }: CoreReadStageProps) {
 
 function CoreCard({ row }: { row: DashboardRow }) {
   const setup = lookupSetup(row.setup);
-  const confluence = row.confluence;
 
   return (
     <div className="rounded-md border border-line bg-panel p-4">
@@ -40,11 +39,6 @@ function CoreCard({ row }: { row: DashboardRow }) {
       </div>
       <div className="mt-1 font-mono text-[19px] font-medium">{formatPrice(row.price_usd)}</div>
       <span className={`setup-badge mt-2 ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
-      <p className="mt-2 text-[12px] text-muted">
-        {confluence.total > 0
-          ? `${confluence.aligned} of ${confluence.total} signal groups agree ${confluence.direction}.`
-          : 'No confluence read.'}
-      </p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <MiniStat
           label="Funding"

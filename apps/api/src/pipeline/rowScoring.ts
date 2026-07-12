@@ -77,10 +77,20 @@ export function applyScores(
     shortCrowding += clamp((0.8 - ls) / 0.5);
   }
 
-  let longScore =
-    Math.max(0.0, directionalScore) * 55.0 + liquidityQuality * 0.25 - longCrowding * 10.0;
-  let shortScore =
-    Math.max(0.0, -directionalScore) * 55.0 + liquidityQuality * 0.25 - shortCrowding * 8.0;
+  // THE SCREEN (layer 2) ranks on OBSERVABLE FACTS. directionalScore is deliberately absent: no
+  // factor forward-validates, so it is 0 for every coin and ranking by it would rank by nothing.
+  // What is left is what actually happened -- price moved, open interest built, it is liquid, it is
+  // not already crowded.
+  const longScore =
+    clamp(Math.max(priceChange, 0.0) / 10.0) * 45.0 +
+    clamp(Math.max(oiChange, 0.0) / 12.0) * 15.0 +
+    liquidityQuality * 0.25 -
+    longCrowding * 10.0;
+  const shortScore =
+    clamp(Math.max(-priceChange, 0.0) / 10.0) * 45.0 +
+    clamp(Math.max(oiChange, 0.0) / 12.0) * 15.0 +
+    liquidityQuality * 0.25 -
+    shortCrowding * 8.0;
   const crowdedLongScore =
     longCrowding * 35.0 +
     clamp(Math.max(oiChange, 0.0) / 12.0) * 25.0 +
@@ -92,20 +102,12 @@ export function applyScores(
     clamp(Math.max(priceChange, 0.0) / 8.0) * 13.0 +
     liquidityQuality * 0.25;
 
-  const scoreCfg = config.factors?.regime_weighting ?? {};
-  const adjustmentStrength = scoreCfg.score_adjustment_strength ?? 0.08;
-  const conflictPenaltyStrength = scoreCfg.conflict_penalty_strength ?? 0.18;
+  // long_score/short_score are THE SCREEN's pure crowding/momentum read -- no longer scaled by
+  // regime-alignment or signal-conflict (that blended a prediction into an observation). Those two
+  // fields are still computed below solely to keep the frozen 49-column CSV (reportFields.ts)
+  // populated; they are no longer consumed for ranking or sizing.
   const alignment = conflicts.regime_alignment_score;
   const conflictScore = conflicts.signal_conflict_score;
-  const setupMultiplier = Math.max(
-    0.7,
-    1.0 + alignment * adjustmentStrength - (conflictScore / 100.0) * conflictPenaltyStrength,
-  );
-  if (directionalScore > 0) {
-    longScore *= setupMultiplier;
-  } else if (directionalScore < 0) {
-    shortScore *= setupMultiplier;
-  }
 
   const roundTripCost = roundTripCostPct(
     row,

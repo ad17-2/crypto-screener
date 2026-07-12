@@ -8,38 +8,6 @@ import { z } from 'zod';
 
 const jsonRecord = z.record(z.string(), z.unknown());
 
-const FactorPartSchema = z.object({
-  name: z.string(),
-  label: z.string(),
-  value: z.number(),
-  tone: z.string(),
-});
-
-const ConfluenceFamilySchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  tone: z.string(),
-  /** null (not zero) when none of this family's factors are present — don't treat as falsy. */
-  value: z.number().nullable(),
-});
-
-const ConfluenceSummarySchema = z.object({
-  direction: z.string(),
-  aligned: z.number(),
-  against: z.number(),
-  neutral: z.number(),
-  total: z.number(),
-  net_score: z.number(),
-  families: z.array(ConfluenceFamilySchema),
-});
-
-const SignalConflictItemSchema = z.object({
-  code: z.string(),
-  label: z.string(),
-  severity: z.number(),
-  detail: z.string(),
-});
-
 const ReasonPartSchema = z.object({
   kind: z.string(),
   label: z.string(),
@@ -48,22 +16,12 @@ const ReasonPartSchema = z.object({
   help: z.string(),
 });
 
-const RowExplanationSchema = z.object({
-  read: z.string(),
-  confirm: z.array(z.string()),
-  risk: z.array(z.string()),
-});
-
 const RowScoresSchema = z.object({
   factor_score: z.number().nullable(),
   long_score: z.number().nullable(),
   short_score: z.number().nullable(),
   crowded_long_score: z.number().nullable(),
   squeeze_risk_score: z.number().nullable(),
-  confidence_score: z.number().nullable(),
-  signal_conflict_score: z.number().nullable(),
-  regime_alignment_score: z.number().nullable(),
-  breadth_alignment_score: z.number().nullable(),
   round_trip_cost_pct: z.number().nullable(),
   size_multiplier: z.number().nullable(),
 });
@@ -95,7 +53,6 @@ const HistoryPointSchema = z.object({
   long_short_account_ratio: z.number().nullable(),
   top_trader_long_short_ratio: z.number().nullable(),
   quote_volume_usd: z.number().nullable(),
-  confidence_score: z.number().nullable(),
   technical_trend_4h: z.number().nullable(),
   technical_momentum_4h: z.number().nullable(),
   rsi_14: z.number().nullable(),
@@ -104,7 +61,6 @@ const HistoryPointSchema = z.object({
   short_score: z.number().nullable(),
   crowded_long_score: z.number().nullable(),
   squeeze_risk_score: z.number().nullable(),
-  signal_conflict_score: z.number().nullable(),
 });
 
 export const DashboardRowSideSchema = z.enum([
@@ -123,10 +79,8 @@ export const DashboardRowSchema = z.object({
   score_field: z.string(),
   score: z.number().nullable(),
   priority: z.number(),
-  confidence_score: z.number().nullable(),
   quality: z.number(),
   primary_exchange: z.string().nullable(),
-  contract_symbol: z.string().nullable(),
   price_usd: z.number().nullable(),
   price_change_24h_pct: z.number().nullable(),
   oi_change_24h_pct: z.number().nullable(),
@@ -134,31 +88,19 @@ export const DashboardRowSchema = z.object({
   long_short_ratio: z.number().nullable(),
   long_short_account_ratio: z.number().nullable(),
   top_trader_long_short_ratio: z.number().nullable(),
-  positioning_ratio: z.number().nullable(),
   funding_percentile: z.number().nullable(),
   oi_change_percentile: z.number().nullable(),
   positioning_percentile: z.number().nullable(),
-  confluence: ConfluenceSummarySchema,
-  confluence_score: z.number(),
   quote_volume_usd: z.number().nullable(),
   open_interest_usd: z.number().nullable(),
   technical_setup: z.string().nullable(),
   technical_state: TechnicalStateSchema,
-  signal_conflict_label: z.string().nullable(),
-  signal_conflict_score: z.number().nullable(),
-  signal_conflicts: z.array(SignalConflictItemSchema),
-  regime_alignment_score: z.number().nullable(),
-  breadth_alignment_score: z.number().nullable(),
   data_source: z.string().nullable(),
   is_trusted: z.boolean(),
   data_quality_flags: z.array(z.string()),
   scores: RowScoresSchema,
-  factor_parts: z.array(FactorPartSchema),
-  primary_driver: FactorPartSchema.nullable(),
   history: z.array(HistoryPointSchema),
-  reason: z.string(),
   reason_parts: z.array(ReasonPartSchema),
-  explanation: RowExplanationSchema,
 });
 
 export const RunSummarySchema = z.object({
@@ -270,6 +212,23 @@ export const WatchlistSchema = z.object({
   rows: z.array(DashboardRowSchema),
 });
 
+/**
+ * Layer 4: the accountability read on `recommendations`. n_calls >= n_resolved (has a realised
+ * forward return) >= n_scored (resolved AND has a directional thesis AND a known cost -- 'core'
+ * rows are never scored). hit_rate_pct/mean/cumulative are net of round_trip_cost_pct.
+ * status === 'insufficient' means n_scored is too small to trust hit_rate_pct -- render the counts,
+ * not a misleadingly precise percentage.
+ */
+export const ScoreboardSchema = z.object({
+  status: z.enum(['insufficient', 'ok']),
+  n_calls: z.number(),
+  n_resolved: z.number(),
+  n_scored: z.number(),
+  hit_rate_pct: z.number().nullable(),
+  mean_net_return_pct: z.number().nullable(),
+  cumulative_net_return_pct: z.number().nullable(),
+});
+
 const DashboardPayloadEmptySchema = z.object({
   status: z.literal('empty'),
   database: z.string(),
@@ -296,6 +255,7 @@ const DashboardPayloadOkSchema = z.object({
   quality: QualitySchema,
   sections: SectionsSchema,
   watchlists: z.array(WatchlistSchema),
+  scoreboard: ScoreboardSchema,
   /** set by the route handler; optional here so this schema also validates the builder's raw return. */
   refresh_status: z.unknown().nullable().optional(),
 });
@@ -315,4 +275,5 @@ export type ModelWeights = z.infer<typeof ModelWeightsSchema>;
 export type Sections = z.infer<typeof SectionsSchema>;
 export type WatchlistId = z.infer<typeof WatchlistIdSchema>;
 export type Watchlist = z.infer<typeof WatchlistSchema>;
+export type Scoreboard = z.infer<typeof ScoreboardSchema>;
 export type DashboardPayload = z.infer<typeof DashboardPayloadSchema>;

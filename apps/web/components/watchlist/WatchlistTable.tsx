@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import { Term } from '@/components/ui/Tooltip';
 import { lookupMetric, lookupQualityFlag, lookupSetup } from '@/lib/copy';
 import { rowKey, tradingViewUrl } from '@/lib/dashboard-row';
-import { arrowPct, clsFor, confluenceToneClass, fmtNum, fmtPct } from '@/lib/format';
+import { arrowPct, clsFor, fmtNum, fmtPct, fmtUsd } from '@/lib/format';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 
 export interface WatchlistTableProps {
@@ -26,24 +26,24 @@ interface ColumnDef {
 const COLUMNS: ColumnDef[] = [
   { key: 'symbol', label: 'Coin' },
   { key: 'setup', label: 'Setup' },
-  { key: 'rank', ...lookupMetric('priority') },
-  { key: 'conviction', ...lookupMetric('conviction') },
   { key: 'price', label: '24h' },
+  { key: 'volume', ...lookupMetric('volume') },
   { key: 'oi', label: 'OI 24h', definition: lookupMetric('open_interest').definition },
   { key: 'funding', ...lookupMetric('funding') },
   { key: 'crowding', ...lookupMetric('crowding') },
 ];
 
 /**
- * 8-column desktop layout, overriding `.watch-head`/`.watch-row`'s 11-column
+ * 7-column desktop layout, overriding `.watch-head`/`.watch-row`'s 11-column
  * `grid-template-columns` in app/globals.css (out of scope for this change -- owned elsewhere).
  * Tailwind v4 utilities beat components in the cascade layers regardless of specificity, so this
  * arbitrary grid-cols utility wins over the component rule -- including globals.css's own
  * `@media (max-width: 900px)` 2-column override, which is why that override is repeated here too
- * (it would otherwise be shadowed the same way, breaking the mobile card collapse).
+ * (it would otherwise be shadowed the same way, breaking the mobile card collapse). No Rank or
+ * Conviction column here -- THE SCREEN ranks by observable facts, not a model opinion.
  */
 const GRID_COLUMNS =
-  'grid-cols-[minmax(96px,1.05fr)_minmax(150px,1.5fr)_minmax(80px,0.7fr)_minmax(84px,0.76fr)_minmax(64px,0.58fr)_minmax(72px,0.64fr)_minmax(78px,0.7fr)_minmax(72px,0.64fr)] max-[900px]:grid-cols-2';
+  'grid-cols-[minmax(96px,1.05fr)_minmax(150px,1.5fr)_minmax(68px,0.62fr)_minmax(86px,0.8fr)_minmax(76px,0.68fr)_minmax(82px,0.74fr)_minmax(76px,0.68fr)] max-[900px]:grid-cols-2';
 
 export interface SideMeta {
   label: string;
@@ -81,8 +81,6 @@ export function WatchlistTable({
     return <div className="py-7 px-3 text-muted text-center">{emptyMessage}</div>;
   }
 
-  const maxPriority = Math.max(...rows.map((row) => row.priority), 1);
-
   return (
     <table aria-label="Watchlist rows" className="watch-table w-full overflow-hidden block">
       <thead className="block">
@@ -111,7 +109,6 @@ export function WatchlistTable({
               row={row}
               rowKeyValue={key}
               active={key === selectedKey}
-              maxPriority={maxPriority}
               onSelectRow={onSelectRow}
             />
           );
@@ -176,13 +173,11 @@ function WatchlistRow({
   row,
   rowKeyValue,
   active,
-  maxPriority,
   onSelectRow,
 }: {
   row: DashboardRow;
   rowKeyValue: string;
   active: boolean;
-  maxPriority: number;
   onSelectRow: (key: string) => void;
 }) {
   const handleClick = (event: MouseEvent<HTMLTableRowElement>) => {
@@ -205,10 +200,11 @@ function WatchlistRow({
     >
       <SymbolCell row={row} />
       <SetupCell row={row} />
-      <RankCell row={row} maxPriority={maxPriority} />
-      <ConvictionCell row={row} />
       <td className={`watch-cell ${clsFor(row.price_change_24h_pct)}`} data-label="24h">
         {arrowPct(row.price_change_24h_pct)}
+      </td>
+      <td className="watch-cell" data-label="Volume">
+        {fmtUsd(row.quote_volume_usd)}
       </td>
       <td className={`watch-cell ${clsFor(row.oi_change_24h_pct)}`} data-label="OI 24h">
         {arrowPct(row.oi_change_24h_pct)}
@@ -272,44 +268,6 @@ function SetupCell({ row }: { row: DashboardRow }) {
     <td className="watch-cell left watch-setup" data-label="Setup">
       <span className={`setup-badge ${side.tone}`}>{side.label}</span>
       <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
-    </td>
-  );
-}
-
-function RankCell({ row, maxPriority }: { row: DashboardRow; maxPriority: number }) {
-  const width = maxPriority > 0 ? Math.round(Math.min(row.priority / maxPriority, 1) * 100) : 0;
-  return (
-    <td className="watch-cell" data-label="Rank">
-      <span className="score-val">{fmtNum(row.priority)}</span>
-      <span className="score-bar">
-        <span className="score-fill" style={{ width: `${width}%` }} />
-      </span>
-    </td>
-  );
-}
-
-function ConvictionCell({ row }: { row: DashboardRow }) {
-  const conf = row.confluence;
-  return (
-    <td className="watch-cell conf-cell" data-label="Conviction">
-      <span className="score-val">
-        {row.confidence_score == null ? '-' : fmtNum(row.confidence_score, 0)}
-      </span>
-      {conf.families.length > 0 ? (
-        <>
-          <span className="driver-line">
-            {conf.aligned}/{conf.total} agree
-          </span>
-          <span
-            className="conf-bar"
-            title={`${conf.aligned} align / ${conf.against} against / ${conf.neutral} neutral (${conf.direction})`}
-          >
-            {conf.families.map((family) => (
-              <span key={family.key} className={`conf-seg ${confluenceToneClass(family.tone)}`} />
-            ))}
-          </span>
-        </>
-      ) : null}
     </td>
   );
 }

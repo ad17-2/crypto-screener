@@ -7,6 +7,7 @@ export {
   saveFactorHistoryRecords,
 } from './factorHistory.js';
 export {
+  computeScoreboard,
   loadRecommendationsWithOutcomes,
   recommendationsFromWatchlists,
   saveRecommendations,
@@ -24,5 +25,6 @@ export type {
   RecommendationRecordInput,
   RecommendationWatchlistInput,
   RegimeStateSummary,
+  Scoreboard,
   SnapshotPayload,
 } from './types.js';

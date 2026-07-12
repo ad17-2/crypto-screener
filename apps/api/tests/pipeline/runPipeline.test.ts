@@ -70,10 +70,12 @@ describe('runPipeline', () => {
         rows: [
           {
             symbol: 'BTC',
+            // Long-list membership is an OBSERVATION now (the coin advanced), not a factor_score.
+            price_change_24h_pct: 4.2,
             factor_score: 0.8,
             long_score: 5,
             is_trusted: true,
-            scores: { factor_score: 0.8, round_trip_cost_pct: 0.05 },
+            scores: { factor_score: 0.8, round_trip_cost_pct: 0.05, size_multiplier: 1.15 },
           },
         ],
         factor_weights: { mode: 'prior' },
@@ -92,22 +94,35 @@ describe('runPipeline', () => {
       try {
         const rows = db
           .prepare(
-            'SELECT symbol, watchlist, priority, factor_score, round_trip_cost_pct FROM recommendations WHERE run_id = ?',
+            'SELECT symbol, watchlist, side, score_field, signal_value, size_multiplier, round_trip_cost_pct FROM recommendations WHERE run_id = ?',
           )
           .all(payload.run_id) as Array<{
           symbol: string;
           watchlist: string;
-          priority: number;
-          factor_score: number;
+          side: string;
+          score_field: string;
+          signal_value: number;
+          size_multiplier: number;
           round_trip_cost_pct: number;
         }>;
         expect(rows.length).toBeGreaterThan(0);
         expect(rows.map((row) => row.watchlist)).toEqual(expect.arrayContaining(['core', 'long']));
+        // round_trip_cost_pct/size_multiplier come from the same row.scores regardless of which
+        // watchlist a row lands in; signal_value/score_field/side are watchlist-specific -- "the
+        // signal value that drove THIS call", not a single blended number repeated everywhere.
         for (const row of rows) {
           expect(row.symbol).toBe('BTC');
-          expect(row.factor_score).toBe(0.8);
           expect(row.round_trip_cost_pct).toBe(0.05);
+          expect(row.size_multiplier).toBe(1.15);
         }
+        const core = rows.find((row) => row.watchlist === 'core');
+        expect(core).toMatchObject({
+          side: 'core',
+          score_field: 'factor_score',
+          signal_value: 0.8,
+        });
+        const long = rows.find((row) => row.watchlist === 'long');
+        expect(long).toMatchObject({ side: 'long', score_field: 'long_score', signal_value: 5 });
       } finally {
         db.close();
       }

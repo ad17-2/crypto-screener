@@ -1,11 +1,6 @@
 import Link from 'next/link';
-import {
-  DataInStage,
-  EvidenceStage,
-  FactorWeightsStage,
-  HeroStage,
-  RisksStage,
-} from '@/components/model';
+import { DataInStage, HeroStage } from '@/components/model';
+import { ScoreboardStage } from '@/components/scoreboard';
 import { getDashboard } from '@/lib/api';
 
 // Live DB state — never statically cache this route.
@@ -62,11 +57,7 @@ export default async function ModelPage() {
         run={payload.run}
       />
 
-      <FactorWeightsStage modelWeights={payload.model_weights} />
-
-      <EvidenceStage validation={payload.validation} modelWeights={payload.model_weights} />
-
-      <RisksStage modelWeights={payload.model_weights} />
+      <ScoreboardStage scoreboard={payload.scoreboard} />
     </main>
   );
 }
@@ -79,8 +70,7 @@ function PageHeader() {
           Model health
         </h1>
         <div className="text-muted text-[13px] mt-1.5">
-          How the model is weighting factors right now, how well it's calibrated, and whether the
-          data feeding it is clean.
+          Two questions: is there a validated edge right now, and what does the track record say.
         </div>
       </div>
       <Link href="/" className="text-muted text-[13px] whitespace-nowrap hover:text-ink">

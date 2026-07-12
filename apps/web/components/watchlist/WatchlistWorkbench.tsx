@@ -13,16 +13,13 @@ import { WatchlistPanel } from './WatchlistPanel';
 
 export interface WatchlistWorkbenchProps {
   watchlists: Watchlist[];
-  /** untyped on the wire -- read defensively; carries net_directional_return_pct. */
-  validation: unknown;
 }
 
 const SORT_KEYS: readonly SortColumnKey[] = [
   'symbol',
   'setup',
-  'rank',
-  'conviction',
   'price',
+  'volume',
   'oi',
   'funding',
   'crowding',
@@ -34,10 +31,7 @@ function defaultTab(watchlists: Watchlist[]): WatchlistId {
     : (watchlists[0]?.id ?? 'chart_next');
 }
 
-export function WatchlistWorkbench({
-  watchlists: allWatchlists,
-  validation,
-}: WatchlistWorkbenchProps) {
+export function WatchlistWorkbench({ watchlists: allWatchlists }: WatchlistWorkbenchProps) {
   // The core (BTC/ETH/SOL) watchlist is promoted into the market section elsewhere in the
   // redesign — it never belongs in this tab strip.
   const watchlists = useMemo(
@@ -47,12 +41,12 @@ export function WatchlistWorkbench({
 
   const [activeTab, setActiveTab] = useState<WatchlistId>(() => defaultTab(watchlists));
   const [filters, setFilters] = useState<WatchlistFilterState>(DEFAULT_WATCHLIST_FILTERS);
-  const [sortKey, setSortKey] = useState<SortColumnKey | null>('rank');
+  const [sortKey, setSortKey] = useState<SortColumnKey | null>('price');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  // Post-mount only, matching ThemeProvider: server-safe default (Rank, desc) renders first (no
-  // hydration mismatch), then this syncs from localStorage once a saved sort is known.
+  // Post-mount only, matching ThemeProvider: server-safe default (24h change, desc) renders first
+  // (no hydration mismatch), then this syncs from localStorage once a saved sort is known.
   useEffect(() => {
     const prefs = readPrefs();
     const matchedSortKey = SORT_KEYS.find((key) => key === prefs.sortKey);
@@ -115,7 +109,6 @@ export function WatchlistWorkbench({
         rows={{ visible: visibleRows, total: activeList.rows.length }}
         selectedKey={effectiveSelectedKey}
         onSelectRow={setSelectedKey}
-        validation={validation}
       />
       <aside className="detail-rail self-stretch">
         <div className="grid gap-3 items-start sticky top-3 max-[1100px]:static">

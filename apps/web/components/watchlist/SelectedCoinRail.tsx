@@ -4,26 +4,14 @@ import { Panel } from '@/components/layout/Panel';
 import { QualityFlagChip } from '@/components/QualityFlagChip';
 import { Term } from '@/components/ui/Tooltip';
 import {
-  lookupConflictCode,
-  lookupConfluenceFamily,
   lookupFactor,
   lookupMetric,
   lookupSetup,
-  lookupSignalConflictLabel,
   lookupTechnicalPattern,
   lookupWatchlist,
 } from '@/lib/copy';
 import { positioningDivergence, tradingViewUrl } from '@/lib/dashboard-row';
-import {
-  conflictTone,
-  confluenceToneClass,
-  fmtNum,
-  fmtPct,
-  fmtUsd,
-  numeric,
-  ordinal,
-  qualityTone,
-} from '@/lib/format';
+import { fmtNum, fmtPct, fmtUsd, numeric, ordinal, qualityTone } from '@/lib/format';
 import { sideMeta } from './WatchlistTable';
 
 export interface SelectedCoinRailProps {
@@ -40,7 +28,6 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
   }
 
   const flags = row.data_quality_flags;
-  const conflicts = row.signal_conflicts;
   const href = tradingViewUrl(row);
 
   return (
@@ -76,7 +63,6 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
         </div>
 
         <VerdictBlock row={row} />
-        <ConfluenceStrip row={row} />
 
         <div className="label">Why this coin</div>
         <ReasonStack row={row} />
@@ -90,13 +76,6 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
         <DetailSection title="History">
           <HistoryBlock row={row} />
         </DetailSection>
-
-        {conflicts.length > 0 ? (
-          <>
-            <div className="label">Signal conflicts</div>
-            <ConflictList row={row} />
-          </>
-        ) : null}
 
         {flags.length > 0 ? (
           <div className="quality-flag-list flex flex-wrap gap-1">
@@ -127,52 +106,15 @@ function signTone(value: unknown): 'pos' | 'neg' | undefined {
 function VerdictBlock({ row }: { row: DashboardRow }) {
   const side = sideMeta(row.side);
   const setup = lookupSetup(row.setup);
-  const conflict = lookupSignalConflictLabel(row.signal_conflict_label);
-  const conf = row.confluence;
   return (
     <div className="grid gap-1.5">
       <div className="detail-badges flex flex-wrap gap-1.5">
         <span className={`setup-badge ${side.tone}`}>{side.label}</span>
         <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
-        <span
-          className={`conflict-badge ${conflictTone(row.signal_conflict_label)}`}
-          title={conflict.definition}
-        >
-          {conflict.label}
-        </span>
       </div>
       <p className="text-sm text-ink m-0 leading-snug">
-        {side.label} setup: {setup.label}.{' '}
-        {conf.families.length > 0
-          ? `${conf.aligned} of ${conf.total} signal groups agree.`
-          : 'No confluence data for this row.'}
+        {side.label} setup: {setup.label}.
       </p>
-    </div>
-  );
-}
-
-function ConfluenceStrip({ row }: { row: DashboardRow }) {
-  const conf = row.confluence;
-  if (!conf.families.length) return null;
-  const dirLabel = conf.direction === 'short' ? 'short' : 'long';
-  return (
-    <div className="conf-strip">
-      <div className="conf-strip-headline">
-        {conf.aligned} of {conf.total} signals align {dirLabel}
-      </div>
-      <div className="conf-strip-row">
-        {conf.families.map((family) => {
-          const meta = lookupConfluenceFamily(family.key);
-          return (
-            <span
-              key={family.key}
-              className={`conf-strip-cell ${confluenceToneClass(family.tone)}`}
-            >
-              <Term label={meta.label} definition={meta.definition} />
-            </span>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -191,7 +133,7 @@ const SCORE_FIELD_META: Record<string, { label: string; definition: string }> = 
   factor_score: {
     label: 'Score (factor)',
     definition:
-      'The weighted directional factor score behind this row, roughly -1 to 1. Not on the same scale as Rank or the long/short/crowding scores below.',
+      'The weighted directional factor score behind this row, roughly -1 to 1. Not on the same scale as the long/short/crowding scores below.',
   },
   long_score: {
     label: 'Score (long)',
@@ -241,8 +183,6 @@ const REASON_METRIC_META: Record<string, { label: string; definition: string }> 
   'OI 24h': { label: 'OI 24h', definition: lookupMetric('open_interest').definition },
   Funding: lookupMetric('funding'),
   'L/S': lookupMetric('crowding'),
-  Factor: SCORE_FIELD_META.factor_score ?? DEFAULT_SCORE_FIELD_META,
-  Confidence: lookupMetric('conviction'),
   RSI: RSI_META,
 };
 
@@ -309,16 +249,6 @@ function resolveReasonPart(
         label: 'Chart read (4h)',
         definition: tech.definition,
         value: tech.label,
-        tone,
-      };
-    }
-    if (part.label === 'Signals') {
-      const conflict = lookupSignalConflictLabel(row.signal_conflict_label);
-      return {
-        key: 'context-signals',
-        label: 'Signal agreement',
-        definition: conflict.definition,
-        value: conflict.label,
         tone,
       };
     }
@@ -425,19 +355,9 @@ function MetricTiles({ row }: { row: DashboardRow }) {
   return (
     <div className="grid grid-cols-3 max-[900px]:grid-cols-2 max-[480px]:grid-cols-1 gap-2">
       <StatTile
-        label={lookupMetric('priority').label}
-        definition={lookupMetric('priority').definition}
-        value={fmtNum(row.priority)}
-      />
-      <StatTile
         label={scoreMeta.label}
         definition={scoreMeta.definition}
         value={fmtNum(row.score)}
-      />
-      <StatTile
-        label={lookupMetric('conviction').label}
-        definition={lookupMetric('conviction').definition}
-        value={row.confidence_score == null ? '-' : fmtNum(row.confidence_score, 0)}
       />
       <StatTile
         label={lookupMetric('data_quality').label}
@@ -557,23 +477,6 @@ function ChartDetailBlock({ row }: { row: DashboardRow }) {
         label="Candles"
         value={`${state.technical_candle_count ?? '-'} ${state.technical_interval || ''}`}
       />
-    </div>
-  );
-}
-
-function ConflictList({ row }: { row: DashboardRow }) {
-  const conflicts = row.signal_conflicts;
-  return (
-    <div className="conflict-block">
-      {conflicts.map((item) => {
-        const meta = lookupConflictCode(item.code);
-        return (
-          <div key={item.code} className="conflict-row">
-            <strong title={meta.definition}>{meta.label}</strong>
-            <span>Severity {fmtNum(item.severity, 2)}</span>
-          </div>
-        );
-      })}
     </div>
   );
 }

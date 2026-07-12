@@ -406,7 +406,16 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
     const fixtureRow = (fixture as { input_rows: Array<Record<string, unknown>> })
       .input_rows[0] as Record<string, unknown>;
     // price_change_72h_pct is added by a later historical-lookback stage, not this boundary.
-    const expectedKeys = Object.keys(fixtureRow).filter((key) => key !== 'price_change_72h_pct');
+    // The other four were dropped from derivatives.ts (zero consumers anywhere downstream); the
+    // frozen fixture predates that removal and still carries them.
+    const droppedKeys = new Set([
+      'price_change_72h_pct',
+      'funding_abs_avg_24h_pct',
+      'liquidation_total_24h_usd',
+      'taker_buy_volume_usd_24h',
+      'taker_sell_volume_usd_24h',
+    ]);
+    const expectedKeys = Object.keys(fixtureRow).filter((key) => !droppedKeys.has(key));
 
     for (const key of expectedKeys) {
       expect(rows[0]).toHaveProperty(key);

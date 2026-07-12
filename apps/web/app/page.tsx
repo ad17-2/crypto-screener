@@ -1,6 +1,8 @@
+import { OneBetStage } from '@/components/bet';
 import { Header } from '@/components/layout/Header';
 import { ReloadButton } from '@/components/layout/ReloadButton';
 import { BreadthRotationStage, CoreReadStage, MarketStage } from '@/components/market';
+import { ScoreboardStage } from '@/components/scoreboard';
 import { WatchlistWorkbench } from '@/components/watchlist';
 import { getDashboard } from '@/lib/api';
 
@@ -90,8 +92,12 @@ export default async function Page({ searchParams }: PageProps) {
         <h2 id="screened-coins-title" className="stage-title mb-3">
           Screened coins
         </h2>
-        <WatchlistWorkbench watchlists={payload.watchlists} validation={payload.validation} />
+        <WatchlistWorkbench watchlists={payload.watchlists} />
       </section>
+
+      <OneBetStage modelWeights={payload.model_weights} watchlists={payload.watchlists} />
+
+      <ScoreboardStage scoreboard={payload.scoreboard} />
     </main>
   );
 }
