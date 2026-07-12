@@ -17,6 +17,8 @@ describe('directionalValidation', () => {
     expect(result.observations).toBe(4);
     expect(result.hit_rate).toBeCloseTo(50.0);
     expect(result.avg_forward_return_pct).toBeCloseTo(0); // (3 - 3 - 3 + 3) / 4 = 0
+    // sign(signal)*forward: (1)(3) + (1)(-3) + (-1)(-3) + (-1)(3) = 3 - 3 + 3 - 3 = 0 -> 0 / 4 = 0
+    expect(result.avg_directional_return_pct).toBeCloseTo(0);
   });
 
   it('excludes pairs whose signal is exactly 0 (validation.ts:235 documented exclusion)', () => {
@@ -28,6 +30,8 @@ describe('directionalValidation', () => {
     const result = directionalValidation(pairs);
     expect(result.observations).toBe(2);
     expect(result.hit_rate).toBeCloseTo(100.0); // both remaining pairs are hits
+    // sign(1)*5 + sign(-1)*-5 = 5 + 5 = 10 -> 10 / 2 = 5
+    expect(result.avg_directional_return_pct).toBeCloseTo(5.0);
   });
 
   it('excludes null signal/forward entries and returns nulls when nothing remains', () => {
@@ -39,7 +43,19 @@ describe('directionalValidation', () => {
       observations: 0,
       hit_rate: null,
       avg_forward_return_pct: null,
+      avg_directional_return_pct: null,
     });
+  });
+
+  it('takes the gross directional return, not the raw market drift (mixed longs/shorts, mostly wrong)', () => {
+    const pairs: Array<[number, number]> = [
+      [1, -10], // long into a -10% drop -> loses 10
+      [1, -4], // long into a -4% drop -> loses 4
+      [-1, -6], // short into a -6% drop -> gains 6
+    ];
+    const result = directionalValidation(pairs);
+    expect(result.avg_forward_return_pct).toBeCloseTo((-10 - 4 - 6) / 3); // -6.667: raw market drift
+    expect(result.avg_directional_return_pct).toBeCloseTo((-10 - 4 + 6) / 3); // -2.667: actual model P&L
   });
 });
 
@@ -81,6 +97,8 @@ describe('validationMetrics', () => {
     expect(result.model.observations).toBe(3); // D dropped by the factor_score === 0 exclusion
     expect(result.model.hit_rate).toBeCloseTo(66.67); // 2 hits / 3
     expect(result.model.avg_forward_return_pct).toBeCloseTo(0); // (5 - 3 - 2) / 3 = 0
+    // sign(2)*5 + sign(-1)*-3 + sign(4)*-2 = 5 + 3 - 2 = 6 -> 6 / 3 = 2
+    expect(result.model.avg_directional_return_pct).toBeCloseTo(2.0);
     // long = positive-signal pairs (A, C): C misses -> 1/2 = 50; short = negative-signal pairs (B): 1/1 = 100.
     expect(result.model.long_observations).toBe(2);
     expect(result.model.long_hit_rate).toBeCloseTo(50.0);
@@ -89,9 +107,7 @@ describe('validationMetrics', () => {
   });
 
   it('degrades cleanly with no crash when records carry no scores at all (the parity fixture case)', () => {
-    // No `scores` field on either record -- this is what the fixture's own history looks like
-    // before an ensemble score was ever attached. The zero output here is correct oracle output,
-    // not the bug: the bug was `scores` never surviving the DB round trip in the first place.
+    // No `scores` field on either record, matching the parity fixture's history before ensemble scores existed.
     const records: FactorRecord[] = [
       {
         symbol: 'A',
@@ -110,7 +126,12 @@ describe('validationMetrics', () => {
     const result = validationMetrics(records, config);
 
     expect(result.observations).toBe(2);
-    expect(result.model).toEqual({ observations: 0, hit_rate: null, avg_forward_return_pct: null });
+    expect(result.model).toEqual({
+      observations: 0,
+      hit_rate: null,
+      avg_forward_return_pct: null,
+      avg_directional_return_pct: null,
+    });
   });
 
   it('validates a directional factor alongside the model block', () => {
@@ -134,6 +155,7 @@ describe('validationMetrics', () => {
       observations: 0,
       hit_rate: null,
       avg_forward_return_pct: null,
+      avg_directional_return_pct: null,
     });
     // The per-factor block runs independently of the model block, which is still populated.
     expect(result.model.observations).toBe(3);

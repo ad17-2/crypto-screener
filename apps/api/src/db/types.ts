@@ -32,12 +32,7 @@ export interface LabeledFactorRecord {
   generated_at: string;
   forward_return_pct: number;
   factors: Record<string, unknown>;
-  /**
-   * The blended output (`factor_score` et al.) this row was scored with. Carried alongside `factors`
-   * so validationMetrics() can score the ENSEMBLE against realised returns, not just the individual
-   * factors -- the blend is what the product actually ranks on. Empty when the source row has no
-   * persisted scores (the parity fixture's history, for one).
-   */
+  /** Blended score output (`factor_score` et al.) this row was scored with, so validationMetrics() can test the ensemble, not just individual factors; empty when the row has no persisted scores. */
   scores: Record<string, unknown>;
 }
 
@@ -55,4 +50,36 @@ export interface PruneResult {
   kept_runs: number;
   deleted_runs: number;
   deleted_rows: number;
+}
+
+export interface RecommendationRecordInput {
+  run_id: string;
+  generated_at: string;
+  symbol: string;
+  watchlist: string;
+  priority?: number | null;
+  factor_score?: number | null;
+  round_trip_cost_pct?: number | null;
+}
+
+/** Structural subset of dashboard/payload.ts's Watchlist[]/DashboardRow -- kept here instead of importing @crypto-screener/contracts to keep db/ decoupled from the dashboard layer. */
+export interface RecommendationWatchlistInput {
+  id: string;
+  rows: Array<{
+    symbol: string | null;
+    priority: number;
+    scores: { factor_score?: number | null; round_trip_cost_pct?: number | null };
+  }>;
+}
+
+export interface RecommendationOutcome {
+  run_id: string;
+  generated_at: string;
+  symbol: string;
+  watchlist: string;
+  priority: number | null;
+  factor_score: number | null;
+  round_trip_cost_pct: number | null;
+  /** null when no realised forward-return match exists yet (horizon not reached, or no later snapshot). */
+  forward_return_pct: number | null;
 }

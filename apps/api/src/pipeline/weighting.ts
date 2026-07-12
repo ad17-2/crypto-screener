@@ -16,6 +16,8 @@ export interface FactorStat {
   observations: number;
   n_periods: number;
   t_stat: number | null;
+  n_effective: number | null;
+  overlap_factor: number | null;
   credibility_k: number;
   mode: 'ic' | 'prior';
   raw_weight: number;
@@ -68,6 +70,9 @@ export function factorWeights(
   const minAbsT = factorCfg.min_abs_t ?? 2.0;
   const icPriorStrength = factorCfg.ic_prior_strength ?? 10;
   const icMinCrossSection = factorCfg.ic_min_cross_section ?? 5;
+  const forwardReturnHours = factorCfg.forward_return_hours ?? 24;
+  const overlapCorrection = factorCfg.ic_overlap_correction ?? true;
+  const icOptions = { forwardReturnHours, overlapCorrection };
   const regimeConditionalPriorStrength = factorCfg.regime_conditional_prior_strength ?? 12.0;
   const regimeMinPeriods = factorCfg.regime_min_periods ?? 8;
   const walkForwardGating = factorCfg.walk_forward_gating ?? false;
@@ -78,7 +83,7 @@ export function factorWeights(
   const factorStats: Record<string, FactorStat> = {};
 
   for (const factor of DIRECTIONAL_FACTORS) {
-    const csIc = crossSectionalIc(historyRecords, factor, icMinCrossSection);
+    const csIc = crossSectionalIc(historyRecords, factor, icMinCrossSection, icOptions);
     const meanIc = csIc.mean_ic;
     const tStat = csIc.t_stat;
     const nPeriods = csIc.n_periods;
@@ -111,6 +116,8 @@ export function factorWeights(
       observations,
       n_periods: nPeriods,
       t_stat: tStat,
+      n_effective: csIc.n_effective,
+      overlap_factor: csIc.overlap_factor,
       credibility_k: kEffective,
       mode,
       raw_weight: pooledRaw[factor] as number,
@@ -147,7 +154,7 @@ export function factorWeights(
 
     if (currentRegime !== null && currentRegime !== undefined) {
       const regimeRecords = historyRecords.filter((record) => record.regime === currentRegime);
-      const regimeIc = crossSectionalIc(regimeRecords, factor, icMinCrossSection);
+      const regimeIc = crossSectionalIc(regimeRecords, factor, icMinCrossSection, icOptions);
       regimeMeanIc = regimeIc.mean_ic;
       regimeTStat = regimeIc.t_stat;
       regimeNPeriods = regimeIc.n_periods;

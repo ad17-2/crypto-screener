@@ -38,6 +38,10 @@ export function walkForward(
   const icMinPeriods = factorCfg.ic_min_periods ?? 10;
   const minAbsT = factorCfg.min_abs_t ?? 2.0;
   const minAbsIc = factorCfg.min_abs_ic ?? 0.02;
+  const icOptions = {
+    forwardReturnHours: factorCfg.forward_return_hours ?? 24,
+    overlapCorrection: factorCfg.ic_overlap_correction ?? true,
+  };
 
   const timestampSet = new Set<string>();
   for (const record of historyRecords) {
@@ -60,8 +64,8 @@ export function walkForward(
 
   const factorsResult: Record<string, WalkForwardFactorResult> = {};
   for (const factor of DIRECTIONAL_FACTORS) {
-    const isIc = crossSectionalIc(trainRecords, factor, icMinCrossSection);
-    const oosIc = crossSectionalIc(testRecords, factor, icMinCrossSection);
+    const isIc = crossSectionalIc(trainRecords, factor, icMinCrossSection, icOptions);
+    const oosIc = crossSectionalIc(testRecords, factor, icMinCrossSection, icOptions);
     const isMean = isIc.mean_ic;
     const oosMean = oosIc.mean_ic;
     const isT = isIc.t_stat;
@@ -132,16 +136,22 @@ export function factorDecay(
   const factorCfg = config.factors ?? {};
   const icMinCrossSection = factorCfg.ic_min_cross_section ?? 5;
   const icMinPeriods = factorCfg.ic_min_periods ?? 10;
+  const overlapCorrection = factorCfg.ic_overlap_correction ?? true;
   const horizons = [...recordsByHorizon.keys()].sort((a, b) => a - b);
   const result: Record<string, FactorDecaySummary> = {};
 
   for (const factor of DIRECTIONAL_FACTORS) {
     const curve: DecayCurvePoint[] = [];
     for (const horizon of horizons) {
+      // Overlap correction must use this horizon's own window, not the pipeline's default.
       const icResult = crossSectionalIc(
         recordsByHorizon.get(horizon) ?? [],
         factor,
         icMinCrossSection,
+        {
+          forwardReturnHours: horizon,
+          overlapCorrection,
+        },
       );
       curve.push({
         horizon_hours: horizon,
@@ -221,7 +231,10 @@ export function factorDecay(
 export interface DirectionalValidationResult {
   observations: number;
   hit_rate: number | null;
+  /** Raw mean forward return -- market drift, identical no matter what the model predicted. */
   avg_forward_return_pct: number | null;
+  /** mean(sign(signal) * forward) -- the model's actual gross return from taking its side each period. */
+  avg_directional_return_pct: number | null;
   long_observations?: number;
   long_hit_rate?: number | null;
   short_observations?: number;
@@ -235,16 +248,24 @@ export function directionalValidation(
     (pair): pair is [number, number] => pair[0] !== null && pair[1] !== null && pair[0] !== 0,
   );
   if (valid.length === 0) {
-    return { observations: 0, hit_rate: null, avg_forward_return_pct: null };
+    return {
+      observations: 0,
+      hit_rate: null,
+      avg_forward_return_pct: null,
+      avg_directional_return_pct: null,
+    };
   }
   const hits = valid.filter(([signal, forward]) => signal * forward > 0).length;
   const avgForward = valid.reduce((sum, [, forward]) => sum + forward, 0) / valid.length;
+  const avgDirectional =
+    valid.reduce((sum, [signal, forward]) => sum + signValue(signal) * forward, 0) / valid.length;
   const positive = valid.filter(([signal]) => signal > 0);
   const negative = valid.filter(([signal]) => signal < 0);
   return {
     observations: valid.length,
     hit_rate: pyRound((hits / valid.length) * 100.0, 2),
     avg_forward_return_pct: pyRound(avgForward, 3),
+    avg_directional_return_pct: pyRound(avgDirectional, 3),
     long_observations: positive.length,
     long_hit_rate: hitRate(positive, 1.0),
     short_observations: negative.length,

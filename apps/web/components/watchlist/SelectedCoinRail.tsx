@@ -472,6 +472,11 @@ function MetricTiles({ row }: { row: DashboardRow }) {
         definition={lookupMetric('open_interest').definition}
         value={fmtUsd(row.open_interest_usd)}
       />
+      <StatTile
+        label={lookupMetric('round_trip_cost').label}
+        definition={lookupMetric('round_trip_cost').definition}
+        value={fmtPct(row.scores.round_trip_cost_pct, 3)}
+      />
       <PositioningTile row={row} />
     </div>
   );

@@ -56,6 +56,21 @@ CREATE TABLE IF NOT EXISTS market_regime_history (
 
 CREATE INDEX IF NOT EXISTS idx_market_regime_history_time
     ON market_regime_history(generated_at);
+
+CREATE TABLE IF NOT EXISTS recommendations (
+    run_id TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    watchlist TEXT NOT NULL,
+    priority REAL,
+    factor_score REAL,
+    round_trip_cost_pct REAL,
+    PRIMARY KEY (run_id, symbol, watchlist),
+    FOREIGN KEY (run_id) REFERENCES runs(run_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recommendations_symbol_time
+    ON recommendations(symbol, generated_at);
 `;
 
 export function ensureSchema(db: Database.Database): void {

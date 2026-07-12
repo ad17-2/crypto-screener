@@ -56,6 +56,7 @@ const sampleRow = {
     signal_conflict_score: 0,
     regime_alignment_score: 0.3,
     breadth_alignment_score: 0.2,
+    round_trip_cost_pct: 0.16,
   },
   factor_parts: [{ name: 'momentum_24h', label: 'Momentum', value: 0.42, tone: 'pos' }],
   primary_driver: { name: 'momentum_24h', label: 'Momentum', value: 0.42, tone: 'pos' },

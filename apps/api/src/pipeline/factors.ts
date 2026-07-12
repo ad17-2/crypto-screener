@@ -5,7 +5,14 @@ import { factorCorrelations } from './independence.js';
 import { marketSensingSummary, marketStructureSummary } from './market.js';
 import { type InferredRegime, inferRegime } from './regime.js';
 import { applyExcludedScores, applyScores } from './rowScoring.js';
-import { copysign, median, robustZscoreByKey, safeLog10, toFloat } from './scoring.js';
+import {
+  copysign,
+  median,
+  olsResiduals,
+  robustZscoreByKey,
+  safeLog10,
+  toFloat,
+} from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 import { type FactorWeights, factorWeights } from './weighting.js';
@@ -39,6 +46,12 @@ export function scoreSnapshot(
   enrichedContext.median_atr_pct = validAtr.length > 0 ? median(validAtr) : null;
 
   const rawFactorsList = trustedRows.map((row) => rawFactors(row, trustedRows, enrichedContext));
+  const factorCfg = config.factors ?? {};
+  if (factorCfg.residualise_collinear_factors ?? true) {
+    // Must run on raw values before normalizeFactors' robust Z-score, so the OLS fit sees actual
+    // economic units instead of median/MAD-winsorized ranks.
+    residualiseOiPriceSignal(rawFactorsList, factorCfg.ic_min_cross_section ?? 5);
+  }
   const normalized = normalizeFactors(rawFactorsList);
   const baseWeights = factorWeights(historyRecords, config);
   const priorState = (asRecord(priorMarketState).regime_state as string | undefined) ?? null;
@@ -153,6 +166,39 @@ export function rawFactors(
     volume_expansion_24h: volumeChange,
     volatility_expansion_4h: atrPct,
   };
+}
+
+/**
+ * oi_price_signal = copysign(max(oiChange, 0), priceChange), so its sign is literally copied from
+ * momentum_24h -- structurally collinear unless neutralised. No-ops below minCrossSection rows or
+ * when momentum_24h has zero cross-sectional variance.
+ */
+export function residualiseOiPriceSignal(
+  rawRows: Array<Record<string, number | null>>,
+  minCrossSection: number,
+): void {
+  const indices: number[] = [];
+  const momentum: number[] = [];
+  const oiPrice: number[] = [];
+  rawRows.forEach((row, index) => {
+    const x = row.momentum_24h;
+    const y = row.oi_price_signal;
+    if (x !== null && x !== undefined && y !== null && y !== undefined) {
+      indices.push(index);
+      momentum.push(x);
+      oiPrice.push(y);
+    }
+  });
+  if (indices.length < minCrossSection) {
+    return;
+  }
+  const residuals = olsResiduals(momentum, oiPrice);
+  if (residuals === null) {
+    return;
+  }
+  indices.forEach((rowIndex, i) => {
+    (rawRows[rowIndex] as Record<string, number | null>).oi_price_signal = residuals[i] as number;
+  });
 }
 
 export function normalizeFactors(

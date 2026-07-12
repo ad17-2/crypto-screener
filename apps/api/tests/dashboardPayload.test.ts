@@ -8,10 +8,18 @@ import { buildDashboardPayload } from '../src/dashboard/payload.js';
 import { openDatabase } from '../src/db/client.js';
 
 /**
- * PARITY GATE: fixtures/dashboard-payload.json is a captured Python /api/dashboard response;
- * fixtures/parity.sqlite3 is the frozen DB snapshot it came from (see fixtures/README.md).
- * Pinned rather than the live DB because a real screener run shifts IC weights/decay and would
- * break this for reasons unrelated to port correctness.
+ * GOLDEN REGRESSION GATE: fixtures/dashboard-payload.json is a captured Python /api/dashboard
+ * response; fixtures/parity.sqlite3 is the frozen DB snapshot it came from (see
+ * fixtures/README.md). Pinned rather than the live DB because a real screener run shifts IC
+ * weights/decay and would break this for reasons unrelated to correctness.
+ *
+ * This used to be a parity gate against the deleted Python original -- that job is done (Python
+ * parity was last proven green at commit db7f68f, CI run 29171479923, 263 tests; see
+ * fixtures/README.md). dashboard-payload.json is now a golden baseline for the CURRENT
+ * buildDashboardPayload(): parity.sqlite3 never changes, but the payload fixture may be
+ * regenerated when a fix intentionally changes the model -- only via
+ * `apps/api/scripts/regen-golden.ts payload`, and only with the printed delta reviewed. Never edit
+ * this fixture by hand.
  *
  * Excluded from the compare (each still asserted present/typed first):
  *   - freshness.age_seconds/age_minutes: derived from Date.now(), so always "now", not the
@@ -112,7 +120,7 @@ function assertMatches(actual: unknown, expected: unknown, label: string): void 
   }
 }
 
-describe('buildDashboardPayload parity vs. captured Python /api/dashboard response', () => {
+describe('buildDashboardPayload vs. golden regression fixture', () => {
   const dir = mkdtempSync(join(tmpdir(), 'crypto-screener-dashboard-payload-'));
   const dbPath = join(dir, 'crypto_screener.sqlite3');
   // Copy-then-open: the original repo database is NEVER opened read-write by this test.

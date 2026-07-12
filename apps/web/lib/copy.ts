@@ -789,6 +789,17 @@ export const METRIC: Record<string, CopyEntry> = {
     definition:
       'The number of distinct historical snapshots that had enough coins with both a value for this factor and a known outcome to produce one reading.',
   },
+  // Hardcoded prose, not read from config -- keep in sync with costs.ts / CostsConfigSchema by hand.
+  round_trip_cost: {
+    label: 'Round-trip cost (est.)',
+    definition:
+      "An estimated cost to enter and exit this position, not a measured number. Assumes 5bps taker fee and 2bps slippage per fill (both sides = 4x), plus a 2bps spread (used only because the real spread isn't available), plus funding over the model's forward-return horizon at 3 settlements/day -- charged if this side pays it, credited if this side receives it.",
+  },
+  net_edge: {
+    label: 'Net edge after costs',
+    definition:
+      "The model's average directional return, minus the estimated median round-trip cost across every coin that cleared data-quality checks this run -- not just the shortlist. This is the number that answers whether the model would make money after trading costs, not merely whether it calls direction correctly.",
+  },
 };
 
 export const lookupMetric = makeLookup(METRIC, NOT_REPORTED);

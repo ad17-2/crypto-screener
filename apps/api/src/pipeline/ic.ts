@@ -1,4 +1,4 @@
-import { mean, spearmanCorr, stdev, toFloat } from './scoring.js';
+import { mean, median, spearmanCorr, toFloat } from './scoring.js';
 import { asRecord } from './types.js';
 
 // Kept separate from weighting.ts/validation.ts: they import each other, so folding this in would create a circular dependency.
@@ -7,6 +7,10 @@ export interface CrossSectionalIcResult {
   t_stat: number | null;
   n_periods: number;
   n_obs: number;
+  /** De-overlapped n used in the t-stat's SE; equals n_periods with overlapCorrection off. */
+  n_effective: number | null;
+  /** q = forwardReturnHours / medianSpacingHours, clamped >= 1; forced to 1 with overlapCorrection off. */
+  overlap_factor: number | null;
 }
 
 export interface FactorRecord {
@@ -17,11 +21,52 @@ export interface FactorRecord {
   [key: string]: unknown;
 }
 
-/** Per-section rank IC already neutralizes cross-time market drift; no explicit demeaning needed. */
+export interface CrossSectionalIcOptions {
+  /** Width of the forward-return label window, in hours. */
+  forwardReturnHours: number;
+  /** Deflate the t-stat's SE for overlapping forward-return windows; see crossSectionalIc. */
+  overlapCorrection: boolean;
+}
+
+const DEFAULT_OPTIONS: CrossSectionalIcOptions = {
+  forwardReturnHours: 24,
+  overlapCorrection: true,
+};
+
+/** Sample stdev (ddof=1) — a t-stat's SE needs this, not scoring.ts's population stdev(). */
+function sampleStdev(values: number[]): number {
+  if (values.length < 2) {
+    return 0.0;
+  }
+  const avg = mean(values);
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+/** Median gap, in hours, between consecutive distinct timestamps (ms epoch). Null if fewer than 2. */
+function medianSpacingHours(sortedDistinctTimestampsMs: number[]): number | null {
+  if (sortedDistinctTimestampsMs.length < 2) {
+    return null;
+  }
+  const gapsHours: number[] = [];
+  for (let i = 1; i < sortedDistinctTimestampsMs.length; i += 1) {
+    const prev = sortedDistinctTimestampsMs[i - 1] as number;
+    const curr = sortedDistinctTimestampsMs[i] as number;
+    gapsHours.push((curr - prev) / 3_600_000);
+  }
+  return median(gapsHours);
+}
+
+/**
+ * Cross-sectional rank-IC with an overlap-corrected t-stat: SE uses effective n = n_periods / q,
+ * q = forwardReturnHours / medianSpacingHours (clamped >= 1, spacing from the retained periods'
+ * actual timestamp gaps, not an assumed cadence). Per-section rank IC already neutralizes market drift.
+ */
 export function crossSectionalIc(
   records: FactorRecord[],
   factor: string,
   minCrossSection: number,
+  options: CrossSectionalIcOptions = DEFAULT_OPTIONS,
 ): CrossSectionalIcResult {
   const grouped = new Map<unknown, Array<[number, number]>>();
   let nObs = 0;
@@ -42,7 +87,8 @@ export function crossSectionalIc(
   }
 
   const icSeries: number[] = [];
-  for (const pairs of grouped.values()) {
+  const retainedTimestampsMs: number[] = [];
+  for (const [key, pairs] of grouped.entries()) {
     if (pairs.length < minCrossSection) {
       continue;
     }
@@ -51,18 +97,41 @@ export function crossSectionalIc(
     const ic = spearmanCorr(xValues, yValues);
     if (ic !== null) {
       icSeries.push(ic);
+      const parsedMs = typeof key === 'string' ? Date.parse(key) : Number.NaN;
+      if (!Number.isNaN(parsedMs)) {
+        retainedTimestampsMs.push(parsedMs);
+      }
     }
   }
 
   const nPeriods = icSeries.length;
   const meanIc = icSeries.length > 0 ? mean(icSeries) : null;
   let tStat: number | null = null;
+  let nEffective: number | null = null;
+  let overlapFactor: number | null = null;
+
   if (nPeriods >= 2 && meanIc !== null) {
-    const icStdev = stdev(icSeries);
-    if (icStdev > 0) {
-      tStat = meanIc / (icStdev / Math.sqrt(nPeriods));
+    const sortedTimestampsMs = [...new Set(retainedTimestampsMs)].sort((a, b) => a - b);
+    const spacingHours = medianSpacingHours(sortedTimestampsMs);
+    const dataOverlapQ =
+      spacingHours !== null && spacingHours > 0
+        ? Math.max(1, options.forwardReturnHours / spacingHours)
+        : 1;
+    overlapFactor = options.overlapCorrection ? dataOverlapQ : 1;
+    nEffective = Math.max(1, nPeriods / overlapFactor);
+
+    const icSampleStdev = sampleStdev(icSeries);
+    if (icSampleStdev > 0) {
+      tStat = meanIc / (icSampleStdev / Math.sqrt(nEffective));
     }
   }
 
-  return { mean_ic: meanIc, t_stat: tStat, n_periods: nPeriods, n_obs: nObs };
+  return {
+    mean_ic: meanIc,
+    t_stat: tStat,
+    n_periods: nPeriods,
+    n_obs: nObs,
+    n_effective: nEffective,
+    overlap_factor: overlapFactor,
+  };
 }

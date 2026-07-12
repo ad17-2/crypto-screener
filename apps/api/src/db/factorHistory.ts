@@ -131,8 +131,7 @@ interface LabelingItem {
   scores: Record<string, unknown>;
 }
 
-/** `scores_json` is NOT NULL in schema.ts, but the market_rows fallback and older rows can still be
- *  empty text -- degrade to {} rather than throwing mid-load. */
+/** `scores_json` is NOT NULL in schema.ts, but the market_rows fallback and older rows can still be empty text. */
 function parseJsonObject(text: string | null): Record<string, unknown> {
   if (!text) {
     return {};

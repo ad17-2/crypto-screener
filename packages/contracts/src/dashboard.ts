@@ -64,6 +64,7 @@ const RowScoresSchema = z.object({
   signal_conflict_score: z.number().nullable(),
   regime_alignment_score: z.number().nullable(),
   breadth_alignment_score: z.number().nullable(),
+  round_trip_cost_pct: z.number().nullable(),
 });
 
 const TechnicalStateSchema = z.object({

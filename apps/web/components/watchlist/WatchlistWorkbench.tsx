@@ -13,6 +13,8 @@ import { WatchlistPanel } from './WatchlistPanel';
 
 export interface WatchlistWorkbenchProps {
   watchlists: Watchlist[];
+  /** untyped on the wire -- read defensively; carries net_directional_return_pct. */
+  validation: unknown;
 }
 
 const SORT_KEYS: readonly SortColumnKey[] = [
@@ -32,7 +34,10 @@ function defaultTab(watchlists: Watchlist[]): WatchlistId {
     : (watchlists[0]?.id ?? 'chart_next');
 }
 
-export function WatchlistWorkbench({ watchlists: allWatchlists }: WatchlistWorkbenchProps) {
+export function WatchlistWorkbench({
+  watchlists: allWatchlists,
+  validation,
+}: WatchlistWorkbenchProps) {
   // The core (BTC/ETH/SOL) watchlist is promoted into the market section elsewhere in the
   // redesign — it never belongs in this tab strip.
   const watchlists = useMemo(
@@ -110,6 +115,7 @@ export function WatchlistWorkbench({ watchlists: allWatchlists }: WatchlistWorkb
         rows={{ visible: visibleRows, total: activeList.rows.length }}
         selectedKey={effectiveSelectedKey}
         onSelectRow={setSelectedKey}
+        validation={validation}
       />
       <aside className="detail-rail self-stretch">
         <div className="grid gap-3 items-start sticky top-3 max-[1100px]:static">

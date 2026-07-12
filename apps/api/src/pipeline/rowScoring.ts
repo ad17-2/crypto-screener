@@ -1,3 +1,4 @@
+import { roundTripCostPct } from './costs.js';
 import { DIRECTIONAL_FACTORS } from './factorDefinitions.js';
 import { clamp, mean, pyRound, toFloat } from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
@@ -30,6 +31,7 @@ export interface RowScores {
   signal_conflict_score: number;
   regime_alignment_score: number;
   breadth_alignment_score: number;
+  round_trip_cost_pct: number;
 }
 
 export interface DirectionalWeightsLike {
@@ -104,6 +106,13 @@ export function applyScores(
     shortScore *= setupMultiplier;
   }
 
+  const roundTripCost = roundTripCostPct(
+    row,
+    config.costs ?? {},
+    config.factors?.forward_return_hours ?? 24,
+    directionalScore,
+  );
+
   const scores: RowScores = {
     factor_score: pyRound(directionalScore, 4),
     liquidity_quality: pyRound(liquidityQuality, 2),
@@ -118,6 +127,7 @@ export function applyScores(
     signal_conflict_score: pyRound(conflictScore, 0),
     regime_alignment_score: pyRound(alignment, 3),
     breadth_alignment_score: pyRound(conflicts.breadth_alignment_score, 3),
+    round_trip_cost_pct: pyRound(roundTripCost, 4),
   };
   row.scores = scores;
   Object.assign(row, conflicts);
@@ -137,6 +147,7 @@ export function applyExcludedScores(row: Row): void {
     signal_conflict_score: 0.0,
     regime_alignment_score: 0.0,
     breadth_alignment_score: 0.0,
+    round_trip_cost_pct: 0.0,
   };
   row.scores = scores;
   row.signal_conflict_label = 'excluded';

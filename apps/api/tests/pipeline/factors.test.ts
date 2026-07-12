@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rawFactors, scoreSnapshot } from '../../src/pipeline/factors.js';
+import { rawFactors, residualiseOiPriceSignal, scoreSnapshot } from '../../src/pipeline/factors.js';
 import type { Row } from '../../src/pipeline/types.js';
 import { factorWeights } from '../../src/pipeline/weighting.js';
 
@@ -110,6 +110,65 @@ describe('rawFactors', () => {
     };
     const raw = rawFactors(row, [row], {});
     expect(raw.ls_ratio_contrarian).toBeCloseTo(-Math.log(2.0), 9);
+  });
+});
+
+describe('residualiseOiPriceSignal', () => {
+  it('replaces oi_price_signal with its OLS residual against momentum_24h (test_residualise_computes_ols_residual)', () => {
+    const rows: Array<Record<string, number | null>> = [
+      { momentum_24h: 1, oi_price_signal: 2 },
+      { momentum_24h: 2, oi_price_signal: 3 },
+      { momentum_24h: 3, oi_price_signal: 5 },
+      { momentum_24h: 4, oi_price_signal: 6 },
+      { momentum_24h: 5, oi_price_signal: 9 },
+    ];
+    // Hand OLS: xbar=3, ybar=5, dx=[-2,-1,0,1,2], dy=[-3,-2,0,1,4].
+    // slope = sum(dx*dy)/sum(dx^2) = 17/10 = 1.7; intercept = 5 - 1.7*3 = -0.1.
+    // residual_i = y_i - (intercept + slope * x_i).
+    residualiseOiPriceSignal(rows, 5);
+    expect(rows[0]?.oi_price_signal).toBeCloseTo(0.4, 9);
+    expect(rows[1]?.oi_price_signal).toBeCloseTo(-0.3, 9);
+    expect(rows[2]?.oi_price_signal).toBeCloseTo(0.0, 9);
+    expect(rows[3]?.oi_price_signal).toBeCloseTo(-0.7, 9);
+    expect(rows[4]?.oi_price_signal).toBeCloseTo(0.6, 9);
+  });
+
+  it('leaves rows without a paired value untouched (test_residualise_skips_unpaired_rows)', () => {
+    const rows: Array<Record<string, number | null>> = [
+      { momentum_24h: 1, oi_price_signal: 2 },
+      { momentum_24h: 2, oi_price_signal: 3 },
+      { momentum_24h: 3, oi_price_signal: 5 },
+      { momentum_24h: 4, oi_price_signal: 6 },
+      { momentum_24h: 5, oi_price_signal: 9 },
+      { momentum_24h: null, oi_price_signal: null },
+    ];
+    residualiseOiPriceSignal(rows, 5);
+    expect(rows[5]?.oi_price_signal).toBeNull();
+    expect(rows[0]?.oi_price_signal).toBeCloseTo(0.4, 9);
+  });
+
+  it('falls back to the raw value below minCrossSection paired rows (test_residualise_falls_back_below_min_cross_section)', () => {
+    const rows: Array<Record<string, number | null>> = [
+      { momentum_24h: 1, oi_price_signal: 2 },
+      { momentum_24h: 2, oi_price_signal: 3 },
+      { momentum_24h: 3, oi_price_signal: 5 },
+      { momentum_24h: null, oi_price_signal: null },
+      { momentum_24h: null, oi_price_signal: null },
+    ];
+    residualiseOiPriceSignal(rows, 5);
+    expect(rows.map((row) => row.oi_price_signal)).toEqual([2, 3, 5, null, null]);
+  });
+
+  it('falls back to the raw value when momentum_24h has zero cross-sectional variance (test_residualise_falls_back_on_zero_variance)', () => {
+    const rows: Array<Record<string, number | null>> = [
+      { momentum_24h: 3, oi_price_signal: 1 },
+      { momentum_24h: 3, oi_price_signal: 2 },
+      { momentum_24h: 3, oi_price_signal: 3 },
+      { momentum_24h: 3, oi_price_signal: 4 },
+      { momentum_24h: 3, oi_price_signal: 5 },
+    ];
+    residualiseOiPriceSignal(rows, 5);
+    expect(rows.map((row) => row.oi_price_signal)).toEqual([1, 2, 3, 4, 5]);
   });
 });
 
@@ -230,5 +289,55 @@ describe('scoreSnapshot', () => {
     expect(alt.signal_conflict_label).toBe('high-conflict');
     expect(alt.signal_conflict_score as number).toBeGreaterThan(0);
     expect((alt.signal_conflicts as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('residualise_collinear_factors=false reproduces the raw copysign value (test_residualise_toggle_wired_through_scoresnapshot)', () => {
+    function fiveRows(): Row[] {
+      return Array.from({ length: 5 }, (_, index) => ({
+        symbol: `S${index}`,
+        price_usd: 10,
+        price_change_24h_pct: index + 1,
+        oi_change_24h_pct: (index + 1) * 2,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 100_000_000,
+      }));
+    }
+    const off = scoreSnapshot(fiveRows(), {}, [], {
+      factors: { residualise_collinear_factors: false },
+    });
+    const on = scoreSnapshot(fiveRows(), {}, [], {
+      factors: { residualise_collinear_factors: true },
+    });
+    const offRow = off.rows.find((row) => row.symbol === 'S2') as Row;
+    const onRow = on.rows.find((row) => row.symbol === 'S2') as Row;
+    // priceChange=3, oiChange=6 -> copysign(6, 3) = 6, unresidualised.
+    expect((offRow.raw_factors as Record<string, number>).oi_price_signal).toBeCloseTo(6, 9);
+    // oiChange is exactly 2x priceChange across all 5 rows -> the OLS fit is exact, residual 0.
+    expect((onRow.raw_factors as Record<string, number>).oi_price_signal).toBeCloseTo(0, 9);
+  });
+
+  it('wires config.costs through to scores.round_trip_cost_pct (test_costs_config_wired_through_scoresnapshot)', () => {
+    // Momentum spread across 5 rows (like the residualise test above) so z-scoring is meaningful;
+    // funding_rate_pct is constant, so it doesn't itself drive which row goes long or short.
+    const rows: Row[] = Array.from({ length: 5 }, (_, index) => ({
+      symbol: `S${index}`,
+      price_usd: 10,
+      price_change_24h_pct: index + 1,
+      oi_change_24h_pct: (index + 1) * 2,
+      funding_rate_pct: 0.01,
+      quote_volume_usd: 100_000_000,
+    }));
+    const scored = scoreSnapshot(rows, {}, [], {
+      factors: { forward_return_hours: 24 },
+      costs: { taker_fee_bps: 0, slippage_bps: 0, assumed_spread_bps: 0 },
+    });
+    const top = scored.rows.find((row) => row.symbol === 'S4') as Row;
+    // Highest momentum in the cross-section -> long side. With fee/slippage/spread zeroed out,
+    // only funding remains: 0.01 * 3 settlements/day * (24/24) = 0.03.
+    expect((top.factor_score as number) > 0).toBe(true);
+    expect((top.scores as { round_trip_cost_pct: number }).round_trip_cost_pct).toBeCloseTo(
+      0.03,
+      9,
+    );
   });
 });

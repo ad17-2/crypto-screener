@@ -6,6 +6,7 @@ export type {
   AppConfig,
   CoinGeckoConfig,
   CoinGlassConfig,
+  CostsConfig,
   DataQualityConfig,
   FactorsConfig,
   ProvidersConfig,

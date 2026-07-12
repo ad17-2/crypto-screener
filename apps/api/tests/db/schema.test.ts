@@ -6,13 +6,20 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../src/db/client.js';
 import { ensureSchema } from '../../src/db/schema.js';
 
-const EXPECTED_TABLES = ['runs', 'market_rows', 'factor_history', 'market_regime_history'];
+const EXPECTED_TABLES = [
+  'runs',
+  'market_rows',
+  'factor_history',
+  'market_regime_history',
+  'recommendations',
+];
 const EXPECTED_INDEXES = [
   'idx_market_rows_symbol_time',
   'idx_market_rows_time',
   'idx_factor_history_symbol_time',
   'idx_factor_history_time',
   'idx_market_regime_history_time',
+  'idx_recommendations_symbol_time',
 ];
 
 let dir: string;
