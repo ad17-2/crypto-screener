@@ -158,6 +158,26 @@ describe('appendCoinglassTechnicals', () => {
     expect(technicalsStatus.errors[0]).toContain('simulated outage');
     expect(rows[0]).not.toHaveProperty('technical_interval');
   });
+
+  it('fetches every row when max_symbols is 0, and truncates when it is positive', async () => {
+    const build = (): Row[] =>
+      ['BTC', 'ETH', 'SOL'].map((symbol) => ({
+        symbol,
+        primary_exchange: 'OKX',
+        contract_symbol: `${symbol}-USDT-SWAP`,
+      }));
+    const fetchCount = async (maxSymbols: number): Promise<number> => {
+      const client = new FakeCoinGlassClient();
+      const providerCfg = coinglassConfig({
+        technical_indicators: { max_symbols: maxSymbols, request_delay_seconds: 0 },
+      });
+      await appendCoinglassTechnicals(build(), client, providerCfg, {});
+      return client.priceHistoryCalls.length;
+    };
+
+    expect(await fetchCount(0)).toBe(3);
+    expect(await fetchCount(2)).toBe(2);
+  });
 });
 
 describe('appendCoinglassDerivativesHistory', () => {
@@ -182,6 +202,25 @@ describe('appendCoinglassDerivativesHistory', () => {
     expect(rows[0]?.derivatives_interval).toBe('4h');
     expect(rows[0]).toHaveProperty('oi_change_24h_pct_history');
     expect(rows[0]).toHaveProperty('taker_imbalance_24h_pct');
+  });
+
+  it('enriches every row when max_symbols is 0, and truncates when it is positive', async () => {
+    const build = (): Row[] => [{ symbol: 'BTC' }, { symbol: 'ETH' }, { symbol: 'SOL' }];
+    const enrichedCount = async (maxSymbols: number): Promise<number> => {
+      const rows = build();
+      const providerCfg = coinglassConfig({
+        derivatives_history: { max_symbols: maxSymbols, request_delay_seconds: 0 },
+      });
+      await appendCoinglassDerivativesHistory(rows, new FakeCoinGlassClient(), providerCfg, {});
+      return rows.filter((row) => row.derivatives_interval !== undefined).length;
+    };
+
+    // 0 is the no-cap sentinel (as in long_short_ratio), NOT "fetch nothing". These four factors --
+    // oi_acceleration_signal, funding_persistence_contrarian, taker_flow_24h,
+    // liquidation_pressure_24h -- are ranked only over the rows enriched here, so a cap silently
+    // shrinks their IC cross-section instead of the universe.
+    expect(await enrichedCount(0)).toBe(3);
+    expect(await enrichedCount(2)).toBe(2);
   });
 });
 

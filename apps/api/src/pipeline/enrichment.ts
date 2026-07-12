@@ -28,10 +28,13 @@ export async function appendCoinglassTechnicals(
   const limit = technicalCfg.limit;
   const maxSymbols = technicalCfg.max_symbols;
   const requestDelay = technicalCfg.request_delay_seconds;
+  // 0 means "no cap", as in long_short_ratio below. A cap here truncates the cross-section every
+  // technical factor is ranked over, so it silently shrinks their IC sample rather than the universe.
+  const target = maxSymbols <= 0 ? rows : rows.slice(0, maxSymbols);
   let enriched = 0;
   const errors: string[] = [];
 
-  for (const row of rows.slice(0, maxSymbols)) {
+  for (const row of target) {
     const exchange = String(row.primary_exchange ?? '');
     const contractSymbol = String(row.contract_symbol ?? '');
     if (!exchange || !contractSymbol) {
@@ -59,7 +62,7 @@ export async function appendCoinglassTechnicals(
     status.technicals = {
       status: enriched ? 'ok' : 'error',
       rows: enriched,
-      candidate_symbols: Math.min(maxSymbols, rows.length),
+      candidate_symbols: target.length,
       interval,
       errors: errors.slice(0, 5),
       note: 'CoinGlass futures price OHLC technical indicators',
@@ -86,10 +89,14 @@ export async function appendCoinglassDerivativesHistory(
   const maxSymbols = historyCfg.max_symbols;
   const requestDelay = historyCfg.request_delay_seconds;
   const exchanges = providerCfg.exchanges;
+  // 0 means "no cap", as in long_short_ratio below. Four factors (oi_acceleration_signal,
+  // funding_persistence_contrarian, taker_flow_24h, liquidation_pressure_24h) are ranked only over
+  // the rows enriched here, so a cap of 25 estimated their IC on 25 of ~48 names.
+  const target = maxSymbols <= 0 ? rows : rows.slice(0, maxSymbols);
   let enriched = 0;
   const errors: string[] = [];
 
-  for (const row of rows.slice(0, maxSymbols)) {
+  for (const row of target) {
     const symbol = String(row.symbol ?? '');
     if (!symbol) {
       continue;
@@ -139,7 +146,7 @@ export async function appendCoinglassDerivativesHistory(
     status.derivatives_history = {
       status: enriched ? 'ok' : 'error',
       rows: enriched,
-      candidate_symbols: Math.min(maxSymbols, rows.length),
+      candidate_symbols: target.length,
       interval,
       errors: errors.slice(0, 5),
       note: 'CoinGlass historical OI/funding/liquidation/taker features',

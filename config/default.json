@@ -41,14 +41,14 @@
         "enabled": true,
         "interval": "4h",
         "limit": 220,
-        "max_symbols": 40,
+        "max_symbols": 0,
         "request_delay_seconds": 2.1
       },
       "derivatives_history": {
         "enabled": true,
         "interval": "4h",
         "limit": 220,
-        "max_symbols": 25,
+        "max_symbols": 0,
         "request_delay_seconds": 2.1
       },
       "long_short_ratio": {

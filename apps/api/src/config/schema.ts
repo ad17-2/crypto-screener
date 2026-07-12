@@ -11,7 +11,8 @@ const TechnicalIndicatorsConfigSchema = z
     enabled: z.boolean().default(true),
     interval: z.string().default('4h'),
     limit: z.number().int().default(220),
-    max_symbols: z.number().int().default(40),
+    /** 0 = no cap. Any cap here shrinks the cross-section the technical factors are ranked over. */
+    max_symbols: z.number().int().default(0),
     request_delay_seconds: z.number().default(2.1),
   })
   .strict();
@@ -33,7 +34,8 @@ const DerivativesHistoryConfigSchema = z
     enabled: z.boolean().default(true),
     interval: z.string().default('4h'),
     limit: z.number().int().default(220),
-    max_symbols: z.number().int().default(25),
+    /** 0 = no cap. At 25 this estimated four derivative factors' IC on 25 of ~48 names. */
+    max_symbols: z.number().int().default(0),
     request_delay_seconds: z.number().default(2.1),
   })
   .strict();
