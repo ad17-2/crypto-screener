@@ -1,6 +1,6 @@
 import { roundTripCostPct } from './costs.js';
 import { DIRECTIONAL_FACTORS } from './factorDefinitions.js';
-import { clamp, mean, pyRound, toFloat } from './scoring.js';
+import { clamp, meanOrNull, pyRound, toFloat } from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 
@@ -102,10 +102,9 @@ export function applyScores(
     clamp(Math.max(priceChange, 0.0) / 8.0) * 13.0 +
     liquidityQuality * 0.25;
 
-  // long_score/short_score are THE SCREEN's pure crowding/momentum read -- no longer scaled by
-  // regime-alignment or signal-conflict (that blended a prediction into an observation). Those two
-  // fields are still computed below solely to keep the frozen 49-column CSV (reportFields.ts)
-  // populated; they are no longer consumed for ranking or sizing.
+  // long_score/short_score are THE SCREEN's pure crowding/momentum read. The alignment and
+  // conflict scores below are still computed solely to keep the frozen 49-column CSV
+  // (reportFields.ts) populated; they are no longer consumed for ranking or sizing.
   const alignment = conflicts.regime_alignment_score;
   const conflictScore = conflicts.signal_conflict_score;
 
@@ -198,7 +197,7 @@ function signalConflictSummary(
     [
       'technical',
       '4h technicals',
-      avgSignal([row.technical_trend_score, row.technical_momentum_score]),
+      meanOrNull([row.technical_trend_score, row.technical_momentum_score]),
       0.2,
     ],
     ['derivatives', 'derivatives confirmation', toFloat(row.derivatives_confirmation_score), 0.2],
@@ -327,13 +326,6 @@ function directionValue(value: number | null, threshold = 0.0): -1 | 0 | 1 {
     return -1;
   }
   return 0;
-}
-
-function avgSignal(values: unknown[]): number | null {
-  const numeric = values
-    .map((value) => toFloat(value))
-    .filter((value): value is number => value !== null);
-  return numeric.length > 0 ? mean(numeric) : null;
 }
 
 function conflictItem(

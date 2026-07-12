@@ -21,8 +21,8 @@ export interface MarketStageProps {
 
 /**
  * The hero: a plain-English market verdict, the sieve funnel (real pipeline counts), and the
- * stat tiles that used to be crammed into StatusStrip. Server Component -- only the sieve's
- * final segment needs a client boundary, and that's isolated inside <Sieve>.
+ * stat tiles. Server Component -- only the sieve's final segment needs a client boundary, and
+ * that's isolated inside <Sieve>.
  */
 export function MarketStage({
   regime,

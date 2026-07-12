@@ -53,7 +53,6 @@ function scrollToScreenedCoins(): void {
   window.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
 
   if (reduceMotion) return;
-  // If smooth scrolling is a no-op here, we won't have budged at all — land it instantly instead.
   window.setTimeout(() => {
     if (window.scrollY === startY) window.scrollTo(0, top);
   }, 250);

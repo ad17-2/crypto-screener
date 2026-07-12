@@ -17,7 +17,7 @@ const INTERVAL_HOURS: Record<string, number> = {
   '1w': 24.0 * 7.0,
 };
 
-export function intervalHours(interval: string): number {
+function intervalHours(interval: string): number {
   return INTERVAL_HOURS[interval] ?? 24.0;
 }
 
@@ -118,7 +118,7 @@ export function derivativesSnapshot(
   return Object.fromEntries(Object.entries(result).filter(([, value]) => value !== null));
 }
 
-function sortByTime(rows: RawHistoryRow[]): RawHistoryRow[] {
+export function sortByTime(rows: RawHistoryRow[]): RawHistoryRow[] {
   return [...rows].sort((a, b) => (toFloat(a.time, 0.0) ?? 0.0) - (toFloat(b.time, 0.0) ?? 0.0));
 }
 

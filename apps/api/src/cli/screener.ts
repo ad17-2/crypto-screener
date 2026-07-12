@@ -10,6 +10,7 @@ import {
   topBy,
 } from '../dashboard/watchlists.js';
 import { runPipeline } from '../pipeline/runPipeline.js';
+import { pyStr } from '../pipeline/scoring.js';
 import { parseNumberFlag, runIfMain } from './support.js';
 
 export interface ScreenerCliArgs {
@@ -75,17 +76,6 @@ export function applyOverrides(config: AppConfig, args: ScreenerCliArgs): AppCon
     config.providers.coinglass.candidate_symbols = args.coinglassCandidateSymbols;
   }
   return config;
-}
-
-/** null/undefined -> 'None', booleans -> 'True'/'False', everything else -> its plain string form. */
-function pyStr(value: unknown): string {
-  if (value === null || value === undefined) {
-    return 'None';
-  }
-  if (typeof value === 'boolean') {
-    return value ? 'True' : 'False';
-  }
-  return String(value);
 }
 
 /**

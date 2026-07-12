@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../src/db/client.js';
 import { ensureSchema } from '../../src/db/schema.js';
+import { createTempDir, removeTempDir } from '../support/tempDb.js';
 
 const EXPECTED_TABLES = [
   'runs',
@@ -26,12 +26,12 @@ let dir: string;
 let dbPath: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-db-'));
+  dir = createTempDir('crypto-screener-db-');
   dbPath = join(dir, 'nested', 'screener.sqlite3');
 });
 
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true });
+  removeTempDir(dir);
 });
 
 describe('openDatabase / ensureSchema', () => {

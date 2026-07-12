@@ -1,5 +1,5 @@
 import { ProviderError } from './errors.js';
-import { buildUrl, fetchWithTimeout } from './http.js';
+import { buildUrl, fetchWithTimeout, parseJsonResponse } from './http.js';
 
 // Loosely typed on purpose: fields are read defensively via `toFloat`, not exhaustively modeled.
 export type CoinGlassPair = Record<string, unknown>;
@@ -104,18 +104,7 @@ export class CoinGlassHttpClient implements CoinGlassClient {
       },
     });
 
-    if (response.status >= 400) {
-      throw new ProviderError(
-        `${path} returned HTTP ${response.status}: ${response.text.slice(0, 500)}`,
-      );
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(response.text);
-    } catch {
-      throw new ProviderError(`${path} returned invalid JSON`);
-    }
+    const payload = parseJsonResponse(path, response);
 
     if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
       throw new ProviderError(`${path} returned non-object JSON payload`);

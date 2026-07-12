@@ -16,10 +16,6 @@ interface CategoryItem {
 
 const MAX_CATEGORY_ROWS = 4;
 
-/**
- * Second stage: breadth (advancers vs decliners) and sector rotation (leaders/laggards),
- * promoted up from the bottom of the old page. Replaces SectorRotationPanel.
- */
 export function BreadthRotationStage({ marketContext }: BreadthRotationStageProps) {
   const breadth = rec(marketContext, 'breadth');
   const advancers = num(breadth, 'advancers');

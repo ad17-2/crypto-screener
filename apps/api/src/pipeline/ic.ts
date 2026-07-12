@@ -22,7 +22,6 @@ export interface FactorRecord {
 }
 
 export interface CrossSectionalIcOptions {
-  /** Width of the forward-return label window, in hours. */
   forwardReturnHours: number;
   /** Deflate the t-stat's SE for overlapping forward-return windows; see crossSectionalIc. */
   overlapCorrection: boolean;

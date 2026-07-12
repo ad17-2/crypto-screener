@@ -37,15 +37,13 @@ function makeLookup(dict: Record<string, CopyEntry>, missing: CopyEntry) {
 
 const NOT_REPORTED: CopyEntry = { label: 'Not reported', definition: 'Not present on this row.' };
 
-// ---------------------------------------------------------------------------------------------
-// 1. SETUP -- apps/api/src/dashboard/rows.ts `setupLabel()`, built from either a fixed side-based
+// apps/api/src/dashboard/rows.ts `setupLabel()`, built from either a fixed side-based
 // string, or `${technical_setup} ${Long|Short}` where technical_setup comes from
 // apps/api/src/pipeline/technicals.ts `technicalSetup()` (8 patterns; can also be null when there
 // aren't enough candles). Direction (Long/Short) is stripped and handled by the caller (side/tone
 // styling elsewhere), not baked into these labels.
-// ---------------------------------------------------------------------------------------------
 
-/** technicals.ts:237-266 -- the ONLY writer of `technical_setup`. */
+/** The only writer of `technical_setup` is `technicalSetup()` in apps/api/src/pipeline/technicals.ts. */
 export const TECHNICAL_PATTERN: Record<string, CopyEntry> = {
   'Compression Watch': {
     label: 'Coiling — may break out',
@@ -89,7 +87,7 @@ export const TECHNICAL_PATTERN: Record<string, CopyEntry> = {
   },
 };
 
-/** rows.ts:71-115 -- the non-technical, side-driven setups (plus core/watchlist fallbacks). */
+/** The non-technical, side-driven setups (plus core/watchlist fallbacks) from `setupLabel()` in apps/api/src/dashboard/rows.ts. */
 export const FIXED_SETUP: Record<string, CopyEntry> = {
   'Core Regime Read': {
     label: 'Market bellwether',
@@ -144,7 +142,7 @@ export const FIXED_SETUP: Record<string, CopyEntry> = {
     label: 'Short candidate',
     definition: "A bearish setup that didn't fit a more specific pattern above.",
   },
-  // Unreachable in current code (rows.ts:114 is a dead-code fallback), mapped anyway as cheap insurance.
+  // The 'Watchlist' fallback in setupLabel() is unreachable dead code, mapped anyway as cheap insurance.
   Watchlist: {
     label: 'Watchlist',
     definition: 'A generic watchlist entry with no specific long/short/core classification.',
@@ -162,7 +160,6 @@ const NO_TECHNICAL_READ: CopyEntry = {
     "The 4h technical read isn't available for this coin right now (not enough candle history, or the technicals provider is disabled).",
 };
 
-/** Resolves a row's full `setup` string (e.g. "Compression Watch Long", "Reversal Short"). */
 export function lookupSetup(setup: string | null | undefined): CopyEntry {
   if (!setup) return NO_SETUP;
   const fixed = FIXED_SETUP[setup];
@@ -176,19 +173,16 @@ export function lookupSetup(setup: string | null | undefined): CopyEntry {
   return unknownEntry(setup);
 }
 
-/** Resolves the standalone `technical_setup` field (no direction suffix). May be null. */
 export function lookupTechnicalPattern(pattern: string | null | undefined): CopyEntry {
   if (!pattern) return NO_TECHNICAL_READ;
   return TECHNICAL_PATTERN[pattern] ?? unknownEntry(pattern);
 }
 
-// ---------------------------------------------------------------------------------------------
-// 2. FACTOR -- apps/api/src/pipeline/factorDefinitions.ts `DIRECTIONAL_FACTORS` (12 live factors)
+// apps/api/src/pipeline/factorDefinitions.ts `DIRECTIONAL_FACTORS` (12 live factors)
 // plus the 2 RETIRED factors (reversal_1d, btc_relative_strength) that still appear in the frozen
 // fixture. QUALITY_FACTORS (liquidity_30d, volume_expansion_24h, volatility_expansion_4h) are
 // intentionally excluded: they never reach the payload with a label (they're liquidity/quality
 // inputs, not directional drivers shown to the user).
-// ---------------------------------------------------------------------------------------------
 
 export const FACTOR: Record<string, CopyEntry> = {
   momentum_24h: {
@@ -267,10 +261,7 @@ export const FACTOR: Record<string, CopyEntry> = {
 
 export const lookupFactor = makeLookup(FACTOR, NOT_REPORTED);
 
-// ---------------------------------------------------------------------------------------------
-// 3. WATCHLIST -- apps/api/src/dashboard/watchlists.ts `WATCHLIST_LABELS` keys (7 ids).
-// ---------------------------------------------------------------------------------------------
-
+// apps/api/src/dashboard/watchlists.ts `WATCHLIST_LABELS` keys (7 ids).
 export const WATCHLIST: Record<string, CopyEntry> = {
   chart_next: {
     label: 'Best setups',
@@ -310,10 +301,6 @@ export const lookupWatchlist = makeLookup(WATCHLIST, {
   label: 'Unknown list',
   definition: 'Not reported.',
 });
-
-// ---------------------------------------------------------------------------------------------
-// 4. BIAS / BREADTH_LABEL / SECTOR_ROTATION_LABEL / REGIME_STATE / FRESHNESS / CALIBRATION
-// ---------------------------------------------------------------------------------------------
 
 /** apps/api/src/pipeline/regime.ts `inferRegime()` -- bias is 'risk-on' | 'risk-off' | 'mixed'. */
 export const BIAS: Record<string, CopyEntry> = {
@@ -464,40 +451,8 @@ export const lookupFreshness = makeLookup(FRESHNESS, {
   definition: 'Not reported.',
 });
 
-/** apps/api/src/dashboard/payload.ts `calibrationLabel()`. */
-export const CALIBRATION: Record<string, CopyEntry> = {
-  learning: {
-    label: 'Still learning',
-    definition:
-      "Fewer than 20 tracked outcomes so far (or no hit rate yet) — too early to trust the model's historical accuracy.",
-  },
-  useful: {
-    label: 'Track record: useful',
-    definition:
-      "Historical hit rate is 58% or higher across tracked outcomes — the model's calls have been right more often than not, by a solid margin.",
-  },
-  neutral: {
-    label: 'Track record: mixed',
-    definition:
-      "Historical hit rate is 50-58% — roughly a coin flip; the model isn't clearly adding value yet.",
-  },
-  weak: {
-    label: 'Track record: weak',
-    definition:
-      "Historical hit rate is below 50% — the model's calls have missed more often than they've hit recently.",
-  },
-};
-
-export const lookupCalibration = makeLookup(CALIBRATION, {
-  label: 'Unknown',
-  definition: 'Not reported.',
-});
-
-// ---------------------------------------------------------------------------------------------
-// 5. METRIC -- definitions for column/stat terms so ⓘ tooltips have text. These keys are not
+// Definitions for column/stat terms so ⓘ tooltips have text. These keys are not
 // machine enum values from the API; they're stable ids for the concepts the brief called out.
-// ---------------------------------------------------------------------------------------------
-
 export const METRIC: Record<string, CopyEntry> = {
   data_quality: {
     label: 'Data quality',
@@ -636,12 +591,9 @@ export const METRIC: Record<string, CopyEntry> = {
 
 export const lookupMetric = makeLookup(METRIC, NOT_REPORTED);
 
-// ---------------------------------------------------------------------------------------------
-// 6. EDGE_VERDICT -- apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`
+// apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`
 // (4 values). A MONEY train/test check (net-of-cost decile spread) -- what the evidence ladder's
 // "the signals that pass actually make money" rung, and the one-bet section on /, are based on.
-// ---------------------------------------------------------------------------------------------
-
 export const EDGE_VERDICT: Record<string, CopyEntry> = {
   validated: {
     label: 'Forward-validated',
@@ -670,13 +622,10 @@ export const lookupEdgeVerdict = makeLookup(EDGE_VERDICT, {
   definition: 'Not reported.',
 });
 
-// ---------------------------------------------------------------------------------------------
-// 7. PROVIDER -- apps/api/src/pipeline/collector.ts and enrichment.ts `status.<key> = ...`
+// apps/api/src/pipeline/collector.ts and enrichment.ts `status.<key> = ...`
 // assignment sites (6 hardcoded string-literal keys). Two are real external providers
 // (coingecko, coinglass); the other four are in-process checks or CoinGlass sub-checks, not
 // separate external providers.
-// ---------------------------------------------------------------------------------------------
-
 export const PROVIDER: Record<string, CopyEntry> = {
   coingecko: {
     label: 'CoinGecko',
@@ -710,13 +659,10 @@ export const PROVIDER: Record<string, CopyEntry> = {
 
 export const lookupProvider = makeLookup(PROVIDER, NOT_REPORTED);
 
-// ---------------------------------------------------------------------------------------------
-// 8. DATA_QUALITY_FLAG -- apps/api/src/pipeline/quality.ts `dataQualityFlags()` (13 codes). Most
+// apps/api/src/pipeline/quality.ts `dataQualityFlags()` (13 codes). Most
 // carry a dynamic `code:value` suffix -- lookupQualityFlag() splits on the first ':' and keys on
 // the prefix, so a suffixed flag never falls through to the raw fallback. This is the single
 // source of truth; apps/web/components/QualityFlagChip.tsx renders from it directly.
-// ---------------------------------------------------------------------------------------------
-
 export const DATA_QUALITY_FLAG: Record<string, CopyEntry> = {
   missing_symbol: {
     label: 'Missing symbol',
@@ -804,7 +750,6 @@ function qualityFlagDetail(code: string, value: string): string {
   }
 }
 
-/** Splits `code` or `code:value` and resolves the prefix, so a dynamic suffix never leaks raw. */
 export function lookupQualityFlag(flag: string): QualityFlagCopy {
   const separatorIndex = flag.indexOf(':');
   const code = separatorIndex === -1 ? flag : flag.slice(0, separatorIndex);

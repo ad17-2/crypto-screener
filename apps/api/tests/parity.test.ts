@@ -6,6 +6,7 @@ import { AppConfigSchema } from '../src/config/schema.js';
 import { scoreSnapshot } from '../src/pipeline/factors.js';
 import type { FactorRecord } from '../src/pipeline/ic.js';
 import type { Row } from '../src/pipeline/types.js';
+import { assertMatches } from './support/goldenDiff.js';
 
 /**
  * GOLDEN REGRESSION GATE: replays fixtures/parity-run.json (see fixtures/README.md) through the
@@ -29,8 +30,6 @@ import type { Row } from '../src/pipeline/types.js';
 
 const FIXTURE_PATH = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/parity-run.json');
 
-const FLOAT_TOLERANCE = 1e-9;
-
 interface Fixture {
   config: unknown;
   market_context: Record<string, unknown>;
@@ -45,85 +44,6 @@ interface Fixture {
 
 function loadFixture(): Fixture {
   return JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Fixture;
-}
-
-function collectDiffs(actual: unknown, expected: unknown, path: string, diffs: string[]): void {
-  if (expected === null) {
-    if (actual !== null) {
-      diffs.push(`${path}: expected null, got ${JSON.stringify(actual)}`);
-    }
-    return;
-  }
-  if (typeof expected === 'number') {
-    if (
-      typeof actual !== 'number' ||
-      !Number.isFinite(actual) ||
-      Math.abs(actual - expected) > FLOAT_TOLERANCE
-    ) {
-      diffs.push(`${path}: expected ${expected}, got ${JSON.stringify(actual)}`);
-    }
-    return;
-  }
-  if (typeof expected === 'string' || typeof expected === 'boolean') {
-    if (actual !== expected) {
-      diffs.push(`${path}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-    }
-    return;
-  }
-  if (Array.isArray(expected)) {
-    if (!Array.isArray(actual)) {
-      diffs.push(`${path}: expected an array, got ${JSON.stringify(actual)}`);
-      return;
-    }
-    if (actual.length !== expected.length) {
-      diffs.push(
-        `${path}: expected array of length ${expected.length}, got length ${actual.length}`,
-      );
-      return;
-    }
-    expected.forEach((item, index) => {
-      collectDiffs(actual[index], item, `${path}[${index}]`, diffs);
-    });
-    return;
-  }
-  if (typeof expected === 'object') {
-    if (typeof actual !== 'object' || actual === null) {
-      diffs.push(`${path}: expected an object, got ${JSON.stringify(actual)}`);
-      return;
-    }
-    const expectedKeys = Object.keys(expected as Record<string, unknown>).sort();
-    const actualKeys = Object.keys(actual as Record<string, unknown>).sort();
-    const missing = expectedKeys.filter((key) => !actualKeys.includes(key));
-    const extra = actualKeys.filter((key) => !expectedKeys.includes(key));
-    if (missing.length > 0) {
-      diffs.push(`${path}: missing key(s) ${missing.join(', ')}`);
-    }
-    if (extra.length > 0) {
-      diffs.push(`${path}: unexpected extra key(s) ${extra.join(', ')}`);
-    }
-    for (const key of expectedKeys) {
-      if (actualKeys.includes(key)) {
-        collectDiffs(
-          (actual as Record<string, unknown>)[key],
-          (expected as Record<string, unknown>)[key],
-          `${path}.${key}`,
-          diffs,
-        );
-      }
-    }
-    return;
-  }
-  throw new Error(`collectDiffs: unhandled expected type at ${path}: ${typeof expected}`);
-}
-
-function assertMatches(actual: unknown, expected: unknown, label: string): void {
-  const diffs: string[] = [];
-  collectDiffs(actual, expected, label, diffs);
-  if (diffs.length > 0) {
-    const report = diffs.slice(0, 50).join('\n');
-    const more = diffs.length > 50 ? `\n... and ${diffs.length - 50} more` : '';
-    throw new Error(`${diffs.length} mismatch(es) under ${label}:\n${report}${more}`);
-  }
 }
 
 describe('factor engine vs. golden regression fixture', () => {

@@ -12,10 +12,8 @@ import { arr, num, rec, str } from './payload';
  * restated here with that citation.
  */
 
-// -------------------------------------------------------------------------------------------
 // Evidence ladder -- the hero's signature element. Four ascending claims the model would like to
 // make; each is only lit if the real data backs it up.
-// -------------------------------------------------------------------------------------------
 
 export type RungStatus = 'pass' | 'partial' | 'fail';
 
@@ -157,10 +155,6 @@ export function evidenceLadder(payload: unknown): EvidenceRung[] {
     scoredEndToEndRung(validation),
   ];
 }
-
-// -------------------------------------------------------------------------------------------
-// Hero verdict -- "Can I trust today's ranking?"
-// -------------------------------------------------------------------------------------------
 
 export interface FactorWeightMix {
   total: number;

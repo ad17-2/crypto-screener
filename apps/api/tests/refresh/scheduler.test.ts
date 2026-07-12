@@ -1,9 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../../src/db/client.js';
 import { saveSnapshot } from '../../src/db/runs.js';
 import {
   dailyRefreshDue,
@@ -11,6 +7,7 @@ import {
   scheduledRefreshDue,
   secondsUntilNextDailyCheck,
 } from '../../src/refresh/scheduler.js';
+import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 // Instants below are "Asia/Jakarta wall-clock HH:MM" -> UTC (fixed +07:00, no DST).
 
@@ -25,14 +22,11 @@ let dbPath: string;
 let db: Database.Database;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-scheduler-'));
-  dbPath = join(dir, 'screener.sqlite3');
-  db = openDatabase(dbPath);
+  ({ dir, dbPath, db } = setupTempDb('crypto-screener-scheduler-'));
 });
 
 afterEach(() => {
-  db.close();
-  rmSync(dir, { recursive: true, force: true });
+  teardownTempDb(dir, db);
 });
 
 describe('scheduledDatetime', () => {

@@ -31,14 +31,7 @@ function defaultTab(watchlists: Watchlist[]): WatchlistId {
     : (watchlists[0]?.id ?? 'chart_next');
 }
 
-export function WatchlistWorkbench({ watchlists: allWatchlists }: WatchlistWorkbenchProps) {
-  // The core (BTC/ETH/SOL) watchlist is promoted into the market section elsewhere in the
-  // redesign — it never belongs in this tab strip.
-  const watchlists = useMemo(
-    () => allWatchlists.filter((list) => list.id !== 'core'),
-    [allWatchlists],
-  );
-
+export function WatchlistWorkbench({ watchlists }: WatchlistWorkbenchProps) {
   const [activeTab, setActiveTab] = useState<WatchlistId>(() => defaultTab(watchlists));
   const [filters, setFilters] = useState<WatchlistFilterState>(DEFAULT_WATCHLIST_FILTERS);
   const [sortKey, setSortKey] = useState<SortColumnKey | null>('price');

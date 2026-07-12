@@ -109,7 +109,7 @@ function parseValue(s: ParseState): JNode {
 
 function parseObject(s: ParseState): JNode {
   const start = s.pos;
-  s.pos++; // consume '{'
+  s.pos++;
   const entries: Array<{ key: string; value: JNode }> = [];
   skipWs(s);
   if (s.text[s.pos] === '}') {
@@ -143,7 +143,7 @@ function parseObject(s: ParseState): JNode {
 
 function parseArray(s: ParseState): JNode {
   const start = s.pos;
-  s.pos++; // consume '['
+  s.pos++;
   const items: JNode[] = [];
   skipWs(s);
   if (s.text[s.pos] === ']') {
@@ -409,7 +409,7 @@ function reconcileArray(
   return { kind: 'arr', items, span: [-1, -1] };
 }
 
-/** Builds the JNode for `newValue` at `path`, reusing `oldNode`'s raw text where unchanged, recording every real change in `ctx.diffs`. */
+/** Recurses into `newValue` at `path`, recording every real change in `ctx.diffs`. */
 export function reconcile(
   oldNode: JNode | undefined,
   newValue: unknown,

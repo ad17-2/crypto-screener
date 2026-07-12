@@ -5,12 +5,7 @@ import {
   factorWeightMix,
   modelHealthVerdict,
 } from '../lib/model-health';
-
-/**
- * Word-bounded on purpose: an unanchored /null|NaN|undefined/i also fires inside ordinary English
- * ("domi-nan-ce"), which fails on correct output. We only care about these as leaked *values*.
- */
-const NO_LEAKED_VALUES = /\b(null|NaN|undefined)\b/i;
+import { NO_LEAKED_VALUES } from './noLeakedValues';
 
 function assertClean(text: string): void {
   expect(text).not.toMatch(NO_LEAKED_VALUES);

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { AppConfigSchema } from '../../src/config';
 import { isLongCandidate, isShortCandidate } from '../../src/dashboard/watchlists';
+import type { DirectionalWeightsLike, RegimeLike } from '../../src/pipeline/rowScoring';
 import { applyScores } from '../../src/pipeline/rowScoring';
+import type { MarketContext, PipelineConfig, Row } from '../../src/pipeline/types';
 
 // With no forward-validated factor every weight is 0, so factor_score is 0 for EVERY coin. The
 // screen must still populate: it ranks on observations, not on the model's (absent) opinion.
@@ -28,12 +30,12 @@ describe('the screen survives a model with no validated edge', () => {
     const down = row('DOWN', -6, 4);
     for (const r of [up, down]) {
       applyScores(
-        r as never,
-        r.factors as never,
-        zeroWeights as never,
-        {} as never,
-        { median_atr_pct: 3 } as never,
-        config as never,
+        r as Row,
+        r.factors as Record<string, number>,
+        zeroWeights as DirectionalWeightsLike,
+        {} as RegimeLike,
+        { median_atr_pct: 3 } as MarketContext,
+        config as PipelineConfig,
       );
     }
     const s = (r: Record<string, unknown>) => r.scores as Record<string, number>;

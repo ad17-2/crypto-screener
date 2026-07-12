@@ -3,8 +3,7 @@ import { lookupSetup } from './copy';
 
 /**
  * The screener already filtered its output — this is a plain symbol/setup text search over
- * the active tab, not a re-filtering UI. Quality/source/volume/OI/funding filters were cut;
- * see WatchlistPanel.tsx.
+ * the active tab, not a re-filtering UI.
  */
 export interface WatchlistFilterState {
   /** trimmed/lowercased at match-time in rowMatches(), not on every keystroke, so typing isn't rewritten. */

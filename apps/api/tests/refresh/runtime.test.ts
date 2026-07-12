@@ -1,25 +1,19 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppConfigSchema } from '../../src/config/schema.js';
-import { openDatabase } from '../../src/db/client.js';
 import { RefreshRuntime } from '../../src/refresh/runtime.js';
+import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 let dir: string;
 let dbPath: string;
 let db: Database.Database;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-runtime-'));
-  dbPath = join(dir, 'screener.sqlite3');
-  db = openDatabase(dbPath);
+  ({ dir, dbPath, db } = setupTempDb('crypto-screener-runtime-'));
 });
 
 afterEach(() => {
-  db.close();
-  rmSync(dir, { recursive: true, force: true });
+  teardownTempDb(dir, db);
 });
 
 function fakeConfig() {

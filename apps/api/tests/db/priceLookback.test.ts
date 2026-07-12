@@ -1,10 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase } from '../../src/db/client.js';
 import { loadPriceLookback } from '../../src/db/factorHistory.js';
 import { formatJakartaIso } from '../../src/db/time.js';
+import { createTempDir, removeTempDir } from '../support/tempDb.js';
 
 // Fixtures use formatJakartaIso (+07:00), not toISOString's "Z" -- loadPriceLookback compares
 // SQL bounds lexically, so a mismatched offset convention would silently stop exercising it.
@@ -13,13 +12,13 @@ let dir: string;
 let dbPath: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-lookback-'));
+  dir = createTempDir('crypto-screener-lookback-');
   dbPath = join(dir, 'screener.sqlite3');
 });
 
 afterEach(() => {
   vi.useRealTimers();
-  rmSync(dir, { recursive: true, force: true });
+  removeTempDir(dir);
 });
 
 function insertFactorHistoryRow(

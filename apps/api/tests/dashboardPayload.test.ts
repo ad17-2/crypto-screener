@@ -6,6 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { AppConfigSchema } from '../src/config/schema.js';
 import { buildDashboardPayload } from '../src/dashboard/payload.js';
 import { openDatabase } from '../src/db/client.js';
+import { assertMatches } from './support/goldenDiff.js';
 
 /**
  * GOLDEN REGRESSION GATE: fixtures/dashboard-payload.json is a captured Python /api/dashboard
@@ -35,89 +36,8 @@ const FIXTURE_PATH = join(
 );
 const SOURCE_DB_PATH = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/parity.sqlite3');
 
-const FLOAT_TOLERANCE = 1e-9;
-
 function loadFixture(): Record<string, unknown> {
   return JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Record<string, unknown>;
-}
-
-function collectDiffs(actual: unknown, expected: unknown, path: string, diffs: string[]): void {
-  if (expected === null) {
-    if (actual !== null) {
-      diffs.push(`${path}: expected null, got ${JSON.stringify(actual)}`);
-    }
-    return;
-  }
-  if (typeof expected === 'number') {
-    if (
-      typeof actual !== 'number' ||
-      !Number.isFinite(actual) ||
-      Math.abs(actual - expected) > FLOAT_TOLERANCE
-    ) {
-      diffs.push(`${path}: expected ${expected}, got ${JSON.stringify(actual)}`);
-    }
-    return;
-  }
-  if (typeof expected === 'string' || typeof expected === 'boolean') {
-    if (actual !== expected) {
-      diffs.push(`${path}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-    }
-    return;
-  }
-  if (Array.isArray(expected)) {
-    if (!Array.isArray(actual)) {
-      diffs.push(`${path}: expected an array, got ${JSON.stringify(actual)}`);
-      return;
-    }
-    if (actual.length !== expected.length) {
-      diffs.push(
-        `${path}: expected array of length ${expected.length}, got length ${actual.length}`,
-      );
-      return;
-    }
-    expected.forEach((item, index) => {
-      collectDiffs(actual[index], item, `${path}[${index}]`, diffs);
-    });
-    return;
-  }
-  if (typeof expected === 'object') {
-    if (typeof actual !== 'object' || actual === null) {
-      diffs.push(`${path}: expected an object, got ${JSON.stringify(actual)}`);
-      return;
-    }
-    const expectedKeys = Object.keys(expected as Record<string, unknown>).sort();
-    const actualKeys = Object.keys(actual as Record<string, unknown>).sort();
-    const missing = expectedKeys.filter((key) => !actualKeys.includes(key));
-    const extra = actualKeys.filter((key) => !expectedKeys.includes(key));
-    if (missing.length > 0) {
-      diffs.push(`${path}: missing key(s) ${missing.join(', ')}`);
-    }
-    if (extra.length > 0) {
-      diffs.push(`${path}: unexpected extra key(s) ${extra.join(', ')}`);
-    }
-    for (const key of expectedKeys) {
-      if (actualKeys.includes(key)) {
-        collectDiffs(
-          (actual as Record<string, unknown>)[key],
-          (expected as Record<string, unknown>)[key],
-          `${path}.${key}`,
-          diffs,
-        );
-      }
-    }
-    return;
-  }
-  throw new Error(`collectDiffs: unhandled expected type at ${path}: ${typeof expected}`);
-}
-
-function assertMatches(actual: unknown, expected: unknown, label: string): void {
-  const diffs: string[] = [];
-  collectDiffs(actual, expected, label, diffs);
-  if (diffs.length > 0) {
-    const report = diffs.slice(0, 80).join('\n');
-    const more = diffs.length > 80 ? `\n... and ${diffs.length - 80} more` : '';
-    throw new Error(`${diffs.length} mismatch(es) under ${label}:\n${report}${more}`);
-  }
 }
 
 describe('buildDashboardPayload vs. golden regression fixture', () => {
@@ -172,7 +92,7 @@ describe('buildDashboardPayload vs. golden regression fixture', () => {
     } = actualFreshness;
     const comparableActual = { ...actual, freshness: actualFreshnessRest };
 
-    assertMatches(comparableActual, comparableExpected, 'dashboardPayload');
+    assertMatches(comparableActual, comparableExpected, 'dashboardPayload', 80);
   });
 
   afterAll(() => {

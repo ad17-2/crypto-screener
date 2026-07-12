@@ -2,10 +2,14 @@
 data/*.sqlite3
 data/*.sqlite3-*
 data/*.db
+
+# SQLite WAL/SHM sidecars. Volatile: every run that opens a database rewrites
+# them. The parity fixture's data lives entirely in the .sqlite3 file.
+*.sqlite3-shm
+*.sqlite3-wal
 reports/*.json
 reports/*.csv
 reports/*.md
-!reports/.gitkeep
 node_modules/
 
 # TypeScript / Node build artifacts

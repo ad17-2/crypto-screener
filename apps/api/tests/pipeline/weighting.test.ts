@@ -2,25 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRIORS } from '../../src/pipeline/factorDefinitions.js';
 import type { FactorRecord } from '../../src/pipeline/ic.js';
 import { factorWeights } from '../../src/pipeline/weighting.js';
-
-function strongPositive(
-  periodIdx: number,
-  symIdx: number,
-  rank: number,
-  nSymbols: number,
-): [number, number] {
-  const forward = symIdx === periodIdx % nSymbols ? (rank + 1) % nSymbols : rank;
-  return [forward, rank];
-}
-
-function weakIc(
-  periodIdx: number,
-  symIdx: number,
-  rank: number,
-  nSymbols: number,
-): [number, number] {
-  return [(symIdx + periodIdx) % nSymbols, rank];
-}
+import { splitIcRecords, strongPositive, weakIc } from '../support/syntheticRecords.js';
 
 function regimeLabeledRecords(
   factor: string,
@@ -114,32 +96,6 @@ describe('factorWeights regime-conditional IC', () => {
 });
 
 describe('factorWeights walk-forward gating', () => {
-  function splitIcRecords(
-    factor: string,
-    nPeriods: number,
-    trainFn: typeof strongPositive,
-    testFn: typeof strongPositive,
-    nSymbols = 5,
-  ): FactorRecord[] {
-    const splitIndex = Math.max(15, Math.trunc(0.6 * nPeriods));
-    const records: FactorRecord[] = [];
-    for (let periodIdx = 0; periodIdx < nPeriods; periodIdx += 1) {
-      const generatedAt = `2024-01-${String(periodIdx + 1).padStart(2, '0')}T12:00:00+07:00`;
-      const forwardFn = periodIdx < splitIndex ? trainFn : testFn;
-      for (let symIdx = 0; symIdx < nSymbols; symIdx += 1) {
-        const rank = symIdx;
-        const [forwardReturnPct, factorValue] = forwardFn(periodIdx, symIdx, rank, nSymbols);
-        records.push({
-          symbol: `S${symIdx}`,
-          generated_at: generatedAt,
-          forward_return_pct: forwardReturnPct,
-          factors: { [factor]: factorValue },
-        });
-      }
-    }
-    return records;
-  }
-
   // Pinned to rank_ic for the same reason as the regime-conditional suite above -- these
   // records use 5 symbols/period, under economicEdge's minNamesPerPeriod, so net_edge (the
   // default) would mask the walk-forward-gating behaviour this suite tests.
@@ -369,6 +325,118 @@ describe('factorWeights net_edge selection objective', () => {
     expect(stat?.raw_weight).toBe(0);
     expect(weights.directional[FACTOR]).toBe(0);
     expect(weights.validated_factor_count).toBe(0);
+  });
+});
+
+describe('factorWeights regime blend vs. net_edge zeroing', () => {
+  // Regression gate on a money bug: zero_unvalidated_weights zeroes a factor that was ACTIVELY
+  // TESTED under net_edge and found to lose money forward, but the regime-conditional blend used to
+  // compute (1 - kRegime) * pooledRaw + kRegime * regimeMeanIc with no check on `mode`, handing the
+  // proven loser its weight back through a rank-IC term -- the very metric net_edge exists to
+  // overrule, since rank IC is blind to the cost and skew that condemned the factor.
+  const FACTOR = 'momentum_24h';
+  const N_SYMBOLS = 20; // >= economicEdge's default minNamesPerPeriod (20).
+
+  function mirroredNegative(
+    periodIdx: number,
+    symIdx: number,
+    rank: number,
+    nSymbols: number,
+  ): [number, number] {
+    const [forward, factorValue] = strongPositive(periodIdx, symIdx, rank, nSymbols);
+    return [-forward, factorValue];
+  }
+
+  it('keeps a factor zeroed by the net_edge walk-forward gate at zero, even when its regime IC alone would qualify', () => {
+    // 'trending' (periods 1-10): strongPositive -- profitable, significant, matches train.
+    // 'reversal' (periods 11-20): the same relationship mirrored negative -- matches validation.
+    // Chronologically this is exactly the train/validation split edge_validation_fraction: 0.5
+    // draws over 20 periods, so the pooled net_edge gate sees a factor that pays in training and
+    // reverses in validation (edge_verdict 'failed-forward'), while the 'trending' bucket alone is
+    // a clean, strongly significant regime for the regime-conditional IC to pick up.
+    const records = regimeLabeledRecords(
+      FACTOR,
+      [
+        ['trending', 10, strongPositive],
+        ['reversal', 10, mirroredNegative],
+      ],
+      N_SYMBOLS,
+    );
+
+    const weights = factorWeights(
+      records,
+      {
+        factors: {
+          ic_min_periods: 10,
+          ic_min_cross_section: 5,
+          min_abs_t: 2.0,
+          min_abs_ic: 0.02,
+          ic_prior_strength: 10,
+          priors: DEFAULT_PRIORS,
+          ic_target: 'raw',
+          // These records carry no atr_pct; the default 'inverse_vol' sizing would drop every one.
+          position_sizing: 'equal_weight',
+          // A 50/50 split so both train and validation clear economicEdge's MIN_PERIODS (10) with
+          // 20 periods total.
+          edge_validation_fraction: 0.5,
+          selection_objective: 'net_edge',
+          regime_min_periods: 8,
+          regime_conditional_prior_strength: 12.0,
+        },
+      },
+      'trending',
+    );
+    const stat = weights.stats[FACTOR];
+
+    // The pooled net_edge gate zeroed this factor: it paid in training and lost money on the
+    // validation slice.
+    expect(stat?.edge_verdict).toBe('failed-forward');
+    expect(stat?.mode).toBe('unvalidated');
+
+    // The 'trending' bucket on its own clears regime_min_periods/min_abs_t/min_abs_ic, so the
+    // regime IC is strong enough to qualify and is still reported as a diagnostic...
+    expect(stat?.regime_ic).not.toBeNull();
+    expect(Math.abs(stat?.regime_ic ?? 0)).toBeGreaterThan(0.02);
+
+    // ...but it must not buy the factor any weight back. kRegime stays 0, so the blend collapses to
+    // the pooled zero rather than reviving a factor already proven to lose money forward.
+    expect(stat?.regime_mode).toBe('pooled');
+    expect(stat?.regime_k).toBe(0);
+    expect(stat?.raw_weight).toBe(0);
+    expect(weights.directional[FACTOR]).toBe(0);
+  });
+
+  it('still lets the regime blend move a factor the net_edge gate did not condemn', () => {
+    // The guard above keys on mode === 'unvalidated' specifically, not on net_edge being enabled.
+    // A factor whose edge holds up forward must still get its regime-conditional weighting.
+    const records = regimeLabeledRecords(FACTOR, [['trending', 20, strongPositive]], N_SYMBOLS);
+
+    const weights = factorWeights(
+      records,
+      {
+        factors: {
+          ic_min_periods: 10,
+          ic_min_cross_section: 5,
+          min_abs_t: 2.0,
+          min_abs_ic: 0.02,
+          ic_prior_strength: 10,
+          priors: DEFAULT_PRIORS,
+          ic_target: 'raw',
+          position_sizing: 'equal_weight',
+          edge_validation_fraction: 0.5,
+          selection_objective: 'net_edge',
+          regime_min_periods: 8,
+          regime_conditional_prior_strength: 12.0,
+        },
+      },
+      'trending',
+    );
+    const stat = weights.stats[FACTOR];
+
+    expect(stat?.mode).not.toBe('unvalidated');
+    expect(stat?.regime_mode).toBe('regime-ic');
+    expect(stat?.regime_k ?? 0).toBeGreaterThan(0);
+    expect(weights.directional[FACTOR]).not.toBe(0);
   });
 });
 

@@ -1,4 +1,4 @@
-import { clamp, mean, pyRound, toFloat } from './scoring.js';
+import { clamp, meanOrNull, pyRound, toFloat } from './scoring.js';
 import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 
@@ -105,11 +105,6 @@ function btcChange(rows: Row[], marketContext: MarketContext): number | null {
   return toFloat(marketContext.btc_price_change_24h_pct);
 }
 
-function avg(values: Array<number | null>): number | null {
-  const valid = values.filter((value): value is number => value !== null);
-  return valid.length > 0 ? mean(valid) : null;
-}
-
 export interface InferredRegime {
   label: string;
   regime_state: string;
@@ -135,7 +130,7 @@ export function inferRegime(
   priorState: string | null | undefined,
   config: PipelineConfig,
 ): InferredRegime {
-  const avgFunding = avg(rows.map((row) => toFloat(row.funding_rate_pct)));
+  const avgFunding = meanOrNull(rows.map((row) => toFloat(row.funding_rate_pct)));
   const btcChangePct = btcChange(rows, marketContext);
   const marketCapChange = toFloat(marketContext.market_cap_change_24h_pct);
   const breadth = asRecord(marketContext.breadth);

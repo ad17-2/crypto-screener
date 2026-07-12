@@ -1,9 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../../src/db/client.js';
 import {
   historyMetrics,
   loadLabeledFactorRecords,
@@ -11,21 +7,17 @@ import {
   saveFactorHistoryRecords,
 } from '../../src/db/factorHistory.js';
 import { recordRegimeHistory } from '../../src/db/regimeHistory.js';
-import { formatJakartaIso } from '../../src/db/time.js';
+import { hoursAgo, setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 let dir: string;
-let dbPath: string;
 let db: Database.Database;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-factor-history-'));
-  dbPath = join(dir, 'screener.sqlite3');
-  db = openDatabase(dbPath);
+  ({ dir, db } = setupTempDb('crypto-screener-factor-history-'));
 });
 
 afterEach(() => {
-  db.close();
-  rmSync(dir, { recursive: true, force: true });
+  teardownTempDb(dir, db);
 });
 
 describe('historyMetrics', () => {
@@ -115,24 +107,22 @@ describe('saveFactorHistoryRecords', () => {
 describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
   it('labels a row with the forward return of the nearest candidate to the horizon midpoint', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
     // 24h band is [18h,36h], midpoint 27h: near-30h (dist 3) beats near-20h (dist 7).
     saveFactorHistoryRecords(db, [
       {
         run_id: 'base',
-        generated_at: hoursAgo(40),
+        generated_at: hoursAgo(now, 40),
         symbol: 'BTC',
         price_usd: 100,
         factors: { momentum_24h: 1.0 },
       },
-      { run_id: 'near-20h', generated_at: hoursAgo(20), symbol: 'BTC', price_usd: 110 },
-      { run_id: 'near-30h', generated_at: hoursAgo(10), symbol: 'BTC', price_usd: 150 },
+      { run_id: 'near-20h', generated_at: hoursAgo(now, 20), symbol: 'BTC', price_usd: 110 },
+      { run_id: 'near-30h', generated_at: hoursAgo(now, 10), symbol: 'BTC', price_usd: 150 },
     ]);
 
     const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
-    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(now, 40));
     expect(baseRecord).toBeDefined();
     expect(baseRecord?.forward_return_pct).toBeCloseTo(50.0); // (150-100)/100 * 100
     expect(baseRecord?.factors).toEqual({ momentum_24h: 1.0 });
@@ -140,13 +130,11 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
 
   it('merges the matching regime_state from market_regime_history by generated_at', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
-    const baseGeneratedAt = hoursAgo(40);
+    const baseGeneratedAt = hoursAgo(now, 40);
 
     saveFactorHistoryRecords(db, [
       { run_id: 'base', generated_at: baseGeneratedAt, symbol: 'BTC', price_usd: 100 },
-      { run_id: 'target', generated_at: hoursAgo(13), symbol: 'BTC', price_usd: 120 },
+      { run_id: 'target', generated_at: hoursAgo(now, 13), symbol: 'BTC', price_usd: 120 },
     ]);
     recordRegimeHistory(db, {
       run_id: 'base',
@@ -161,22 +149,22 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
 
   it('returns independent record sets per horizon, each with its own tolerance band', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
     saveFactorHistoryRecords(db, [
-      { run_id: 'base', generated_at: hoursAgo(80), symbol: 'BTC', price_usd: 100 },
+      { run_id: 'base', generated_at: hoursAgo(now, 80), symbol: 'BTC', price_usd: 100 },
       // Inside the 24h band [18,36] but not the 4h band [3,6].
-      { run_id: 'mid', generated_at: hoursAgo(50), symbol: 'BTC', price_usd: 130 },
+      { run_id: 'mid', generated_at: hoursAgo(now, 50), symbol: 'BTC', price_usd: 130 },
       // Inside the 4h band [3,6] but not the 24h band.
-      { run_id: 'near', generated_at: hoursAgo(75), symbol: 'BTC', price_usd: 105 },
+      { run_id: 'near', generated_at: hoursAgo(now, 75), symbol: 'BTC', price_usd: 105 },
     ]);
 
     const byHorizon = loadLabeledRecordsByHorizon(db, [4, 24], { icWindowDays: 30 });
-    const fourHourRecord = byHorizon.get(4)?.find((record) => record.generated_at === hoursAgo(80));
+    const fourHourRecord = byHorizon
+      .get(4)
+      ?.find((record) => record.generated_at === hoursAgo(now, 80));
     const twentyFourHourRecord = byHorizon
       .get(24)
-      ?.find((record) => record.generated_at === hoursAgo(80));
+      ?.find((record) => record.generated_at === hoursAgo(now, 80));
 
     expect(fourHourRecord?.forward_return_pct).toBeCloseTo(5.0); // (105-100)/100*100
     expect(twentyFourHourRecord?.forward_return_pct).toBeCloseTo(30.0); // (130-100)/100*100
@@ -186,38 +174,38 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
 
   it('carries a non-empty scores object through both loaders unchanged (regression: scores_json was never parsed)', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
     const scores = { factor_score: -0.42, confidence_score: 71 };
 
     saveFactorHistoryRecords(db, [
       {
         run_id: 'base',
-        generated_at: hoursAgo(40),
+        generated_at: hoursAgo(now, 40),
         symbol: 'BTC',
         price_usd: 100,
         factors: { momentum_24h: 1.0 },
         scores,
       },
-      { run_id: 'target', generated_at: hoursAgo(10), symbol: 'BTC', price_usd: 150 },
+      { run_id: 'target', generated_at: hoursAgo(now, 10), symbol: 'BTC', price_usd: 150 },
     ]);
 
     const defaultRecords = loadLabeledFactorRecords(db, {
       forwardReturnHours: 24,
       icWindowDays: 30,
     });
-    const defaultRecord = defaultRecords.find((record) => record.generated_at === hoursAgo(40));
+    const defaultRecord = defaultRecords.find(
+      (record) => record.generated_at === hoursAgo(now, 40),
+    );
     expect(defaultRecord?.scores).toEqual(scores);
 
     const byHorizon = loadLabeledRecordsByHorizon(db, [24], { icWindowDays: 30 });
-    const horizonRecord = byHorizon.get(24)?.find((record) => record.generated_at === hoursAgo(40));
+    const horizonRecord = byHorizon
+      .get(24)
+      ?.find((record) => record.generated_at === hoursAgo(now, 40));
     expect(horizonRecord?.scores).toEqual(scores);
   });
 
   it('degrades NULL/empty/malformed scores_json to {} instead of throwing', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
     // Each case gets its own symbol/base row plus a forward row so it survives labeling.
     const cases = [
@@ -230,13 +218,13 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
     saveFactorHistoryRecords(db, [
       ...cases.map((testCase) => ({
         run_id: testCase.run_id,
-        generated_at: hoursAgo(testCase.baseHours),
+        generated_at: hoursAgo(now, testCase.baseHours),
         symbol: testCase.symbol,
         price_usd: 100,
       })),
       ...cases.map((testCase) => ({
         run_id: `${testCase.run_id}-target`,
-        generated_at: hoursAgo(testCase.baseHours - 30),
+        generated_at: hoursAgo(now, testCase.baseHours - 30),
         symbol: testCase.symbol,
         price_usd: 150,
       })),
@@ -257,7 +245,7 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
     const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
     for (const testCase of cases) {
       const record = records.find(
-        (r) => r.generated_at === hoursAgo(testCase.baseHours) && r.symbol === testCase.symbol,
+        (r) => r.generated_at === hoursAgo(now, testCase.baseHours) && r.symbol === testCase.symbol,
       );
       expect(record?.scores).toEqual({});
     }
@@ -267,13 +255,11 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
 describe('forward_return_vol_adj', () => {
   it("divides forward_return_pct by the CURRENT row's ATR, not the target row's", () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
     saveFactorHistoryRecords(db, [
       {
         run_id: 'base',
-        generated_at: hoursAgo(40),
+        generated_at: hoursAgo(now, 40),
         symbol: 'BTC',
         price_usd: 100,
         atr_14_pct: 2.0,
@@ -281,7 +267,7 @@ describe('forward_return_vol_adj', () => {
       // Target's own ATR (99) must be ignored -- only the current row's ATR feeds the divisor.
       {
         run_id: 'target',
-        generated_at: hoursAgo(13),
+        generated_at: hoursAgo(now, 13),
         symbol: 'BTC',
         price_usd: 110,
         atr_14_pct: 99,
@@ -289,7 +275,7 @@ describe('forward_return_vol_adj', () => {
     ]);
 
     const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
-    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(now, 40));
     expect(baseRecord?.forward_return_pct).toBeCloseTo(10.0); // (110-100)/100*100
     expect(baseRecord?.forward_return_vol_adj).toBeCloseTo(5.0); // 10 / max(2.0, 1.0)
     expect(baseRecord?.atr_pct).toBeCloseTo(2.0); // current row's own ATR, not the target's 99
@@ -297,22 +283,20 @@ describe('forward_return_vol_adj', () => {
 
   it('floors the ATR divisor at 1.0 when ATR is below that (matches reversal_3d precedent)', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
     saveFactorHistoryRecords(db, [
       {
         run_id: 'base',
-        generated_at: hoursAgo(40),
+        generated_at: hoursAgo(now, 40),
         symbol: 'BTC',
         price_usd: 100,
         atr_14_pct: 0.3,
       },
-      { run_id: 'target', generated_at: hoursAgo(13), symbol: 'BTC', price_usd: 106 },
+      { run_id: 'target', generated_at: hoursAgo(now, 13), symbol: 'BTC', price_usd: 106 },
     ]);
 
     const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
-    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(now, 40));
     expect(baseRecord?.forward_return_pct).toBeCloseTo(6.0);
     // Without the floor this would be 6 / 0.3 = 20; the floor caps the divisor at 1.0.
     expect(baseRecord?.forward_return_vol_adj).toBeCloseTo(6.0);
@@ -323,16 +307,14 @@ describe('forward_return_vol_adj', () => {
 
   it('is null when the current row has no ATR, while forward_return_pct is still computed', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
 
     saveFactorHistoryRecords(db, [
-      { run_id: 'base', generated_at: hoursAgo(40), symbol: 'BTC', price_usd: 100 },
-      { run_id: 'target', generated_at: hoursAgo(13), symbol: 'BTC', price_usd: 120 },
+      { run_id: 'base', generated_at: hoursAgo(now, 40), symbol: 'BTC', price_usd: 100 },
+      { run_id: 'target', generated_at: hoursAgo(now, 13), symbol: 'BTC', price_usd: 120 },
     ]);
 
     const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
-    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(now, 40));
     expect(baseRecord?.forward_return_pct).toBeCloseTo(20.0);
     expect(baseRecord?.forward_return_vol_adj).toBeNull();
     expect(baseRecord?.atr_pct).toBeNull();

@@ -390,7 +390,6 @@ export async function runBackfill(
         }
       }
     } catch (error) {
-      // Per-symbol error isolation: records the failure instead of aborting the whole backfill.
       if (error instanceof Error) {
         errors.push(`${symbol}: ${error.message}`);
       } else {

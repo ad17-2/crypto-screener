@@ -1,3 +1,4 @@
+import { sortByTime } from './derivatives.js';
 import { clamp, mean, stdev, toFloat } from './scoring.js';
 
 export type RawCandle = Record<string, unknown>;
@@ -81,9 +82,7 @@ export function technicalSnapshot(candles: RawCandle[], interval: string): Recor
 }
 
 function normalizeCandles(candles: RawCandle[]): Candle[] {
-  const sorted = [...candles].sort(
-    (a, b) => (toFloat(a.time, 0.0) ?? 0.0) - (toFloat(b.time, 0.0) ?? 0.0),
-  );
+  const sorted = sortByTime(candles);
   const normalized: Candle[] = [];
   for (const candle of sorted) {
     const open = toFloat(candle.open);
@@ -122,6 +121,14 @@ function emaSeries(values: number[], period: number): number[] {
 }
 
 // Wilder smoothing: seeded from the mean of the first `period` values, then avg = (avg*(period-1)+next)/period.
+function wilderSmooth(values: number[], period: number): number {
+  let value = mean(values.slice(0, period));
+  for (const next of values.slice(period)) {
+    value = (value * (period - 1) + next) / period;
+  }
+  return value;
+}
+
 function rsi(values: number[], period: number): number | null {
   if (values.length <= period) {
     return null;
@@ -133,12 +140,8 @@ function rsi(values: number[], period: number): number | null {
     gains.push(Math.max(delta, 0.0));
     losses.push(Math.abs(Math.min(delta, 0.0)));
   }
-  let avgGain = mean(gains.slice(0, period));
-  let avgLoss = mean(losses.slice(0, period));
-  for (let index = period; index < gains.length; index += 1) {
-    avgGain = (avgGain * (period - 1) + (gains[index] as number)) / period;
-    avgLoss = (avgLoss * (period - 1) + (losses[index] as number)) / period;
-  }
+  const avgGain = wilderSmooth(gains, period);
+  const avgLoss = wilderSmooth(losses, period);
   if (avgLoss === 0) {
     return 100.0;
   }
@@ -163,7 +166,6 @@ function macdOf(values: number[]): Macd {
   return { line: latestLine, signal, histogram: latestLine - signal };
 }
 
-/** Wilder smoothing, same seeding/update rule as `rsi` above. */
 function atr(highs: number[], lows: number[], closes: number[], period: number): number | null {
   if (closes.length <= period) {
     return null;
@@ -177,11 +179,7 @@ function atr(highs: number[], lows: number[], closes: number[], period: number):
       Math.max(high - low, Math.abs(high - previousClose), Math.abs(low - previousClose)),
     );
   }
-  let value = mean(ranges.slice(0, period));
-  for (const range of ranges.slice(period)) {
-    value = (value * (period - 1) + range) / period;
-  }
-  return value;
+  return wilderSmooth(ranges, period);
 }
 
 function bollingerBands(values: number[], period: number): Bollinger {

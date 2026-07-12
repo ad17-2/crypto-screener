@@ -1,5 +1,5 @@
 import type { DataQualityConfig } from '../config/index.js';
-import { pctChange, toFloat } from './scoring.js';
+import { formatSigned, pctChange, toFloat } from './scoring.js';
 import type { Row } from './types.js';
 
 // Rows failing checks are flagged (is_trusted: false), never dropped here -- exclusion happens later, in the ranking stage.
@@ -100,7 +100,7 @@ export function dataQualityFlags(row: Row, config: DataQualityConfig): string[] 
 
   const openInterest = toFloat(row.open_interest_usd);
   if (openInterest !== null && openInterest < 0) {
-    flags.push(`invalid_open_interest:${formatFixed(openInterest, 2)}`);
+    flags.push(`invalid_open_interest:${openInterest.toFixed(2)}`);
   }
 
   const indexPrice = toFloat(row.index_price);
@@ -116,7 +116,7 @@ export function dataQualityFlags(row: Row, config: DataQualityConfig): string[] 
   if (row.data_source === 'coinglass') {
     const exchangeCount = toFloat(row.coinglass_exchange_count, 0.0) ?? 0.0;
     if (exchangeCount < config.min_coinglass_exchange_count) {
-      flags.push(`thin_coinglass_exchange_coverage:${formatFixed(exchangeCount, 0)}`);
+      flags.push(`thin_coinglass_exchange_coverage:${exchangeCount.toFixed(0)}`);
     }
   }
 
@@ -159,7 +159,7 @@ function flagPositive(flags: string[], row: Row, key: string, label: string): vo
   if (value === null) {
     flags.push(`${label}:missing`);
   } else if (value <= 0) {
-    flags.push(`${label}:${formatFixed(value, 2)}`);
+    flags.push(`${label}:${value.toFixed(2)}`);
   }
 }
 
@@ -174,7 +174,7 @@ function flagMinimum(
   if (value === null) {
     flags.push(`${label}:missing`);
   } else if (value < threshold) {
-    flags.push(`${label}:${formatFixed(value, 2)}`);
+    flags.push(`${label}:${value.toFixed(2)}`);
   }
 }
 
@@ -193,13 +193,4 @@ function flagAbsThreshold(
 
 function isAlnum(text: string): boolean {
   return text.length > 0 && /^[\p{L}\p{N}]+$/u.test(text);
-}
-
-function formatFixed(value: number, decimals: number): string {
-  return value.toFixed(decimals);
-}
-
-function formatSigned(value: number, decimals: number): string {
-  const fixed = value.toFixed(decimals);
-  return value >= 0 ? `+${fixed}` : fixed;
 }

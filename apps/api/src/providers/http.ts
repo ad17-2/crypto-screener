@@ -40,6 +40,21 @@ export async function fetchWithTimeout(
   }
 }
 
+// Shared status-check + parse step; each provider's getJson() calls this once it has decided
+// not to retry (CoinGecko retries 429s around this call rather than through it).
+export function parseJsonResponse(path: string, response: HttpResponse): unknown {
+  if (response.status >= 400) {
+    throw new ProviderError(
+      `${path} returned HTTP ${response.status}: ${response.text.slice(0, 500)}`,
+    );
+  }
+  try {
+    return JSON.parse(response.text);
+  } catch {
+    throw new ProviderError(`${path} returned invalid JSON`);
+  }
+}
+
 export function buildUrl(
   baseUrl: string,
   path: string,

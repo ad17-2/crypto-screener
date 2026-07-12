@@ -6,9 +6,9 @@ import {
   isShortCandidate,
   topBy,
 } from '../dashboard/watchlists.js';
-import { formatSigned, reasonFor } from '../pipeline/factorExplanations.js';
+import { reasonFor } from '../pipeline/factorExplanations.js';
 import type { RunPayload } from '../pipeline/models.js';
-import { toFloat } from '../pipeline/scoring.js';
+import { formatSigned, pyStr, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { formatPct, formatUsd } from './format.js';
@@ -16,17 +16,6 @@ import { formatPct, formatUsd } from './format.js';
 /** Fallback applies only when `key` is absent, not when its value is explicit `null`. */
 function get(record: Record<string, unknown>, key: string, fallback: unknown): unknown {
   return key in record ? record[key] : fallback;
-}
-
-/** Renders null as 'None', booleans as 'True'/'False' -- not JS's default `String()` output. */
-function pyStr(value: unknown): string {
-  if (value === null) {
-    return 'None';
-  }
-  if (typeof value === 'boolean') {
-    return value ? 'True' : 'False';
-  }
-  return String(value);
 }
 
 export function renderMarkdown(payload: RunPayload, config: AppConfig): string {

@@ -13,7 +13,6 @@ export function num(obj: unknown, key: string): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-/** Returns `obj[key]` only if it is a `string`, else `null`. */
 export function str(obj: unknown, key: string): string | null {
   const value = asRecord(obj)[key];
   return typeof value === 'string' ? value : null;

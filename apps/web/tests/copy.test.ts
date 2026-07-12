@@ -5,13 +5,11 @@ import { describe, expect, it } from 'vitest';
 import {
   BIAS,
   BREADTH_LABEL,
-  CALIBRATION,
   DATA_QUALITY_FLAG,
   EDGE_VERDICT,
   FACTOR,
   FIXED_SETUP,
   FRESHNESS,
-  lookupCalibration,
   lookupEdgeVerdict,
   lookupFactor,
   lookupFreshness,
@@ -127,9 +125,6 @@ const REGIME_STATES = ['btc-led', 'alts-strong', 'neutral', 'chaos', 'momentum']
 // apps/api/src/dashboard/freshness.ts label thresholds.
 const FRESHNESS_LABELS = ['fresh', 'aging', 'stale', 'old', 'unknown'];
 
-// apps/api/src/dashboard/payload.ts `calibrationLabel()`.
-const CALIBRATION_LABELS = ['learning', 'useful', 'neutral', 'weak'];
-
 // apps/api/src/pipeline/edgeWalkForward.ts `EdgeWalkForwardResult['verdict']`.
 const EDGE_VERDICTS = ['validated', 'failed-forward', 'failed-train', 'insufficient-data'];
 
@@ -233,13 +228,6 @@ describe('copy dictionaries cover every source-derived key', () => {
     }
   });
 
-  it('covers every calibration label', () => {
-    for (const label of CALIBRATION_LABELS) {
-      expect(CALIBRATION[label], `CALIBRATION missing "${label}"`).toBeDefined();
-      assertHuman(lookupCalibration(label).label);
-    }
-  });
-
   it('covers every edge (money) walk-forward verdict', () => {
     for (const verdict of EDGE_VERDICTS) {
       expect(EDGE_VERDICT[verdict], `EDGE_VERDICT missing "${verdict}"`).toBeDefined();
@@ -294,12 +282,10 @@ describe('copy fallbacks never leak a raw machine key', () => {
   });
 });
 
-// ---------------------------------------------------------------------------------------------
 // Fixture walk -- the real leak-proof test. Every setup/quality-flag key that actually appears in
 // a real (frozen) payload must resolve to a mapped, non-jargon label. This does NOT replace the
 // source-derived assertions above (the fixture is known to be missing several real values -- see
 // the file header comment).
-// ---------------------------------------------------------------------------------------------
 
 const FIXTURE_PATH = join(
   dirname(fileURLToPath(import.meta.url)),

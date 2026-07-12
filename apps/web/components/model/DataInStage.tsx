@@ -36,8 +36,7 @@ function formatAge(minutes: number | null): string {
 }
 
 /**
- * Stage 1: "What went in" -- is the data clean? Folds in what used to be three separate panels
- * (Providers, Data Quality, Freshness/Runs), simplified down to tiles + a short two-column list.
+ * Stage 1: "What went in" -- is the data clean? Simplified down to tiles + a short two-column list.
  */
 export function DataInStage({ providerStatus, quality, freshness, run }: DataInStageProps) {
   const providers = providerRows(providerStatus);

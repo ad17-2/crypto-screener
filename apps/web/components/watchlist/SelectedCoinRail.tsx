@@ -119,7 +119,6 @@ function VerdictBlock({ row }: { row: DashboardRow }) {
   );
 }
 
-// ---------------------------------------------------------------------------------------------
 // "Why this coin" -- reason_parts carries kind/label/value/tone/help, but only `kind` and (for
 // the 'metric' bucket) `value` are structured enough to trust; `label`/`help` are API prose the
 // HARD RULE forbids rendering raw. The label sets below are the exact, verified fixed strings
@@ -127,7 +126,6 @@ function VerdictBlock({ row }: { row: DashboardRow }) {
 // sets), used only as an internal lookup key to pick the right copy.ts entry -- never rendered.
 // copy.ts has no dedicated dictionary for a row's composite `score` (units vary by score_field)
 // or for RSI, so those two entries below are authored locally rather than sourced from copy.ts.
-// ---------------------------------------------------------------------------------------------
 
 const SCORE_FIELD_META: Record<string, { label: string; definition: string }> = {
   factor_score: {
@@ -314,8 +312,6 @@ function ReasonStack({ row }: { row: DashboardRow }) {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------------------------
 
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (

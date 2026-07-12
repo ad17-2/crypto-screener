@@ -3,20 +3,19 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadConfig, loadConfigDict } from '../src/config';
+import { loadConfig } from '../src/config';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const DEFAULT_CONFIG_PATH = join(REPO_ROOT, 'config/default.json');
 
 describe('loadConfig', () => {
-  it('validates config/default.json exactly as-is and round-trips to a runtime dict', () => {
+  it('validates config/default.json exactly as-is', () => {
     const config = loadConfig(DEFAULT_CONFIG_PATH);
-    const runtime = loadConfigDict(DEFAULT_CONFIG_PATH);
 
-    expect(runtime.version).toBe(2);
-    expect(runtime.providers.coinglass.api_key_env).toBe('COINGLASS_API_KEY');
-    expect(runtime.report.limit).toBe(12);
-    expect(runtime.providers.coinglass.technical_indicators).toBeDefined();
+    expect(config.version).toBe(2);
+    expect(config.providers.coinglass.api_key_env).toBe('COINGLASS_API_KEY');
+    expect(config.report.limit).toBe(12);
+    expect(config.providers.coinglass.technical_indicators).toBeDefined();
 
     expect(config.factors.regime.dispersion_threshold_pct).toBe(8.0);
     expect(config.factors.reversal_lookback_hours).toBe(72);

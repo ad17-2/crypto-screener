@@ -1,28 +1,21 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../../src/db/client.js';
 import {
   loadLatestRegimeState,
   loadRegimeStates,
   recordRegimeHistory,
 } from '../../src/db/regimeHistory.js';
+import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 let dir: string;
-let dbPath: string;
 let db: Database.Database;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-regime-'));
-  dbPath = join(dir, 'screener.sqlite3');
-  db = openDatabase(dbPath);
+  ({ dir, db } = setupTempDb('crypto-screener-regime-'));
 });
 
 afterEach(() => {
-  db.close();
-  rmSync(dir, { recursive: true, force: true });
+  teardownTempDb(dir, db);
 });
 
 describe('recordRegimeHistory', () => {

@@ -1,6 +1,6 @@
 import type { CoinGlassConfig } from '../config/index.js';
 import type { CoinGlassClient, CoinGlassHistoryRow } from '../providers/coinglass.js';
-import { ProviderError } from '../providers/errors.js';
+import { collectProviderError } from '../providers/errors.js';
 import { sleep } from '../providers/http.js';
 import { derivativesSnapshot } from './derivatives.js';
 import { toFloat } from './scoring.js';
@@ -48,11 +48,7 @@ export async function appendCoinglassTechnicals(
         enriched += 1;
       }
     } catch (error) {
-      if (error instanceof ProviderError) {
-        errors.push(`${row.symbol ?? contractSymbol}: ${error.message}`);
-      } else {
-        throw error;
-      }
+      collectProviderError(errors, error, String(row.symbol ?? contractSymbol));
     } finally {
       await sleepBetweenRequests(requestDelay);
     }
@@ -132,11 +128,7 @@ export async function appendCoinglassDerivativesHistory(
         enriched += 1;
       }
     } catch (error) {
-      if (error instanceof ProviderError) {
-        errors.push(`${symbol}: ${error.message}`);
-      } else {
-        throw error;
-      }
+      collectProviderError(errors, error, symbol);
     } finally {
       await sleepBetweenRequests(requestDelay);
     }
@@ -222,11 +214,7 @@ export async function appendCoinglassLongShortRatio(
         await sleepBetweenRequests(requestDelay);
       }
     } catch (error) {
-      if (error instanceof ProviderError) {
-        errors.push(`${base}: ${error.message}`);
-      } else {
-        throw error;
-      }
+      collectProviderError(errors, error, base);
     } finally {
       await sleepBetweenRequests(requestDelay);
     }

@@ -1,7 +1,6 @@
 import type { DashboardRow, DashboardRowSide } from '@crypto-screener/contracts';
 import { DIRECTIONAL_FACTORS } from '../pipeline/factorDefinitions.js';
-import { formatSigned } from '../pipeline/factorExplanations.js';
-import { pyRound, toFloat } from '../pipeline/scoring.js';
+import { formatSigned, pyRound, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { factorLabel } from './taxonomy.js';
@@ -126,8 +125,7 @@ export function setupTone(side: string): string {
 /**
  * Purely observable ranking key (score magnitude x data quality) used to pick and order the
  * cross-section "chart_next" watchlist, and persisted as `recommendations.priority` for the
- * scoreboard. No longer confidence-weighted -- confidence_score was a blend output, not an
- * observation.
+ * scoreboard.
  */
 export function chartPriority(row: Row, scoreField: string, score: unknown): number {
   const numericScore =

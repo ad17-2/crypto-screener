@@ -13,7 +13,7 @@ export interface HeaderProps {
 
 /**
  * The page order (Market -> Breadth & Rotation -> The Majors -> Screened coins) IS the
- * workflow now, so the header no longer has to spell it out in a subtitle.
+ * workflow.
  */
 export function Header({ freshness, runs, selectedRunId }: HeaderProps) {
   return (

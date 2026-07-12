@@ -1,13 +1,7 @@
 import { DIRECTIONAL_FACTORS } from './factorDefinitions.js';
-import { toFloat } from './scoring.js';
+import { formatSigned, toFloat } from './scoring.js';
 import type { Row } from './types.js';
 import { asRecord } from './types.js';
-
-// Sign comes from the pre-rounding value (handles -0), not the rounded value.
-export function formatSigned(value: number, decimals: number): string {
-  const sign = value < 0 || Object.is(value, -0) ? '-' : '+';
-  return `${sign}${Math.abs(value).toFixed(decimals)}`;
-}
 
 function appendMetric(
   parts: string[],

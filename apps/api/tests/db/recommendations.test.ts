@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../src/db/client.js';
@@ -18,20 +15,18 @@ import type {
   RecommendationRecordInput,
   RecommendationWatchlistInput,
 } from '../../src/db/types.js';
+import { hoursAgo, setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 let dir: string;
 let dbPath: string;
 let db: Database.Database;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'crypto-screener-recommendations-'));
-  dbPath = join(dir, 'screener.sqlite3');
-  db = openDatabase(dbPath);
+  ({ dir, dbPath, db } = setupTempDb('crypto-screener-recommendations-'));
 });
 
 afterEach(() => {
-  db.close();
-  rmSync(dir, { recursive: true, force: true });
+  teardownTempDb(dir, db);
 });
 
 describe('ensureSchema for recommendations', () => {
@@ -323,13 +318,11 @@ describe('recommendationsFromWatchlists', () => {
 describe('loadRecommendationsWithOutcomes', () => {
   it('joins a recommendation to the realised forward return computed from factor_history', () => {
     const now = new Date();
-    const hoursAgo = (hours: number) =>
-      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
-    const recommendedAt = hoursAgo(40);
+    const recommendedAt = hoursAgo(now, 40);
 
     saveFactorHistoryRecords(db, [
       { run_id: 'base', generated_at: recommendedAt, symbol: 'BTC', price_usd: 100 },
-      { run_id: 'target', generated_at: hoursAgo(10), symbol: 'BTC', price_usd: 150 },
+      { run_id: 'target', generated_at: hoursAgo(now, 10), symbol: 'BTC', price_usd: 150 },
     ]);
     saveRecommendations(db, [
       {

@@ -16,7 +16,7 @@ export function pairSymbolMatchesQuote(pair: CoinGlassPair, quoteAsset: string):
 }
 
 // Non-perpetual only if the id ends in a dated-contract suffix (_YYMMDD/_YYYYMMDD, 6-8 digits) with no "perp"/"swap".
-export function isLikelyPerpetualInstrument(instrumentId: string): boolean {
+function isLikelyPerpetualInstrument(instrumentId: string): boolean {
   const lowered = instrumentId.toLowerCase();
   if (lowered.includes('perp') || lowered.includes('swap')) {
     return true;

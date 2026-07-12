@@ -118,10 +118,8 @@ export function marketVerdict(input: MarketVerdictInput): MarketVerdict {
   };
 }
 
-// -------------------------------------------------------------------------------------------
 // sieveStages -- the 4-stage funnel (scanned -> priced -> trusted -> shortlisted) with real
 // counts. Labels are honest: the last stage is a top-N cut, never described as "passed".
-// -------------------------------------------------------------------------------------------
 
 export interface SieveStage {
   key: 'scanned' | 'priced' | 'trusted' | 'shortlisted';

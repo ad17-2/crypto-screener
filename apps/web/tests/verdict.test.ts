@@ -3,17 +3,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { type MarketVerdictInput, marketVerdict, sieveStages } from '../lib/verdict';
+import { NO_LEAKED_VALUES } from './noLeakedValues';
 
 const FIXTURE_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
   '../../api/tests/fixtures/dashboard-payload.json',
 );
-
-/**
- * Word-bounded on purpose: an unanchored /null|NaN|undefined/i also fires inside ordinary English
- * ("domi-nan-ce"), which fails on correct output. We only care about these as leaked *values*.
- */
-const NO_LEAKED_VALUES = /\b(null|NaN|undefined)\b/i;
 
 interface Fixture {
   run: unknown;

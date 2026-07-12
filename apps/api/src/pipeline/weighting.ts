@@ -274,6 +274,7 @@ export function factorWeights(
   const regimeNByFactor: Record<string, number> = {};
 
   for (const factor of DIRECTIONAL_FACTORS) {
+    const stat = factorStats[factor] as FactorStat;
     let kRegime = 0.0;
     let regimeMeanIc: number | null = null;
     let regimeTStat: number | null = null;
@@ -287,7 +288,12 @@ export function factorWeights(
       regimeTStat = regimeIc.t_stat;
       regimeNPeriods = regimeIc.n_periods;
       regimeNByFactor[factor] = regimeNPeriods;
+      // A factor zeroed for losing money forward stays zeroed. Regime IC is rank IC, which is blind
+      // to the cost and skew that condemned the factor in the first place, so blending it back in
+      // would hand weight to a proven loser on the strength of the very metric the net_edge gate
+      // exists to overrule. Its regime IC is still recorded below, as a diagnostic.
       const useRegime =
+        stat.mode !== 'unvalidated' &&
         regimeNPeriods >= regimeMinPeriods &&
         regimeTStat !== null &&
         Math.abs(regimeTStat) >= minAbsT &&
@@ -305,7 +311,6 @@ export function factorWeights(
       finalRaw[factor] = pooledRaw[factor] as number;
     }
 
-    const stat = factorStats[factor] as FactorStat;
     stat.regime_ic = regimeMeanIc;
     stat.regime_t_stat = regimeTStat;
     stat.regime_n_periods = regimeNPeriods;
