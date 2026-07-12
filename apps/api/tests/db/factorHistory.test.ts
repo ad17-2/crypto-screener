@@ -183,4 +183,83 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
     // Unlike loadLabeledFactorRecords, this does not merge regime -- key must be absent.
     expect(fourHourRecord).not.toHaveProperty('regime');
   });
+
+  it('carries a non-empty scores object through both loaders unchanged (regression: scores_json was never parsed)', () => {
+    const now = new Date();
+    const hoursAgo = (hours: number) =>
+      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
+    const scores = { factor_score: -0.42, confidence_score: 71 };
+
+    saveFactorHistoryRecords(db, [
+      {
+        run_id: 'base',
+        generated_at: hoursAgo(40),
+        symbol: 'BTC',
+        price_usd: 100,
+        factors: { momentum_24h: 1.0 },
+        scores,
+      },
+      { run_id: 'target', generated_at: hoursAgo(10), symbol: 'BTC', price_usd: 150 },
+    ]);
+
+    const defaultRecords = loadLabeledFactorRecords(db, {
+      forwardReturnHours: 24,
+      icWindowDays: 30,
+    });
+    const defaultRecord = defaultRecords.find((record) => record.generated_at === hoursAgo(40));
+    expect(defaultRecord?.scores).toEqual(scores);
+
+    const byHorizon = loadLabeledRecordsByHorizon(db, [24], { icWindowDays: 30 });
+    const horizonRecord = byHorizon.get(24)?.find((record) => record.generated_at === hoursAgo(40));
+    expect(horizonRecord?.scores).toEqual(scores);
+  });
+
+  it('degrades NULL/empty/malformed scores_json to {} instead of throwing', () => {
+    const now = new Date();
+    const hoursAgo = (hours: number) =>
+      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
+
+    // Each case gets its own symbol/base row plus a forward row so it survives labeling.
+    const cases = [
+      { run_id: 'empty', symbol: 'BTC', baseHours: 40, rawScoresJson: '' },
+      { run_id: 'malformed', symbol: 'ETH', baseHours: 41, rawScoresJson: 'not-json{' },
+      { run_id: 'array', symbol: 'SOL', baseHours: 42, rawScoresJson: '[1,2,3]' },
+      { run_id: 'json-null', symbol: 'ADA', baseHours: 43, rawScoresJson: 'null' },
+    ];
+
+    saveFactorHistoryRecords(db, [
+      ...cases.map((testCase) => ({
+        run_id: testCase.run_id,
+        generated_at: hoursAgo(testCase.baseHours),
+        symbol: testCase.symbol,
+        price_usd: 100,
+      })),
+      ...cases.map((testCase) => ({
+        run_id: `${testCase.run_id}-target`,
+        generated_at: hoursAgo(testCase.baseHours - 30),
+        symbol: testCase.symbol,
+        price_usd: 150,
+      })),
+    ]);
+
+    // Bypass saveFactorHistoryRecords (which always stringifies) to write raw column values the
+    // schema's NOT NULL constraint still permits: '', non-JSON text, a JSON array, and JSON null.
+    const updateScoresJson = db.prepare(
+      'UPDATE factor_history SET scores_json = ? WHERE run_id = ?',
+    );
+    for (const testCase of cases) {
+      updateScoresJson.run(testCase.rawScoresJson, testCase.run_id);
+    }
+
+    expect(() =>
+      loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 }),
+    ).not.toThrow();
+    const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
+    for (const testCase of cases) {
+      const record = records.find(
+        (r) => r.generated_at === hoursAgo(testCase.baseHours) && r.symbol === testCase.symbol,
+      );
+      expect(record?.scores).toEqual({});
+    }
+  });
 });

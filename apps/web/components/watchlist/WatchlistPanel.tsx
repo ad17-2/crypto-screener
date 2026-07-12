@@ -1,6 +1,10 @@
 import type { DashboardRow, Watchlist, WatchlistId } from '@crypto-screener/contracts';
+import type { ReactNode } from 'react';
 import { Panel } from '@/components/layout/Panel';
-import { lookupWatchlist } from '@/lib/copy';
+import { Term } from '@/components/ui/Tooltip';
+import { lookupMetric, lookupWatchlist } from '@/lib/copy';
+import { fmtPct } from '@/lib/format';
+import { num } from '@/lib/payload';
 import type { WatchlistFilterState } from '@/lib/watchlist-filters';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 import { WatchlistTable } from './WatchlistTable';
@@ -22,11 +26,13 @@ export interface WatchlistPanelProps {
   rows: WatchlistPanelRows;
   selectedKey: string | null;
   onSelectRow: (key: string) => void;
+  /** untyped on the wire -- read defensively; carries net_directional_return_pct. */
+  validation: unknown;
 }
 
-// Two intents, not one flat list: "worth trading" setups vs "crowding risk" fade/squeeze
-// candidates to avoid or fade, not chase.
-const WORTH_TRADING_IDS: readonly WatchlistId[] = ['chart_next', 'regime_fit', 'long', 'short'];
+// Ranked setups vs "crowding risk" fade/squeeze candidates -- two intents, not one flat list.
+// Not labeled "worth trading": the model's net edge after costs is currently negative (see the Net edge note below).
+const SHORTLIST_IDS: readonly WatchlistId[] = ['chart_next', 'regime_fit', 'long', 'short'];
 const CROWDING_RISK_IDS: readonly WatchlistId[] = ['crowded_longs', 'squeeze_risks'];
 
 const EMPTY_WATCHLIST_MESSAGE: Record<WatchlistId, string> = {
@@ -59,9 +65,11 @@ export function WatchlistPanel({
   rows,
   selectedKey,
   onSelectRow,
+  validation,
 }: WatchlistPanelProps) {
-  const worthTrading = watchlists.filter((list) => WORTH_TRADING_IDS.includes(list.id));
+  const shortlist = watchlists.filter((list) => SHORTLIST_IDS.includes(list.id));
   const crowdingRisk = watchlists.filter((list) => CROWDING_RISK_IDS.includes(list.id));
+  const netEdge = num(validation, 'net_directional_return_pct');
 
   return (
     <Panel
@@ -76,8 +84,9 @@ export function WatchlistPanel({
     >
       <div className="grid gap-2 px-3 pt-2.5">
         <TabGroup
-          label="Worth trading"
-          lists={worthTrading}
+          label="Shortlist"
+          meta={netEdge === null ? null : <NetEdgeNote value={netEdge} />}
+          lists={shortlist}
           activeTab={activeTab}
           onTabChange={onTabChange}
         />
@@ -113,11 +122,13 @@ export function WatchlistPanel({
 
 function TabGroup({
   label,
+  meta,
   lists,
   activeTab,
   onTabChange,
 }: {
   label: string;
+  meta?: ReactNode;
   lists: Watchlist[];
   activeTab: WatchlistId;
   onTabChange: (id: WatchlistId) => void;
@@ -125,7 +136,10 @@ function TabGroup({
   if (!lists.length) return null;
   return (
     <div>
-      <div className="label mb-1">{label}</div>
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <div className="label">{label}</div>
+        {meta}
+      </div>
       <div className="flex gap-1.5 flex-wrap">
         {lists.map((list) => (
           // Tailwind v4 cascade layers put utilities above components regardless of specificity —
@@ -145,5 +159,14 @@ function TabGroup({
         ))}
       </div>
     </div>
+  );
+}
+
+function NetEdgeNote({ value }: { value: number }) {
+  const meta = lookupMetric('net_edge');
+  return (
+    <span className={`text-xs font-mono tabular-nums${value < 0 ? ' text-down' : ''}`}>
+      <Term label={`Net edge ${fmtPct(value, 2)}`} definition={meta.definition} />
+    </span>
   );
 }

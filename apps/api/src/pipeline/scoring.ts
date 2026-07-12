@@ -226,3 +226,25 @@ export function spearmanCorr(xValues: number[], yValues: number[]): number | nul
   }
   return pearsonCorr(averageRanks(xValues), averageRanks(yValues));
 }
+
+/** OLS residuals of y regressed on x (e_i = y_i - (a + b*x_i)); null if x has zero variance or fewer than 2 points. */
+export function olsResiduals(xValues: number[], yValues: number[]): number[] | null {
+  if (xValues.length !== yValues.length || xValues.length < 2) {
+    return null;
+  }
+  const xAvg = mean(xValues);
+  const yAvg = mean(yValues);
+  let sxy = 0;
+  let sxx = 0;
+  for (let i = 0; i < xValues.length; i += 1) {
+    const dx = (xValues[i] as number) - xAvg;
+    sxy += dx * ((yValues[i] as number) - yAvg);
+    sxx += dx * dx;
+  }
+  if (sxx === 0) {
+    return null;
+  }
+  const slope = sxy / sxx;
+  const intercept = yAvg - slope * xAvg;
+  return xValues.map((x, i) => (yValues[i] as number) - (intercept + slope * x));
+}

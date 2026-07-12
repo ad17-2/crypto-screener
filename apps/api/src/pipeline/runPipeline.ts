@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { AppConfig } from '../config/index.js';
+import { buildSections, buildWatchlists } from '../dashboard/payload.js';
 import {
   loadLabeledFactorRecords,
   loadLabeledRecordsByHorizon,
   loadLatestRegimeState,
   loadPriceLookback,
   openDatabase,
+  recommendationsFromWatchlists,
+  saveRecommendations,
   saveSnapshot,
 } from '../db/index.js';
 import { formatJakartaIso } from '../db/time.js';
@@ -102,6 +105,14 @@ export async function runPipeline(
       // required -- always true here (collectMarket/scoreSnapshot populate it), but the cast hides
       // that from the type checker.
       saveSnapshot(db, payload as unknown as SnapshotPayload, config);
+
+      // `{}` history is safe here -- see recommendationsFromWatchlists.
+      const sections = buildSections(payload.rows, config.report.limit, {}, payload.regime);
+      const watchlists = buildWatchlists(sections, config.report.limit);
+      saveRecommendations(
+        db,
+        recommendationsFromWatchlists(watchlists, payload.run_id, payload.generated_at),
+      );
     }
     const paths = writeReportFiles ? writeReports(payload, config, outDir) : {};
     return { payload, paths };

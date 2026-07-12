@@ -150,6 +150,10 @@ const FactorsConfigSchema = z
     min_abs_t: z.number().default(2.0),
     ic_prior_strength: z.number().int().default(10),
     ic_min_cross_section: z.number().int().default(5),
+    // See pipeline/ic.ts; off compares against the naive (uncorrected) t-stat.
+    ic_overlap_correction: z.boolean().default(true),
+    // See pipeline/factors.ts#residualiseOiPriceSignal; off compares against the raw, collinear factor.
+    residualise_collinear_factors: z.boolean().default(true),
     walk_forward_train_fraction: z.number().default(0.6),
     walk_forward_min_train_periods: z.number().int().default(15),
     walk_forward_min_oos_periods: z.number().int().default(10),
@@ -173,6 +177,17 @@ const ReportConfigSchema = z
   })
   .strict();
 
+// spread_bps is never populated by any provider (see pipeline/costs.ts). funding_settlements_per_day
+// must match scoring.ts's hardcoded 8-hourly settlement assumption.
+const CostsConfigSchema = z
+  .object({
+    taker_fee_bps: z.number().default(5),
+    slippage_bps: z.number().default(2),
+    assumed_spread_bps: z.number().default(2),
+    funding_settlements_per_day: z.number().default(3),
+  })
+  .strict();
+
 export const AppConfigSchema = z
   .object({
     version: z.number().int().default(2),
@@ -181,6 +196,7 @@ export const AppConfigSchema = z
     providers: ProvidersConfigSchema.default(() => ProvidersConfigSchema.parse({})),
     data_quality: DataQualityConfigSchema.default(() => DataQualityConfigSchema.parse({})),
     factors: FactorsConfigSchema.default(() => FactorsConfigSchema.parse({})),
+    costs: CostsConfigSchema.default(() => CostsConfigSchema.parse({})),
     report: ReportConfigSchema.default(() => ReportConfigSchema.parse({})),
   })
   .strict();
@@ -195,4 +211,5 @@ export type DataQualityConfig = z.infer<typeof DataQualityConfigSchema>;
 export type FactorsConfig = z.infer<typeof FactorsConfigSchema>;
 export type RegimeWeightingConfig = z.infer<typeof RegimeWeightingConfigSchema>;
 export type RegimeConfig = z.infer<typeof RegimeConfigSchema>;
+export type CostsConfig = z.infer<typeof CostsConfigSchema>;
 export type ReportConfig = z.infer<typeof ReportConfigSchema>;

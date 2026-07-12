@@ -12,7 +12,7 @@ import type {
 } from '@crypto-screener/contracts';
 import type Database from 'better-sqlite3';
 import type { AppConfig } from '../config/schema.js';
-import { pyRound, toFloat } from '../pipeline/scoring.js';
+import { median, pyRound, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { freshnessSummary } from './freshness.js';
@@ -351,7 +351,7 @@ function regimeFitRows(
 }
 
 /** `CORE_SYMBOLS` is deliberately hardcoded, not read from config.report.core_symbols — they coincide today but are not the same source of truth. */
-function buildSections(
+export function buildSections(
   rows: Row[],
   limit: number,
   history: Record<string, HistoryPoint[]>,
@@ -411,7 +411,7 @@ function chartNextRows(sections: Sections, limit: number): DashboardRow[] {
     .slice(0, Math.max(limit, 12));
 }
 
-function buildWatchlists(sections: Sections, limit: number): Watchlist[] {
+export function buildWatchlists(sections: Sections, limit: number): Watchlist[] {
   const ordered: Array<[WatchlistId, DashboardRow[]]> = [
     ['chart_next', chartNextRows(sections, limit)],
     ['regime_fit', sections.regime_fit],
@@ -574,6 +574,15 @@ function conflictBuckets(rows: Row[]): ConflictBucket[] {
   return result.sort((a, b) => b.count - a.count);
 }
 
+/** Trusted rows only: an excluded row's round_trip_cost_pct is a 0.0 placeholder (see rowScoring.ts applyExcludedScores), not a real cost estimate. */
+function medianRoundTripCostPct(rows: Row[]): number | null {
+  const values = rows
+    .filter((row) => row.is_trusted !== false)
+    .map((row) => toFloat(asRecord(row.scores).round_trip_cost_pct))
+    .filter((value): value is number => value !== null);
+  return values.length > 0 ? median(values) : null;
+}
+
 /** Returns an opaque record: factor_weights.validation has no fixed schema in the contract type. */
 function validationSummary(
   validation: Record<string, unknown>,
@@ -593,6 +602,13 @@ function validationSummary(
   summary.best_factors = rankValidationFactors(factors, true);
   summary.weakest_factors = rankValidationFactors(factors, false);
   summary.conflict_buckets = conflictBuckets(rows);
+
+  const avgDirectional = toFloat(model.avg_directional_return_pct);
+  const medianCost = medianRoundTripCostPct(rows);
+  summary.median_round_trip_cost_pct = medianCost !== null ? pyRound(medianCost, 4) : null;
+  summary.net_directional_return_pct =
+    avgDirectional !== null && medianCost !== null ? pyRound(avgDirectional - medianCost, 3) : null;
+
   summary.watchlist_counts = {
     core: sections.core.length,
     long: sections.long.length,

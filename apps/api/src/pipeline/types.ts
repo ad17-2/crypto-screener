@@ -52,6 +52,8 @@ export interface FactorsConfigInput {
   min_abs_t?: number;
   ic_prior_strength?: number;
   ic_min_cross_section?: number;
+  ic_overlap_correction?: boolean;
+  residualise_collinear_factors?: boolean;
   walk_forward_train_fraction?: number;
   walk_forward_min_train_periods?: number;
   walk_forward_min_oos_periods?: number;
@@ -65,6 +67,14 @@ export interface FactorsConfigInput {
   priors?: Record<string, number>;
 }
 
+export interface CostsConfigInput {
+  taker_fee_bps?: number;
+  slippage_bps?: number;
+  assumed_spread_bps?: number;
+  funding_settlements_per_day?: number;
+}
+
 export interface PipelineConfig {
   factors?: FactorsConfigInput;
+  costs?: CostsConfigInput;
 }

@@ -1,8 +1,23 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { AppConfigSchema } from '../../src/config/schema.js';
 import { DEFAULT_PRIORS, DIRECTIONAL_FACTORS } from '../../src/pipeline/factorDefinitions.js';
-import { normalizeFactors, rawFactors } from '../../src/pipeline/factors.js';
+import { normalizeFactors, rawFactors, scoreSnapshot } from '../../src/pipeline/factors.js';
+import type { FactorRecord } from '../../src/pipeline/ic.js';
 import { factorCorrelations } from '../../src/pipeline/independence.js';
-import type { Row } from '../../src/pipeline/types.js';
+import { spearmanCorr } from '../../src/pipeline/scoring.js';
+import type { MarketContext, Row } from '../../src/pipeline/types.js';
+
+const FIXTURE_PATH = join(dirname(fileURLToPath(import.meta.url)), '../fixtures/parity-run.json');
+
+interface Fixture {
+  config: unknown;
+  market_context: MarketContext;
+  input_rows: Row[];
+  factor_history: FactorRecord[];
+}
 
 describe('factorCorrelations', () => {
   it('flags a duplicate pair (test_factor_correlations_flags_duplicate_pair)', () => {
@@ -338,6 +353,47 @@ describe('factorCorrelations', () => {
     const row: Row = { symbol: 'BTC', price_change_24h_pct: 5.0, price_change_72h_pct: null };
     const raw = rawFactors(row, [row], { median_atr_pct: 2.0 });
     expect(raw.reversal_3d).toBeNull();
+  });
+
+  it('residualisation keeps oi_price_signal vs momentum_24h below the redundant threshold on the frozen fixture snapshot (test_residualisation_defeats_oi_price_signal_momentum_collinearity)', () => {
+    const fixture = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8')) as Fixture;
+    const rhoAgainstMomentum = (residualise: boolean): number | null => {
+      const configInput = fixture.config as Record<string, unknown>;
+      const factorsInput = (configInput.factors ?? {}) as Record<string, unknown>;
+      const config = AppConfigSchema.parse({
+        ...configInput,
+        factors: { ...factorsInput, residualise_collinear_factors: residualise },
+      });
+      const rows: Row[] = JSON.parse(JSON.stringify(fixture.input_rows));
+      const result = scoreSnapshot(
+        rows,
+        fixture.market_context,
+        fixture.factor_history,
+        config,
+        undefined,
+      );
+      const pairs = result.rows
+        .filter((row) => row.is_trusted !== false)
+        .map((row) => {
+          const factors = row.factors as Record<string, number>;
+          return [factors.momentum_24h, factors.oi_price_signal];
+        })
+        .filter((pair): pair is [number, number] => pair.every((v) => typeof v === 'number'));
+      return spearmanCorr(
+        pairs.map((pair) => pair[0]),
+        pairs.map((pair) => pair[1]),
+      );
+    };
+
+    // rhoOff/rhoOn come from scoreSnapshot() over the frozen fixture, not hand math. Both already
+    // clear REDUNDANT_THRESHOLD (0.8) here, but rhoOn < rhoOff shows the fix still cuts collinearity;
+    // OLS zeroes the raw Pearson correlation, not this rank (Spearman) one.
+    const rhoOff = rhoAgainstMomentum(false);
+    const rhoOn = rhoAgainstMomentum(true);
+    expect(rhoOff as number).toBeCloseTo(0.5449419588877543, 6);
+    expect(rhoOn as number).toBeCloseTo(-0.4468561458831433, 6);
+    expect(Math.abs(rhoOn as number)).toBeLessThan(0.8); // independence.ts's REDUNDANT_THRESHOLD
+    expect(Math.abs(rhoOn as number)).toBeLessThan(Math.abs(rhoOff as number));
   });
 });
 

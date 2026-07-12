@@ -8,8 +8,16 @@ import type { FactorRecord } from '../src/pipeline/ic.js';
 import type { Row } from '../src/pipeline/types.js';
 
 /**
- * PARITY GATE: replays fixtures/parity-run.json (see fixtures/README.md) through the ported
+ * GOLDEN REGRESSION GATE: replays fixtures/parity-run.json (see fixtures/README.md) through the
  * scoring/factor/weighting stage; output must match fixture.expected to a 1e-9 tolerance.
+ *
+ * This used to be a parity gate against the deleted Python original -- that job is done (Python
+ * parity was last proven green at commit db7f68f, CI run 29171479923, 263 tests; see
+ * fixtures/README.md). `expected` is now a golden baseline for the CURRENT TypeScript model: the
+ * frozen inputs (config/input_rows/market_context/factor_history) never change, but `expected` may
+ * be regenerated when a fix intentionally changes the model -- only via
+ * `apps/api/scripts/regen-golden.ts parity`, and only with the printed delta reviewed. Never edit
+ * this fixture by hand.
  *
  * scoreSnapshot is called with prior_market_state=undefined: the regime lookup against the
  * fixture's own timestamp returns nothing, matching what produced this fixture.
@@ -118,7 +126,7 @@ function assertMatches(actual: unknown, expected: unknown, label: string): void 
   }
 }
 
-describe('parity: TypeScript factor engine vs. Python golden fixture', () => {
+describe('factor engine vs. golden regression fixture', () => {
   const fixture = loadFixture();
   const config = AppConfigSchema.parse(fixture.config);
   // input_rows are deep-cloned per test since scoreSnapshot mutates rows in place.
@@ -132,11 +140,11 @@ describe('parity: TypeScript factor engine vs. Python golden fixture', () => {
     undefined,
   );
 
-  it('classifies the same regime as the Python pipeline', () => {
+  it('classifies the same regime as the golden baseline', () => {
     assertMatches(result.regime, fixture.expected.regime, 'regime');
   });
 
-  it('computes the same factor_weights as the Python pipeline (factor_decay excluded, see file header)', () => {
+  it('computes the same factor_weights as the golden baseline (factor_decay excluded, see file header)', () => {
     const { factor_decay: _omitted, ...expectedWithoutDecay } = fixture.expected
       .factor_weights as Record<string, unknown> & { factor_decay?: unknown };
     const { factor_decay: _actualOmitted, ...actualWithoutDecay } =
@@ -144,7 +152,7 @@ describe('parity: TypeScript factor engine vs. Python golden fixture', () => {
     assertMatches(actualWithoutDecay, expectedWithoutDecay, 'factor_weights');
   });
 
-  it('computes the same factors/raw_factors/scores for all 50 rows as the Python pipeline', () => {
+  it('computes the same factors/raw_factors/scores for all 50 rows as the golden baseline', () => {
     expect(result.rows.length).toBe(fixture.expected.rows.length);
     const bySymbol = new Map(result.rows.map((row) => [row.symbol, row]));
     for (const expectedRow of fixture.expected.rows) {

@@ -90,7 +90,7 @@ export default async function Page({ searchParams }: PageProps) {
         <h2 id="screened-coins-title" className="stage-title mb-3">
           Screened coins
         </h2>
-        <WatchlistWorkbench watchlists={payload.watchlists} />
+        <WatchlistWorkbench watchlists={payload.watchlists} validation={payload.validation} />
       </section>
     </main>
   );

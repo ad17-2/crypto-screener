@@ -18626,42 +18626,42 @@
   "expected": {
     "factor_weights": {
       "directional": {
-        "momentum_24h": 0.04111795999093074,
-        "reversal_3d": 0.07344334949482241,
-        "oi_price_signal": 0.18360837373705602,
-        "funding_rate_contrarian": 0.14688669898964482,
-        "ls_ratio_contrarian": 0.11016502424223361,
-        "liquidation_imbalance": 0.07783648354623401,
-        "technical_trend_4h": -0.018086199898671995,
-        "technical_momentum_4h": 0.07344334949482241,
-        "oi_acceleration_signal": 0.07344334949482241,
-        "funding_persistence_contrarian": 0.07344334949482241,
-        "taker_flow_24h": 0.06426293080796962,
-        "liquidation_pressure_24h": 0.06426293080796962
+        "momentum_24h": 0.20547945205479445,
+        "reversal_3d": 0.05479452054794519,
+        "oi_price_signal": 0.13698630136986298,
+        "funding_rate_contrarian": 0.10958904109589038,
+        "ls_ratio_contrarian": 0.08219178082191778,
+        "liquidation_imbalance": 0.06849315068493149,
+        "technical_trend_4h": 0.08219178082191778,
+        "technical_momentum_4h": 0.05479452054794519,
+        "oi_acceleration_signal": 0.05479452054794519,
+        "funding_persistence_contrarian": 0.05479452054794519,
+        "taker_flow_24h": 0.047945205479452045,
+        "liquidation_pressure_24h": 0.047945205479452045
       },
       "base_directional": {
-        "momentum_24h": 0.04111795999093074,
-        "reversal_3d": 0.07344334949482241,
-        "oi_price_signal": 0.18360837373705602,
-        "funding_rate_contrarian": 0.14688669898964482,
-        "ls_ratio_contrarian": 0.11016502424223361,
-        "liquidation_imbalance": 0.07783648354623401,
-        "technical_trend_4h": -0.018086199898671995,
-        "technical_momentum_4h": 0.07344334949482241,
-        "oi_acceleration_signal": 0.07344334949482241,
-        "funding_persistence_contrarian": 0.07344334949482241,
-        "taker_flow_24h": 0.06426293080796962,
-        "liquidation_pressure_24h": 0.06426293080796962
+        "momentum_24h": 0.20547945205479445,
+        "reversal_3d": 0.05479452054794519,
+        "oi_price_signal": 0.13698630136986298,
+        "funding_rate_contrarian": 0.10958904109589038,
+        "ls_ratio_contrarian": 0.08219178082191778,
+        "liquidation_imbalance": 0.06849315068493149,
+        "technical_trend_4h": 0.08219178082191778,
+        "technical_momentum_4h": 0.05479452054794519,
+        "oi_acceleration_signal": 0.05479452054794519,
+        "funding_persistence_contrarian": 0.05479452054794519,
+        "taker_flow_24h": 0.047945205479452045,
+        "liquidation_pressure_24h": 0.047945205479452045
       },
       "stats": {
         "momentum_24h": {
           "ic": -0.11471825957573144,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": -2.790008847266897,
-          "credibility_k": 0.6153846153846154,
-          "mode": "ic",
-          "raw_weight": 0.04478876333801139,
+          "t_stat": -1.10284783117303,
+          "credibility_k": 0,
+          "mode": "prior",
+          "raw_weight": 0.3,
           "robustness": "insufficient-data",
           "oos_ic": -0.0644,
           "regime_ic": null,
@@ -18669,9 +18669,11 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.04111795999093074,
-          "weight": 0.04111795999093074,
-          "regime_multiplier": 1.0
+          "base_weight": 0.20547945205479445,
+          "weight": 0.20547945205479445,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "reversal_3d": {
           "ic": null,
@@ -18688,15 +18690,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.07344334949482241,
-          "weight": 0.07344334949482241,
-          "regime_multiplier": 1.0
+          "base_weight": 0.05479452054794519,
+          "weight": 0.05479452054794519,
+          "regime_multiplier": 1.0,
+          "n_effective": null,
+          "overlap_factor": null
         },
         "oi_price_signal": {
           "ic": 0.007563608526946269,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": 0.19882669837875316,
+          "t_stat": 0.07859315331602096,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.2,
@@ -18707,15 +18711,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.18360837373705602,
-          "weight": 0.18360837373705602,
-          "regime_multiplier": 1.0
+          "base_weight": 0.13698630136986298,
+          "weight": 0.13698630136986298,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "funding_rate_contrarian": {
           "ic": -0.03210209514043357,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": -0.7799378389399381,
+          "t_stat": -0.3082975005499712,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.16,
@@ -18726,15 +18732,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.14688669898964482,
-          "weight": 0.14688669898964482,
-          "regime_multiplier": 1.0
+          "base_weight": 0.10958904109589038,
+          "weight": 0.10958904109589038,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "ls_ratio_contrarian": {
           "ic": -0.010347184302158379,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": -0.25814337437464063,
+          "t_stat": -0.10204012823817607,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.12,
@@ -18745,18 +18753,20 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.11016502424223361,
-          "weight": 0.11016502424223361,
-          "regime_multiplier": 1.0
+          "base_weight": 0.08219178082191778,
+          "weight": 0.08219178082191778,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "liquidation_imbalance": {
           "ic": 0.07527616258806075,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": 2.121925618055256,
-          "credibility_k": 0.6153846153846154,
-          "mode": "ic",
-          "raw_weight": 0.084785330823422,
+          "t_stat": 0.8387647473143897,
+          "credibility_k": 0,
+          "mode": "prior",
+          "raw_weight": 0.1,
           "robustness": "insufficient-data",
           "oos_ic": 0.0905,
           "regime_ic": null,
@@ -18764,18 +18774,20 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.07783648354623401,
-          "weight": 0.07783648354623401,
-          "regime_multiplier": 1.0
+          "base_weight": 0.06849315068493149,
+          "weight": 0.06849315068493149,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "technical_trend_4h": {
           "ic": -0.10701387195709414,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": -2.8512380749246033,
-          "credibility_k": 0.6153846153846154,
-          "mode": "ic",
-          "raw_weight": -0.019700844281288703,
+          "t_stat": -1.1270508085194462,
+          "credibility_k": 0,
+          "mode": "prior",
+          "raw_weight": 0.12,
           "robustness": "insufficient-data",
           "oos_ic": -0.0896,
           "regime_ic": null,
@@ -18783,15 +18795,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": -0.018086199898671995,
-          "weight": -0.018086199898671995,
-          "regime_multiplier": 1.0
+          "base_weight": 0.08219178082191778,
+          "weight": 0.08219178082191778,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "technical_momentum_4h": {
           "ic": -0.044537653983482035,
           "observations": 640,
           "n_periods": 16,
-          "t_stat": -1.890569086250634,
+          "t_stat": -0.7473130483069156,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.08,
@@ -18802,15 +18816,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.07344334949482241,
-          "weight": 0.07344334949482241,
-          "regime_multiplier": 1.0
+          "base_weight": 0.05479452054794519,
+          "weight": 0.05479452054794519,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.6666666666666665,
+          "overlap_factor": 6
         },
         "oi_acceleration_signal": {
           "ic": 0.004133739403559049,
           "observations": 572,
           "n_periods": 14,
-          "t_stat": 0.13158943302920606,
+          "t_stat": 0.05176700612040945,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.08,
@@ -18821,15 +18837,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.07344334949482241,
-          "weight": 0.07344334949482241,
-          "regime_multiplier": 1.0
+          "base_weight": 0.05479452054794519,
+          "weight": 0.05479452054794519,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.3333333333333335,
+          "overlap_factor": 6
         },
         "funding_persistence_contrarian": {
           "ic": 0.032225955317196076,
           "observations": 572,
           "n_periods": 14,
-          "t_stat": 0.9804768415676651,
+          "t_stat": 0.3857175267795839,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.08,
@@ -18840,15 +18858,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.07344334949482241,
-          "weight": 0.07344334949482241,
-          "regime_multiplier": 1.0
+          "base_weight": 0.05479452054794519,
+          "weight": 0.05479452054794519,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.3333333333333335,
+          "overlap_factor": 6
         },
         "taker_flow_24h": {
           "ic": 0.05008305363210365,
           "observations": 572,
           "n_periods": 14,
-          "t_stat": 1.5974606334918167,
+          "t_stat": 0.6284376525334664,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.07,
@@ -18859,15 +18879,17 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.06426293080796962,
-          "weight": 0.06426293080796962,
-          "regime_multiplier": 1.0
+          "base_weight": 0.047945205479452045,
+          "weight": 0.047945205479452045,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.3333333333333335,
+          "overlap_factor": 6
         },
         "liquidation_pressure_24h": {
           "ic": 0.018697566787418678,
           "observations": 572,
           "n_periods": 14,
-          "t_stat": 0.4537944157457948,
+          "t_stat": 0.17852176847746032,
           "credibility_k": 0.0,
           "mode": "prior",
           "raw_weight": 0.07,
@@ -18878,13 +18900,15 @@
           "regime_n_periods": 0,
           "regime_k": 0.0,
           "regime_mode": "pooled",
-          "base_weight": 0.06426293080796962,
-          "weight": 0.06426293080796962,
-          "regime_multiplier": 1.0
+          "base_weight": 0.047945205479452045,
+          "weight": 0.047945205479452045,
+          "regime_multiplier": 1.0,
+          "n_effective": 2.3333333333333335,
+          "overlap_factor": 6
         }
       },
       "history_records": 641,
-      "mode": "ic",
+      "mode": "prior",
       "regime_adjusted": true,
       "regime_adjustment": {
         "label": "btc-led",
@@ -18918,7 +18942,8 @@
         "model": {
           "observations": 0,
           "hit_rate": null,
-          "avg_forward_return_pct": null
+          "avg_forward_return_pct": null,
+          "avg_directional_return_pct": null
         },
         "factors": {
           "momentum_24h": {
@@ -18928,12 +18953,14 @@
             "long_observations": 241,
             "long_hit_rate": 37.76,
             "short_observations": 399,
-            "short_hit_rate": 54.89
+            "short_hit_rate": 54.89,
+            "avg_directional_return_pct": -0.013
           },
           "reversal_3d": {
             "observations": 0,
             "hit_rate": null,
-            "avg_forward_return_pct": null
+            "avg_forward_return_pct": null,
+            "avg_directional_return_pct": null
           },
           "oi_price_signal": {
             "observations": 640,
@@ -18942,7 +18969,8 @@
             "long_observations": 169,
             "long_hit_rate": 47.93,
             "short_observations": 471,
-            "short_hit_rate": 59.66
+            "short_hit_rate": 59.66,
+            "avg_directional_return_pct": 0.573
           },
           "funding_rate_contrarian": {
             "observations": 640,
@@ -18951,7 +18979,8 @@
             "long_observations": 275,
             "long_hit_rate": 42.55,
             "short_observations": 365,
-            "short_hit_rate": 57.81
+            "short_hit_rate": 57.81,
+            "avg_directional_return_pct": 0.082
           },
           "ls_ratio_contrarian": {
             "observations": 640,
@@ -18960,7 +18989,8 @@
             "long_observations": 302,
             "long_hit_rate": 42.38,
             "short_observations": 338,
-            "short_hit_rate": 57.69
+            "short_hit_rate": 57.69,
+            "avg_directional_return_pct": -0.232
           },
           "liquidation_imbalance": {
             "observations": 640,
@@ -18969,7 +18999,8 @@
             "long_observations": 309,
             "long_hit_rate": 44.01,
             "short_observations": 331,
-            "short_hit_rate": 59.21
+            "short_hit_rate": 59.21,
+            "avg_directional_return_pct": -0.119
           },
           "technical_trend_4h": {
             "observations": 596,
@@ -18978,7 +19009,8 @@
             "long_observations": 373,
             "long_hit_rate": 42.63,
             "short_observations": 223,
-            "short_hit_rate": 57.4
+            "short_hit_rate": 57.4,
+            "avg_directional_return_pct": -0.41
           },
           "technical_momentum_4h": {
             "observations": 596,
@@ -18987,7 +19019,8 @@
             "long_observations": 284,
             "long_hit_rate": 42.96,
             "short_observations": 312,
-            "short_hit_rate": 57.69
+            "short_hit_rate": 57.69,
+            "avg_directional_return_pct": 0.149
           },
           "oi_acceleration_signal": {
             "observations": 351,
@@ -18996,7 +19029,8 @@
             "long_observations": 192,
             "long_hit_rate": 39.58,
             "short_observations": 159,
-            "short_hit_rate": 59.12
+            "short_hit_rate": 59.12,
+            "avg_directional_return_pct": -0.011
           },
           "funding_persistence_contrarian": {
             "observations": 357,
@@ -19005,7 +19039,8 @@
             "long_observations": 176,
             "long_hit_rate": 36.93,
             "short_observations": 181,
-            "short_hit_rate": 55.25
+            "short_hit_rate": 55.25,
+            "avg_directional_return_pct": 0.159
           },
           "taker_flow_24h": {
             "observations": 357,
@@ -19014,7 +19049,8 @@
             "long_observations": 167,
             "long_hit_rate": 39.52,
             "short_observations": 190,
-            "short_hit_rate": 57.89
+            "short_hit_rate": 57.89,
+            "avg_directional_return_pct": 0.196
           },
           "liquidation_pressure_24h": {
             "observations": 357,
@@ -19023,7 +19059,8 @@
             "long_observations": 180,
             "long_hit_rate": 43.33,
             "short_observations": 177,
-            "short_hit_rate": 61.58
+            "short_hit_rate": 61.58,
+            "avg_directional_return_pct": 0.223
           }
         }
       },
@@ -19035,10 +19072,10 @@
           "momentum_24h": {
             "verdict": "insufficient-data",
             "is_ic": -0.2255,
-            "is_t_stat": -2.956,
+            "is_t_stat": -1.87,
             "is_n_periods": 5,
             "oos_ic": -0.0644,
-            "oos_t_stat": -1.591,
+            "oos_t_stat": -0.619,
             "oos_n_periods": 11
           },
           "reversal_3d": {
@@ -19053,64 +19090,64 @@
           "oi_price_signal": {
             "verdict": "insufficient-data",
             "is_ic": -0.0855,
-            "is_t_stat": -1.365,
+            "is_t_stat": -0.864,
             "is_n_periods": 5,
             "oos_ic": 0.0499,
-            "oos_t_stat": 1.198,
+            "oos_t_stat": 0.466,
             "oos_n_periods": 11
           },
           "funding_rate_contrarian": {
             "verdict": "insufficient-data",
             "is_ic": 0.0552,
-            "is_t_stat": 0.812,
+            "is_t_stat": 0.513,
             "is_n_periods": 5,
             "oos_ic": -0.0718,
-            "oos_t_stat": -1.542,
+            "oos_t_stat": -0.6,
             "oos_n_periods": 11
           },
           "ls_ratio_contrarian": {
             "verdict": "insufficient-data",
             "is_ic": -0.0035,
-            "is_t_stat": -0.046,
+            "is_t_stat": -0.029,
             "is_n_periods": 5,
             "oos_ic": -0.0135,
-            "oos_t_stat": -0.287,
+            "oos_t_stat": -0.112,
             "oos_n_periods": 11
           },
           "liquidation_imbalance": {
             "verdict": "insufficient-data",
             "is_ic": 0.0419,
-            "is_t_stat": 0.809,
+            "is_t_stat": 0.512,
             "is_n_periods": 5,
             "oos_ic": 0.0905,
-            "oos_t_stat": 2.002,
+            "oos_t_stat": 0.779,
             "oos_n_periods": 11
           },
           "technical_trend_4h": {
             "verdict": "insufficient-data",
             "is_ic": -0.1452,
-            "is_t_stat": -1.522,
+            "is_t_stat": -0.963,
             "is_n_periods": 5,
             "oos_ic": -0.0896,
-            "oos_t_stat": -2.818,
+            "oos_t_stat": -1.097,
             "oos_n_periods": 11
           },
           "technical_momentum_4h": {
             "verdict": "insufficient-data",
             "is_ic": -0.083,
-            "is_t_stat": -3.913,
+            "is_t_stat": -2.476,
             "is_n_periods": 5,
             "oos_ic": -0.0271,
-            "oos_t_stat": -0.859,
+            "oos_t_stat": -0.334,
             "oos_n_periods": 11
           },
           "oi_acceleration_signal": {
             "verdict": "insufficient-data",
             "is_ic": 0.0166,
-            "is_t_stat": 1.013,
+            "is_t_stat": 0.488,
             "is_n_periods": 3,
             "oos_ic": 0.0007,
-            "oos_t_stat": 0.018,
+            "oos_t_stat": 0.007,
             "oos_n_periods": 11
           },
           "funding_persistence_contrarian": {
@@ -19119,25 +19156,25 @@
             "is_t_stat": -0.001,
             "is_n_periods": 3,
             "oos_ic": 0.041,
-            "oos_t_stat": 1.084,
+            "oos_t_stat": 0.422,
             "oos_n_periods": 11
           },
           "taker_flow_24h": {
             "verdict": "insufficient-data",
             "is_ic": 0.0744,
-            "is_t_stat": 0.972,
+            "is_t_stat": 0.468,
             "is_n_periods": 3,
             "oos_ic": 0.0434,
-            "oos_t_stat": 1.288,
+            "oos_t_stat": 0.501,
             "oos_n_periods": 11
           },
           "liquidation_pressure_24h": {
             "verdict": "insufficient-data",
             "is_ic": 0.1164,
-            "is_t_stat": 1.892,
+            "is_t_stat": 0.912,
             "is_n_periods": 3,
             "oos_ic": -0.008,
-            "oos_t_stat": -0.171,
+            "oos_t_stat": -0.066,
             "oos_n_periods": 11
           }
         }
@@ -19822,7 +19859,7 @@
         "factors": {
           "momentum_24h": 0.6588058325108642,
           "reversal_3d": -0.6016003558481189,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.9575875540182861,
           "funding_rate_contrarian": -0.1673640275426497,
           "ls_ratio_contrarian": -0.5290199830483582,
           "liquidation_imbalance": -2.124656596583085,
@@ -19839,7 +19876,7 @@
         "raw_factors": {
           "momentum_24h": -2.106944356709184,
           "reversal_3d": 0.4226763232803522,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -5.66128401985771,
           "funding_rate_contrarian": -0.0026253538024799674,
           "ls_ratio_contrarian": -0.5933268452777344,
           "liquidation_imbalance": 36.22049198337601,
@@ -19854,16 +19891,17 @@
           "volatility_expansion_4h": 1.3176397892970595
         },
         "scores": {
-          "factor_score": -0.2218,
+          "factor_score": -0.1607,
           "liquidity_quality": 95.26,
           "long_score": 16.2,
-          "short_score": 38.89,
+          "short_score": 35.27,
           "crowded_long_score": 50.46,
           "squeeze_risk_score": 23.81,
-          "confidence_score": 70.0,
+          "confidence_score": 69,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1521
         }
       },
       {
@@ -19871,7 +19909,7 @@
         "factors": {
           "momentum_24h": 3.0,
           "reversal_3d": -3.0,
-          "oi_price_signal": 3.2046909866494775,
+          "oi_price_signal": 3,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": -0.909413941155143,
           "liquidation_imbalance": -3.0,
@@ -19888,7 +19926,7 @@
         "raw_factors": {
           "momentum_24h": 7.656784879053822,
           "reversal_3d": -6.583901777623798,
-          "oi_price_signal": 43.96760476707725,
+          "oi_price_signal": 28.174066897591118,
           "funding_rate_contrarian": 0.02480194063553626,
           "ls_ratio_contrarian": -0.8285518175661483,
           "liquidation_imbalance": -54.63784632029397,
@@ -19903,16 +19941,17 @@
           "volatility_expansion_4h": 1.2825046769879396
         },
         "scores": {
-          "factor_score": 1.2784,
+          "factor_score": 1.4942,
           "liquidity_quality": 68.91,
-          "long_score": 62.15,
+          "long_score": 71.66,
           "short_score": 14.75,
           "crowded_long_score": 88.71,
           "squeeze_risk_score": 65.45,
           "confidence_score": 77.0,
           "signal_conflict_score": 66.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.0856
         }
       },
       {
@@ -19920,7 +19959,7 @@
         "factors": {
           "momentum_24h": 3.0,
           "reversal_3d": -3.0,
-          "oi_price_signal": 1.2422253918518265,
+          "oi_price_signal": 2.1755355976561894,
           "funding_rate_contrarian": 0.6560361401399171,
           "ls_ratio_contrarian": -0.8880885831135102,
           "liquidation_imbalance": -3.0,
@@ -19937,7 +19976,7 @@
         "raw_factors": {
           "momentum_24h": 7.370584443346069,
           "reversal_3d": -5.5159106329661345,
-          "oi_price_signal": 19.440303059679845,
+          "oi_price_signal": 3.9437680460127265,
           "funding_rate_contrarian": 0.0012302585210278477,
           "ls_ratio_contrarian": -0.8153648132841944,
           "liquidation_imbalance": -48.91232872374005,
@@ -19952,16 +19991,17 @@
           "volatility_expansion_4h": 1.3425594853346898
         },
         "scores": {
-          "factor_score": 0.5438,
+          "factor_score": 1.102,
           "liquidity_quality": 83.58,
-          "long_score": 32.7,
+          "long_score": 57.31,
           "short_score": 20.77,
           "crowded_long_score": 91.95,
           "squeeze_risk_score": 57.46,
-          "confidence_score": 65.0,
+          "confidence_score": 76,
           "signal_conflict_score": 66.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1563
         }
       },
       {
@@ -19969,7 +20009,7 @@
         "factors": {
           "momentum_24h": 0.07920808025864962,
           "reversal_3d": 0.7349628099719377,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.2931938275736537,
           "funding_rate_contrarian": 0.6110939396083487,
           "ls_ratio_contrarian": -1.025217264222776,
           "liquidation_imbalance": 0.5919569025276361,
@@ -19986,7 +20026,7 @@
         "raw_factors": {
           "momentum_24h": -4.0696602801046176,
           "reversal_3d": 3.033336715274711,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.6244868606628007,
           "funding_rate_contrarian": 0.0010198144271156926,
           "ls_ratio_contrarian": -0.9001613499442714,
           "liquidation_imbalance": 94.28888276225234,
@@ -20001,16 +20041,17 @@
           "volatility_expansion_4h": 1.911246936664248
         },
         "scores": {
-          "factor_score": -0.0846,
+          "factor_score": -0.1157,
           "liquidity_quality": 78.82,
           "long_score": 9.7,
-          "short_score": 24.83,
+          "short_score": 26.57,
           "crowded_long_score": 54.7,
           "squeeze_risk_score": 20.19,
-          "confidence_score": 65.0,
+          "confidence_score": 66,
           "signal_conflict_score": 31.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1631
         }
       },
       {
@@ -20018,7 +20059,7 @@
         "factors": {
           "momentum_24h": 0.6263313638857466,
           "reversal_3d": -0.5103746571629746,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.920362024519058,
           "funding_rate_contrarian": -0.6874287882680729,
           "ls_ratio_contrarian": -0.7538701519702368,
           "liquidation_imbalance": -2.4038549049720777,
@@ -20035,7 +20076,7 @@
         "raw_factors": {
           "momentum_24h": -2.21691399759659,
           "reversal_3d": 0.6008641743148326,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -5.547163657615138,
           "funding_rate_contrarian": -0.005060582964648547,
           "ls_ratio_contrarian": -0.7323678937132266,
           "liquidation_imbalance": 30.252548261664984,
@@ -20050,16 +20091,17 @@
           "volatility_expansion_4h": 1.6642146405531688
         },
         "scores": {
-          "factor_score": -0.2874,
+          "factor_score": -0.1486,
           "liquidity_quality": 95.26,
           "long_score": 13.18,
-          "short_score": 42.79,
+          "short_score": 34.55,
           "crowded_long_score": 61.03,
           "squeeze_risk_score": 23.81,
-          "confidence_score": 69.0,
+          "confidence_score": 66,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1448
         }
       },
       {
@@ -20067,7 +20109,7 @@
         "factors": {
           "momentum_24h": -0.7761605686276859,
           "reversal_3d": 1.7936226948107215,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.6873164692816799,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": -0.006196005606457474,
           "liquidation_imbalance": 0.7957334036874535,
@@ -20084,7 +20126,7 @@
         "raw_factors": {
           "momentum_24h": -6.966230636043284,
           "reversal_3d": 5.10117870031563,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -0.618587635991644,
           "funding_rate_contrarian": 0.017209399250204344,
           "ls_ratio_contrarian": -0.2700271372130602,
           "liquidation_imbalance": 98.64466377592025,
@@ -20099,16 +20141,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": 0.5442,
+          "factor_score": 0.4157,
           "liquidity_quality": 30.92,
-          "long_score": 30.07,
+          "long_score": 24.41,
           "short_score": 6.01,
           "crowded_long_score": 8.23,
           "squeeze_risk_score": 15.91,
-          "confidence_score": 50.0,
+          "confidence_score": 47,
           "signal_conflict_score": 66.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1084
         }
       },
       {
@@ -20116,7 +20159,7 @@
         "factors": {
           "momentum_24h": -3.0,
           "reversal_3d": 1.1162308719150544,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 3,
           "funding_rate_contrarian": 0.13675706237985627,
           "ls_ratio_contrarian": 0.3362487192933898,
           "liquidation_imbalance": 0.28430420151736163,
@@ -20133,7 +20176,7 @@
         "raw_factors": {
           "momentum_24h": -34.22730149068185,
           "reversal_3d": 3.778053802728364,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 27.671431827080788,
           "funding_rate_contrarian": -0.0012012916414969165,
           "ls_ratio_contrarian": -0.058268908123975824,
           "liquidation_imbalance": 87.71271825733125,
@@ -20148,16 +20191,17 @@
           "volatility_expansion_4h": 9.123584296890728
         },
         "scores": {
-          "factor_score": -0.102,
+          "factor_score": -0.1544,
           "liquidity_quality": 45.9,
           "long_score": 11.33,
-          "short_score": 18.45,
+          "short_score": 20.13,
           "crowded_long_score": 12.0,
           "squeeze_risk_score": 11.48,
-          "confidence_score": 60.0,
-          "signal_conflict_score": 0,
+          "confidence_score": 56,
+          "signal_conflict_score": 40,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1564
         }
       },
       {
@@ -20165,7 +20209,7 @@
         "factors": {
           "momentum_24h": 0.36684713619893505,
           "reversal_3d": 1.09321539181834,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.6229148858499837,
           "funding_rate_contrarian": -0.3071618380494309,
           "ls_ratio_contrarian": 0.8322774332554704,
           "liquidation_imbalance": 0.757368895300339,
@@ -20182,7 +20226,7 @@
         "raw_factors": {
           "momentum_24h": -3.0956162071407873,
           "reversal_3d": 3.733098499583854,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -4.63529549429901,
           "funding_rate_contrarian": -0.0032799640177127035,
           "ls_ratio_contrarian": 0.2484613592984996,
           "liquidation_imbalance": 97.82461143288666,
@@ -20197,16 +20241,17 @@
           "volatility_expansion_4h": 1.8916025881898275
         },
         "scores": {
-          "factor_score": 0.1307,
+          "factor_score": 0.0518,
           "liquidity_quality": 35.56,
-          "long_score": 11.59,
+          "long_score": 8.38,
           "short_score": 8.57,
           "crowded_long_score": 10.32,
           "squeeze_risk_score": 10.41,
-          "confidence_score": 31.0,
+          "confidence_score": 29,
           "signal_conflict_score": 100.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1698
         }
       },
       {
@@ -20214,7 +20259,7 @@
         "factors": {
           "momentum_24h": -0.1810032429743698,
           "reversal_3d": -0.6864858572344708,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.005086781752525722,
           "funding_rate_contrarian": -0.5970832268389502,
           "ls_ratio_contrarian": 0.13563703430892143,
           "liquidation_imbalance": -0.16211005669956224,
@@ -20231,7 +20276,7 @@
         "raw_factors": {
           "momentum_24h": -4.950824683473457,
           "reversal_3d": 0.25687254984779423,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.710063569868651,
           "funding_rate_contrarian": -0.004637535370426236,
           "ls_ratio_contrarian": -0.1823215567939546,
           "liquidation_imbalance": 78.17048576681015,
@@ -20246,16 +20291,17 @@
           "volatility_expansion_4h": 2.2684381905953663
         },
         "scores": {
-          "factor_score": -0.216,
+          "factor_score": -0.0863,
           "liquidity_quality": 83.89,
           "long_score": 20.39,
-          "short_score": 35.48,
+          "short_score": 27.78,
           "crowded_long_score": 23.0,
           "squeeze_risk_score": 20.97,
-          "confidence_score": 66.0,
+          "confidence_score": 64,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1461
         }
       },
       {
@@ -20263,7 +20309,7 @@
         "factors": {
           "momentum_24h": 0.34875662712040617,
           "reversal_3d": -0.7186170667827896,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.6021777096044589,
           "funding_rate_contrarian": 1.5629566532195536,
           "ls_ratio_contrarian": -0.14793480878336407,
           "liquidation_imbalance": 0.8497751345613049,
@@ -20280,7 +20326,7 @@
         "raw_factors": {
           "momentum_24h": -3.156876848840632,
           "reversal_3d": 0.19411182273827537,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -4.571722615770138,
           "funding_rate_contrarian": 0.005476959024518542,
           "ls_ratio_contrarian": -0.3576744442718159,
           "liquidation_imbalance": 99.79982123493197,
@@ -20295,16 +20341,17 @@
           "volatility_expansion_4h": 2.311584621132058
         },
         "scores": {
-          "factor_score": 0.3058,
+          "factor_score": 0.2584,
           "liquidity_quality": 36.7,
-          "long_score": 18.2,
+          "long_score": 15.93,
           "short_score": 8.63,
           "crowded_long_score": 15.67,
           "squeeze_risk_score": 11.78,
-          "confidence_score": 40.0,
-          "signal_conflict_score": 92.0,
+          "confidence_score": 38,
+          "signal_conflict_score": 100,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1436
         }
       },
       {
@@ -20312,7 +20359,7 @@
         "factors": {
           "momentum_24h": 0.22981297125287875,
           "reversal_3d": -0.5889983940327345,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.46583242798165087,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": 0.8322774332554704,
           "liquidation_imbalance": 0.13501024134523215,
@@ -20329,7 +20376,7 @@
         "raw_factors": {
           "momentum_24h": -3.5596606872025083,
           "reversal_3d": 0.44729127857329093,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -4.153736004480081,
           "funding_rate_contrarian": 0.02410888925141653,
           "ls_ratio_contrarian": 0.2484613592984996,
           "liquidation_imbalance": 84.52151714497607,
@@ -20344,16 +20391,17 @@
           "volatility_expansion_4h": 2.878237989525601
         },
         "scores": {
-          "factor_score": 0.4903,
+          "factor_score": 0.3112,
           "liquidity_quality": 39.3,
-          "long_score": 27.23,
+          "long_score": 19.94,
           "short_score": 7.09,
           "crowded_long_score": 9.83,
           "squeeze_risk_score": 22.8,
-          "confidence_score": 39.0,
+          "confidence_score": 35,
           "signal_conflict_score": 100.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.0877
         }
       },
       {
@@ -20361,7 +20409,7 @@
         "factors": {
           "momentum_24h": -3.0,
           "reversal_3d": 0.7256661556105177,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 3,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": 1.1521912450782115,
           "liquidation_imbalance": 0.3772913482165616,
@@ -20378,7 +20426,7 @@
         "raw_factors": {
           "momentum_24h": -23.338898806869583,
           "reversal_3d": 3.015177897240451,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 16.372054576300258,
           "funding_rate_contrarian": 0.039977533732079254,
           "ls_ratio_contrarian": 0.4462871026284195,
           "liquidation_imbalance": 89.70034512206905,
@@ -20393,16 +20441,17 @@
           "volatility_expansion_4h": 5.747333339463672
         },
         "scores": {
-          "factor_score": 0.3911,
+          "factor_score": 0.2144,
           "liquidity_quality": 48.86,
-          "long_score": 25.01,
+          "long_score": 17.8,
           "short_score": 5.66,
           "crowded_long_score": 12.21,
           "squeeze_risk_score": 43.36,
-          "confidence_score": 40.0,
-          "signal_conflict_score": 99.0,
-          "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "confidence_score": 37,
+          "signal_conflict_score": 99,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.0401
         }
       },
       {
@@ -20410,7 +20459,7 @@
         "factors": {
           "momentum_24h": -1.4386913491677094,
           "reversal_3d": 0.7330323091052907,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 1.4467764438188315,
           "funding_rate_contrarian": -0.6744907594765952,
           "ls_ratio_contrarian": 0.6372039370745202,
           "liquidation_imbalance": 0.49591518670258417,
@@ -20427,7 +20476,7 @@
         "raw_factors": {
           "momentum_24h": -9.209786115084638,
           "reversal_3d": 3.0295659378972166,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 1.7096491565759901,
           "funding_rate_contrarian": -0.005,
           "ls_ratio_contrarian": 0.12783337150988489,
           "liquidation_imbalance": 92.23596360852343,
@@ -20442,16 +20491,17 @@
           "volatility_expansion_4h": 3.1619123357668277
         },
         "scores": {
-          "factor_score": -0.1184,
+          "factor_score": -0.029,
           "liquidity_quality": 36.08,
           "long_score": 8.4,
-          "short_score": 16.78,
+          "short_score": 10.62,
           "crowded_long_score": 11.21,
           "squeeze_risk_score": 9.02,
-          "confidence_score": 55.0,
+          "confidence_score": 52,
           "signal_conflict_score": 0,
-          "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "regime_alignment_score": 0,
+          "breadth_alignment_score": 0,
+          "round_trip_cost_pct": 0.145
         }
       },
       {
@@ -20459,7 +20509,7 @@
         "factors": {
           "momentum_24h": 3.0,
           "reversal_3d": -3.0,
-          "oi_price_signal": 4.6744688233601135,
+          "oi_price_signal": 3,
           "funding_rate_contrarian": -0.23840180426550903,
           "ls_ratio_contrarian": 0.6372039370745202,
           "liquidation_imbalance": -3.0,
@@ -20476,7 +20526,7 @@
         "raw_factors": {
           "momentum_24h": 32.218031885777734,
           "reversal_3d": -6.298918895067322,
-          "oi_price_signal": 62.33719276872815,
+          "oi_price_signal": 21.055362103901594,
           "funding_rate_contrarian": -0.0029579917325135733,
           "ls_ratio_contrarian": 0.12783337150988489,
           "liquidation_imbalance": -77.71551783679004,
@@ -20491,16 +20541,17 @@
           "volatility_expansion_4h": 5.473007124308933
         },
         "scores": {
-          "factor_score": 1.1765,
+          "factor_score": 1.2814,
           "liquidity_quality": 53.63,
-          "long_score": 62.31,
+          "long_score": 66.93,
           "short_score": 13.41,
           "crowded_long_score": 54.7,
           "squeeze_risk_score": 50.41,
-          "confidence_score": 75.0,
+          "confidence_score": 77,
           "signal_conflict_score": 66.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1689
         }
       },
       {
@@ -20508,7 +20559,7 @@
         "factors": {
           "momentum_24h": 3.0,
           "reversal_3d": 0.0,
-          "oi_price_signal": 3.248340292091534,
+          "oi_price_signal": 3,
           "funding_rate_contrarian": -1.5211980283169015,
           "ls_ratio_contrarian": 0.006196005606457563,
           "liquidation_imbalance": -3.0,
@@ -20525,7 +20576,7 @@
         "raw_factors": {
           "momentum_24h": 6.268605798788022,
           "reversal_3d": null,
-          "oi_price_signal": 44.513142832424094,
+          "oi_price_signal": 30.160179818135454,
           "funding_rate_contrarian": -0.00896474898630683,
           "ls_ratio_contrarian": -0.26236426446749106,
           "liquidation_imbalance": -22.486601060507283,
@@ -20540,16 +20591,17 @@
           "volatility_expansion_4h": 3.3826445314284825
         },
         "scores": {
-          "factor_score": 0.7758,
+          "factor_score": 1.1777,
           "liquidity_quality": 53.54,
-          "long_score": 40.65,
+          "long_score": 57.01,
           "short_score": 13.38,
           "crowded_long_score": 51.71,
           "squeeze_risk_score": 47.57,
-          "confidence_score": 63.0,
+          "confidence_score": 71,
           "signal_conflict_score": 100.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1869
         }
       },
       {
@@ -20557,7 +20609,7 @@
         "factors": {
           "momentum_24h": 0.012784986084655264,
           "reversal_3d": 0.2306756902497806,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.21705294040016607,
           "funding_rate_contrarian": 1.0474206703388418,
           "ls_ratio_contrarian": -0.9374172305003804,
           "liquidation_imbalance": -0.37898461593334665,
@@ -20574,7 +20626,7 @@
         "raw_factors": {
           "momentum_24h": -4.294591560652031,
           "reversal_3d": 2.048330960725286,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.3910657181673143,
           "funding_rate_contrarian": 0.0030629360903224943,
           "ls_ratio_contrarian": -0.8458682675776092,
           "liquidation_imbalance": 73.53473001439765,
@@ -20589,16 +20641,17 @@
           "volatility_expansion_4h": 1.8563211946417504
         },
         "scores": {
-          "factor_score": -0.2243,
+          "factor_score": -0.1559,
           "liquidity_quality": 57.15,
           "long_score": 4.29,
-          "short_score": 26.53,
+          "short_score": 22.74,
           "crowded_long_score": 49.29,
           "squeeze_risk_score": 15.74,
-          "confidence_score": 60.0,
+          "confidence_score": 59,
           "signal_conflict_score": 40.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1692
         }
       },
       {
@@ -20606,7 +20659,7 @@
         "factors": {
           "momentum_24h": -2.244236047476599,
           "reversal_3d": -0.5733686432028567,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 2.370173475376446,
           "funding_rate_contrarian": -0.07085815485762756,
           "ls_ratio_contrarian": -0.730376040681225,
           "liquidation_imbalance": -0.9622962099388909,
@@ -20623,7 +20676,7 @@
         "raw_factors": {
           "momentum_24h": -11.937635559348227,
           "reversal_3d": 0.4778203044149295,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 4.540459225704927,
           "funding_rate_contrarian": -0.002173460243771471,
           "ls_ratio_contrarian": -0.7178397931503168,
           "liquidation_imbalance": 61.06627780444908,
@@ -20638,16 +20691,17 @@
           "volatility_expansion_4h": 5.493478118662285
         },
         "scores": {
-          "factor_score": -0.4379,
+          "factor_score": -0.2969,
           "liquidity_quality": 58.2,
           "long_score": 4.28,
-          "short_score": 41.72,
+          "short_score": 31.13,
           "crowded_long_score": 50.5,
           "squeeze_risk_score": 14.55,
-          "confidence_score": 65.0,
-          "signal_conflict_score": 0,
+          "confidence_score": 58,
+          "signal_conflict_score": 40,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1535
         }
       },
       {
@@ -20655,7 +20709,7 @@
         "factors": {
           "momentum_24h": 0.870122571335649,
           "reversal_3d": 0.0,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -1.1998202318062279,
           "funding_rate_contrarian": -0.1255843403688583,
           "ls_ratio_contrarian": -1.285732217092896,
           "liquidation_imbalance": 0.5887975535182621,
@@ -20672,7 +20726,7 @@
         "raw_factors": {
           "momentum_24h": -1.391353713785302,
           "reversal_3d": 1.5977604951225113,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -6.403884093195055,
           "funding_rate_contrarian": -0.0024297183349855367,
           "ls_ratio_contrarian": -1.0612565021243408,
           "liquidation_imbalance": 94.22135077327296,
@@ -20687,16 +20741,17 @@
           "volatility_expansion_4h": 1.6303274342604333
         },
         "scores": {
-          "factor_score": -0.3867,
+          "factor_score": -0.1872,
           "liquidity_quality": 53.63,
           "long_score": 3.1,
-          "short_score": 35.84,
+          "short_score": 24.5,
           "crowded_long_score": 49.47,
           "squeeze_risk_score": 13.41,
-          "confidence_score": 60.0,
+          "confidence_score": 56,
           "signal_conflict_score": 26.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1527
         }
       },
       {
@@ -20704,7 +20759,7 @@
         "factors": {
           "momentum_24h": -0.4361713945546236,
           "reversal_3d": -1.7817041344315587,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.29758639625175715,
           "funding_rate_contrarian": 0.1895482640959757,
           "ls_ratio_contrarian": -0.3092461277396837,
           "liquidation_imbalance": -2.423081169888739,
@@ -20721,7 +20776,7 @@
         "raw_factors": {
           "momentum_24h": -5.814911185368669,
           "reversal_3d": -1.8823776180351655,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -1.813362773089997,
           "funding_rate_contrarian": -0.0009540942083432162,
           "ls_ratio_contrarian": -0.4574248470388755,
           "liquidation_imbalance": 29.84158134835017,
@@ -20736,16 +20791,17 @@
           "volatility_expansion_4h": 4.030506917782348
         },
         "scores": {
-          "factor_score": -0.2594,
+          "factor_score": -0.0715,
           "liquidity_quality": 37.41,
           "long_score": 5.23,
-          "short_score": 24.44,
+          "short_score": 13.75,
           "crowded_long_score": 23.77,
           "squeeze_risk_score": 9.35,
-          "confidence_score": 49.0,
+          "confidence_score": 46,
           "signal_conflict_score": 25.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1571
         }
       },
       {
@@ -20753,7 +20809,7 @@
         "factors": {
           "momentum_24h": 2.9338855697715003,
           "reversal_3d": 0.0,
-          "oi_price_signal": 0.8124544941037098,
+          "oi_price_signal": 1.0237069964550005,
           "funding_rate_contrarian": -0.5740463780044961,
           "ls_ratio_contrarian": 0.2911160351462259,
           "liquidation_imbalance": -2.8697796021112367,
@@ -20770,7 +20826,7 @@
         "raw_factors": {
           "momentum_24h": 5.597252579811436,
           "reversal_3d": null,
-          "oi_price_signal": 14.06893731341106,
+          "oi_price_signal": 0.4126672402293998,
           "funding_rate_contrarian": -0.004529664177600404,
           "ls_ratio_contrarian": -0.08617769624105241,
           "liquidation_imbalance": 20.293274557156458,
@@ -20785,16 +20841,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.0058,
+          "factor_score": 0.5075,
           "liquidity_quality": 25.62,
-          "long_score": 5.84,
-          "short_score": 6.72,
+          "long_score": 25.19,
+          "short_score": 6.4,
           "crowded_long_score": 41.78,
           "squeeze_risk_score": 39.5,
-          "confidence_score": 47.0,
-          "signal_conflict_score": 0.0,
-          "regime_alignment_score": 0.0,
-          "breadth_alignment_score": 0.0
+          "confidence_score": 44,
+          "signal_conflict_score": 96,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1736
         }
       },
       {
@@ -20802,7 +20859,7 @@
         "factors": {
           "momentum_24h": 0.7154012435793247,
           "reversal_3d": 0.0,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -1.0224629540924357,
           "funding_rate_contrarian": 0.30846277243159187,
           "ls_ratio_contrarian": -1.8194326450413012,
           "liquidation_imbalance": 0.7695343046576597,
@@ -20819,7 +20876,7 @@
         "raw_factors": {
           "momentum_24h": -1.9152929673386467,
           "reversal_3d": null,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -5.860169146723328,
           "funding_rate_contrarian": -0.0003972710963525119,
           "ls_ratio_contrarian": -1.3912819026309295,
           "liquidation_imbalance": 98.08465053847792,
@@ -20834,16 +20891,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.1233,
+          "factor_score": -0.0561,
           "liquidity_quality": 31.58,
-          "long_score": 0.0,
-          "short_score": 15.85,
+          "long_score": 0,
+          "short_score": 11.86,
           "crowded_long_score": 43.07,
           "squeeze_risk_score": 7.89,
-          "confidence_score": 51.0,
+          "confidence_score": 50,
           "signal_conflict_score": 0,
-          "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "regime_alignment_score": 1,
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1588
         }
       },
       {
@@ -20851,7 +20909,7 @@
         "factors": {
           "momentum_24h": -0.8417347295508187,
           "reversal_3d": -0.08560467912009954,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.7624842230642065,
           "funding_rate_contrarian": 1.4332617765663167,
           "ls_ratio_contrarian": 0.1765797161000501,
           "liquidation_imbalance": 0.6726690660064679,
@@ -20868,7 +20926,7 @@
         "raw_factors": {
           "momentum_24h": -7.188287138690177,
           "reversal_3d": 1.4305519778871063,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -0.3881497777255767,
           "funding_rate_contrarian": 0.0048696563005861055,
           "ls_ratio_contrarian": -0.1570037488096647,
           "liquidation_imbalance": 96.01412834872667,
@@ -20883,16 +20941,17 @@
           "volatility_expansion_4h": 3.175318352523652
         },
         "scores": {
-          "factor_score": -0.2311,
+          "factor_score": -0.1652,
           "liquidity_quality": 68.51,
           "long_score": 17.13,
-          "short_score": 29.59,
+          "short_score": 24.32,
           "crowded_long_score": 17.13,
           "squeeze_risk_score": 19.44,
-          "confidence_score": 62.0,
-          "signal_conflict_score": 40.0,
+          "confidence_score": 57,
+          "signal_conflict_score": 75,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1746
         }
       },
       {
@@ -20900,7 +20959,7 @@
         "factors": {
           "momentum_24h": -0.01282664519410417,
           "reversal_3d": -0.32431382889369087,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.18769429109640492,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": -0.006196005606457474,
           "liquidation_imbalance": 0.7434525492342666,
@@ -20917,7 +20976,7 @@
         "raw_factors": {
           "momentum_24h": -4.381321290606331,
           "reversal_3d": 0.9642900469455912,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.3010624398105257,
           "funding_rate_contrarian": 0.020150109109887435,
           "ls_ratio_contrarian": -0.2700271372130602,
           "liquidation_imbalance": 97.52714555419493,
@@ -20932,16 +20991,17 @@
           "volatility_expansion_4h": 2.4072428420877037
         },
         "scores": {
-          "factor_score": 0.4345,
+          "factor_score": 0.3468,
           "liquidity_quality": 47.97,
-          "long_score": 26.76,
+          "long_score": 23.15,
           "short_score": 9.98,
           "crowded_long_score": 12.49,
           "squeeze_risk_score": 21.56,
-          "confidence_score": 40.0,
+          "confidence_score": 39,
           "signal_conflict_score": 95.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.0995
         }
       },
       {
@@ -20949,7 +21009,7 @@
         "factors": {
           "momentum_24h": -0.6901756864423261,
           "reversal_3d": 0.598544073837008,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.5887518767327176,
           "funding_rate_contrarian": 0.5139350461166684,
           "ls_ratio_contrarian": 0.35157726581492454,
           "liquidation_imbalance": 0.8156809212085555,
@@ -20966,7 +21026,7 @@
         "raw_factors": {
           "momentum_24h": -6.67505646088353,
           "reversal_3d": 2.7668749420783225,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -0.9207519613160802,
           "funding_rate_contrarian": 0.0005648630659334075,
           "ls_ratio_contrarian": -0.04879016416943205,
           "liquidation_imbalance": 99.07104767000861,
@@ -20981,16 +21041,17 @@
           "volatility_expansion_4h": 2.5008639779689172
         },
         "scores": {
-          "factor_score": 0.0911,
+          "factor_score": 0.0686,
           "liquidity_quality": 38.4,
-          "long_score": 10.86,
+          "long_score": 9.94,
           "short_score": 9.54,
           "crowded_long_score": 9.6,
           "squeeze_risk_score": 9.87,
-          "confidence_score": 33.0,
-          "signal_conflict_score": 98.0,
-          "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "confidence_score": 33,
+          "signal_conflict_score": 98,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1583
         }
       },
       {
@@ -20998,7 +21059,7 @@
         "factors": {
           "momentum_24h": 1.3371197520253673,
           "reversal_3d": -2.235343035760611,
-          "oi_price_signal": -0.13341640720078343,
+          "oi_price_signal": -1.002098357427449,
           "funding_rate_contrarian": 2.163684141810269,
           "ls_ratio_contrarian": 0.1222166290708289,
           "liquidation_imbalance": -2.1385122240757988,
@@ -21015,7 +21076,7 @@
         "raw_factors": {
           "momentum_24h": 0.1900582208862962,
           "reversal_3d": -2.7684540431930897,
-          "oi_price_signal": 2.2472467655391517,
+          "oi_price_signal": -5.797738465962149,
           "funding_rate_contrarian": 0.00828989543015355,
           "ls_ratio_contrarian": -0.1906203596086497,
           "liquidation_imbalance": 35.924323981561685,
@@ -21030,16 +21091,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": 0.0311,
+          "factor_score": 0.1157,
           "liquidity_quality": 31.69,
-          "long_score": 7.72,
+          "long_score": 10.57,
           "short_score": 7.09,
           "crowded_long_score": 12.89,
           "squeeze_risk_score": 16.66,
-          "confidence_score": 40.0,
-          "signal_conflict_score": 66.0,
+          "confidence_score": 38,
+          "signal_conflict_score": 100,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1351
         }
       },
       {
@@ -21047,7 +21109,7 @@
         "factors": {
           "momentum_24h": -0.9982147909887124,
           "reversal_3d": 0.5546458898330046,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.9418575396946111,
           "funding_rate_contrarian": 1.5773633265988403,
           "ls_ratio_contrarian": 0.9617184619579345,
           "liquidation_imbalance": 0.516522336072536,
@@ -21064,7 +21126,7 @@
         "raw_factors": {
           "momentum_24h": -7.718182065101836,
           "reversal_3d": 2.681130210223905,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 0.16174563399550834,
           "funding_rate_contrarian": 0.005544418990646873,
           "ls_ratio_contrarian": 0.3285040669720361,
           "liquidation_imbalance": 92.67644732210461,
@@ -21079,16 +21141,17 @@
           "volatility_expansion_4h": 2.7459019146588557
         },
         "scores": {
-          "factor_score": 0.2872,
+          "factor_score": 0.1418,
           "liquidity_quality": 39.82,
-          "long_score": 19.06,
+          "long_score": 13.14,
           "short_score": 8.12,
           "crowded_long_score": 9.95,
           "squeeze_risk_score": 18.67,
-          "confidence_score": 34.0,
-          "signal_conflict_score": 100.0,
-          "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "confidence_score": 31,
+          "signal_conflict_score": 100,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1434
         }
       },
       {
@@ -21096,7 +21159,7 @@
         "factors": {
           "momentum_24h": 1.6545282033637028,
           "reversal_3d": 0.0,
-          "oi_price_signal": 0.13930402901321104,
+          "oi_price_signal": -0.25410193308308276,
           "funding_rate_contrarian": -0.6744907594765952,
           "ls_ratio_contrarian": -0.23596467857301515,
           "liquidation_imbalance": -1.1535410680488738,
@@ -21113,7 +21176,7 @@
         "raw_factors": {
           "momentum_24h": 1.2649116330005346,
           "reversal_3d": null,
-          "oi_price_signal": 5.655763296237047,
+          "oi_price_signal": -3.5046448807091,
           "funding_rate_contrarian": -0.005,
           "ls_ratio_contrarian": -0.412109650826833,
           "liquidation_imbalance": 56.978364246331026,
@@ -21128,16 +21191,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.1212,
+          "factor_score": 0.1328,
           "liquidity_quality": 26.25,
-          "long_score": 2.94,
-          "short_score": 14.29,
+          "long_score": 7.61,
+          "short_score": 6.56,
           "crowded_long_score": 32.93,
           "squeeze_risk_score": 19.93,
-          "confidence_score": 50.0,
-          "signal_conflict_score": 0,
-          "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "confidence_score": 37,
+          "signal_conflict_score": 99,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.175
         }
       },
       {
@@ -21145,7 +21209,7 @@
         "factors": {
           "momentum_24h": -1.109022291954214,
           "reversal_3d": -1.6793642754994758,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 1.0688763353997586,
           "funding_rate_contrarian": 0.7472665796239973,
           "ls_ratio_contrarian": -0.04281227669531682,
           "liquidation_imbalance": 0.4020680362489653,
@@ -21162,7 +21226,7 @@
         "raw_factors": {
           "momentum_24h": -8.093414104445573,
           "reversal_3d": -1.6824808805903977,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 0.5511405243432019,
           "funding_rate_contrarian": 0.0016574496008448956,
           "ls_ratio_contrarian": -0.29266961396282004,
           "liquidation_imbalance": 90.22995391748397,
@@ -21177,16 +21241,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.0901,
+          "factor_score": -0.0676,
           "liquidity_quality": 29.27,
           "long_score": 6.75,
-          "short_score": 12.33,
+          "short_score": 10.28,
           "crowded_long_score": 9.32,
           "squeeze_risk_score": 8.11,
-          "confidence_score": 46.0,
-          "signal_conflict_score": 34.0,
+          "confidence_score": 41,
+          "signal_conflict_score": 74,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.165
         }
       },
       {
@@ -21194,7 +21259,7 @@
         "factors": {
           "momentum_24h": -0.16706336566686317,
           "reversal_3d": -0.05827648135106895,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.010892519399913767,
           "funding_rate_contrarian": -0.2952375548680901,
           "ls_ratio_contrarian": 0.3362487192933898,
           "liquidation_imbalance": 0.8549162798350474,
@@ -21211,7 +21276,7 @@
         "raw_factors": {
           "momentum_24h": -4.903619498402767,
           "reversal_3d": 1.4839311561591806,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.7590504791330943,
           "funding_rate_contrarian": -0.00322412796740879,
           "ls_ratio_contrarian": -0.058268908123975824,
           "liquidation_imbalance": 99.90971468606308,
@@ -21226,16 +21291,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.0084,
+          "factor_score": 0.0148,
           "liquidity_quality": 27.07,
-          "long_score": 6.37,
-          "short_score": 7.23,
+          "long_score": 7.18,
+          "short_score": 6.77,
           "crowded_long_score": 8.18,
           "squeeze_risk_score": 6.77,
           "confidence_score": 43.0,
           "signal_conflict_score": 0.0,
           "regime_alignment_score": 0.0,
-          "breadth_alignment_score": 0.0
+          "breadth_alignment_score": 0.0,
+          "round_trip_cost_pct": 0.1697
         }
       },
       {
@@ -21243,7 +21309,7 @@
         "factors": {
           "momentum_24h": -0.7537830166485411,
           "reversal_3d": 0.0,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.6616650496715106,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": 0.6556858473838385,
           "liquidation_imbalance": 0.8545139603122366,
@@ -21260,7 +21326,7 @@
         "raw_factors": {
           "momentum_24h": -6.890452603044695,
           "reversal_3d": null,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -0.6972258538310827,
           "funding_rate_contrarian": 0.026483727989806027,
           "ls_ratio_contrarian": 0.13926206733350766,
           "liquidation_imbalance": 99.90111499115757,
@@ -21275,16 +21341,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": 0.4909,
+          "factor_score": 0.3769,
           "liquidity_quality": 27.72,
-          "long_score": 27.19,
+          "long_score": 22.17,
           "short_score": 4.28,
           "crowded_long_score": 6.93,
           "squeeze_risk_score": 19.51,
-          "confidence_score": 48.0,
+          "confidence_score": 46,
           "signal_conflict_score": 66.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.0805
         }
       },
       {
@@ -21292,7 +21359,7 @@
         "factors": {
           "momentum_24h": -0.22396373929955182,
           "reversal_3d": 0.41303131433580076,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.054332459694662084,
           "funding_rate_contrarian": -0.2713916181000652,
           "ls_ratio_contrarian": -0.7693453853756393,
           "liquidation_imbalance": -0.5827047124099852,
@@ -21309,7 +21376,7 @@
         "raw_factors": {
           "momentum_24h": -5.096303595161358,
           "reversal_3d": 2.4045195923091067,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.559093666116061,
           "funding_rate_contrarian": -0.0031124681800090022,
           "ls_ratio_contrarian": -0.7419373447293773,
           "liquidation_imbalance": 69.18015466697032,
@@ -21324,16 +21391,17 @@
           "volatility_expansion_4h": 1.8540199557699957
         },
         "scores": {
-          "factor_score": -0.34,
+          "factor_score": -0.184,
           "liquidity_quality": 91.68,
           "long_score": 12.53,
-          "short_score": 44.95,
+          "short_score": 35.69,
           "crowded_long_score": 59.28,
           "squeeze_risk_score": 22.92,
-          "confidence_score": 70.0,
+          "confidence_score": 67,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1507
         }
       },
       {
@@ -21341,7 +21409,7 @@
         "factors": {
           "momentum_24h": -0.3513855663853189,
           "reversal_3d": 0.6744907594765952,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.2003962810240745,
           "funding_rate_contrarian": -3.0,
           "ls_ratio_contrarian": -2.4697577673876743,
           "liquidation_imbalance": 0.4083481323288828,
@@ -21358,7 +21426,7 @@
         "raw_factors": {
           "momentum_24h": -5.527797416587611,
           "reversal_3d": 2.9152188506738184,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.1113134350519847,
           "funding_rate_contrarian": -0.018656551300702442,
           "ls_ratio_contrarian": -1.7934247485471162,
           "liquidation_imbalance": 90.36419276795604,
@@ -21373,16 +21441,17 @@
           "volatility_expansion_4h": 2.094394509162909
         },
         "scores": {
-          "factor_score": -1.1772,
+          "factor_score": -0.9404,
           "liquidity_quality": 84.48,
           "long_score": 8.79,
-          "short_score": 92.74,
+          "short_score": 78.67,
           "crowded_long_score": 64.28,
           "squeeze_risk_score": 21.12,
-          "confidence_score": 90.0,
+          "confidence_score": 86,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.104
         }
       },
       {
@@ -21390,7 +21459,7 @@
         "factors": {
           "momentum_24h": -0.17212812223613325,
           "reversal_3d": 0.5264879775920713,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.005086781752525722,
           "funding_rate_contrarian": 0.6314143676375913,
           "ls_ratio_contrarian": -0.9443429350905138,
           "liquidation_imbalance": 0.5418259152495403,
@@ -21407,7 +21476,7 @@
         "raw_factors": {
           "momentum_24h": -4.920770493774989,
           "reversal_3d": 2.6261303807444247,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.7412521323447967,
           "funding_rate_contrarian": 0.0011149658441344775,
           "ls_ratio_contrarian": -0.85015092936961,
           "liquidation_imbalance": 93.2173185664813,
@@ -21422,16 +21491,17 @@
           "volatility_expansion_4h": 2.178540439466705
         },
         "scores": {
-          "factor_score": -0.2248,
+          "factor_score": -0.15,
           "liquidity_quality": 63.27,
           "long_score": 5.82,
-          "short_score": 28.71,
+          "short_score": 24.5,
           "crowded_long_score": 50.82,
           "squeeze_risk_score": 16.35,
-          "confidence_score": 62.0,
+          "confidence_score": 61,
           "signal_conflict_score": 32.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1633
         }
       },
       {
@@ -21439,7 +21509,7 @@
         "factors": {
           "momentum_24h": -0.3050261906214488,
           "reversal_3d": -0.1250782851321852,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.14725446275490758,
           "funding_rate_contrarian": 0.04952840299196105,
           "ls_ratio_contrarian": 0.24720882539365072,
           "liquidation_imbalance": -0.9069912883450019,
@@ -21456,7 +21526,7 @@
         "raw_factors": {
           "momentum_24h": -5.370808738393384,
           "reversal_3d": 1.3534496138684824,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.274227532787842,
           "funding_rate_contrarian": -0.0016097441865645184,
           "ls_ratio_contrarian": -0.11332868530700327,
           "liquidation_imbalance": 62.248436326506166,
@@ -21471,16 +21541,17 @@
           "volatility_expansion_4h": 2.2947521846690333
         },
         "scores": {
-          "factor_score": -0.225,
+          "factor_score": -0.2428,
           "liquidity_quality": 57.69,
           "long_score": 14.22,
-          "short_score": 28.94,
+          "short_score": 30,
           "crowded_long_score": 15.13,
           "squeeze_risk_score": 14.42,
-          "confidence_score": 68.0,
+          "confidence_score": 68,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1552
         }
       },
       {
@@ -21488,7 +21559,7 @@
         "factors": {
           "momentum_24h": 1.1709334963569045,
           "reversal_3d": -0.8147470547394018,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -1.5446402223143352,
           "funding_rate_contrarian": -0.26177527489809554,
           "ls_ratio_contrarian": 0.08261098708310119,
           "liquidation_imbalance": 0.23983143789489186,
@@ -21505,7 +21576,7 @@
         "raw_factors": {
           "momentum_24h": -0.3727051938828129,
           "reversal_3d": 0.006344601211380776,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -7.460980735059655,
           "funding_rate_contrarian": -0.0030674391736864185,
           "ls_ratio_contrarian": -0.2151113796169455,
           "liquidation_imbalance": 86.76210021104254,
@@ -21520,16 +21591,17 @@
           "volatility_expansion_4h": 3.195099078466989
         },
         "scores": {
-          "factor_score": 0.114,
+          "factor_score": 0.2634,
           "liquidity_quality": 40.91,
-          "long_score": 12.92,
+          "long_score": 18,
           "short_score": 10.23,
           "crowded_long_score": 11.57,
           "squeeze_risk_score": 10.23,
-          "confidence_score": 48.0,
-          "signal_conflict_score": 66.0,
+          "confidence_score": 47,
+          "signal_conflict_score": 100,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1692
         }
       },
       {
@@ -21537,7 +21609,7 @@
         "factors": {
           "momentum_24h": 0.004767913483066186,
           "reversal_3d": 0.33125339294409767,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.20786295869259536,
           "funding_rate_contrarian": 0.0011251256824468146,
           "ls_ratio_contrarian": -0.07861778844619936,
           "liquidation_imbalance": 0.5422656392455735,
@@ -21554,7 +21626,7 @@
         "raw_factors": {
           "momentum_24h": -4.321740106333949,
           "reversal_3d": 2.244785742254997,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.362892471054944,
           "funding_rate_contrarian": -0.0018363949449897653,
           "ls_ratio_contrarian": -0.3148107398400336,
           "liquidation_imbalance": 93.22671779270352,
@@ -21569,16 +21641,17 @@
           "volatility_expansion_4h": 2.6085077460243
         },
         "scores": {
-          "factor_score": 0.0206,
+          "factor_score": -0.039,
           "liquidity_quality": 53.65,
-          "long_score": 13.31,
-          "short_score": 13.41,
+          "long_score": 12.18,
+          "short_score": 16.81,
           "crowded_long_score": 17.72,
           "squeeze_risk_score": 13.41,
-          "confidence_score": 43.0,
+          "confidence_score": 64,
           "signal_conflict_score": 0.0,
-          "regime_alignment_score": 0.0,
-          "breadth_alignment_score": 0.0
+          "regime_alignment_score": 1,
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1545
         }
       },
       {
@@ -21586,7 +21659,7 @@
         "factors": {
           "momentum_24h": 0.9479476130372204,
           "reversal_3d": -0.6182398106288792,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -1.289031187621522,
           "funding_rate_contrarian": 3.0,
           "ls_ratio_contrarian": -0.20351242801394123,
           "liquidation_imbalance": -0.6611749413940676,
@@ -21603,7 +21676,7 @@
         "raw_factors": {
           "momentum_24h": -1.1278115451122275,
           "reversal_3d": 0.3901750793052053,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -6.677373462738035,
           "funding_rate_contrarian": 0.021324821928782444,
           "ls_ratio_contrarian": -0.3920420877760237,
           "liquidation_imbalance": 67.50283107174884,
@@ -21618,16 +21691,17 @@
           "volatility_expansion_4h": 0.5589989209412124
         },
         "scores": {
-          "factor_score": 0.4913,
+          "factor_score": 0.4563,
           "liquidity_quality": 42.64,
-          "long_score": 28.14,
+          "long_score": 24.56,
           "short_score": 8.53,
           "crowded_long_score": 19.66,
           "squeeze_risk_score": 20.79,
-          "confidence_score": 51.0,
-          "signal_conflict_score": 66.0,
+          "confidence_score": 46,
+          "signal_conflict_score": 100,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.096
         }
       },
       {
@@ -21635,7 +21709,7 @@
         "factors": {
           "momentum_24h": 0.47787987274204363,
           "reversal_3d": 0.0,
-          "oi_price_signal": -0.4590909408893136,
+          "oi_price_signal": -1.3448789223736426,
           "funding_rate_contrarian": -0.07543509162812598,
           "ls_ratio_contrarian": -1.5342173401001387,
           "liquidation_imbalance": 0.6443482949605832,
@@ -21652,7 +21726,7 @@
         "raw_factors": {
           "momentum_24h": -2.7196214432126866,
           "reversal_3d": null,
-          "oi_price_signal": -1.8231010496632698,
+          "oi_price_signal": -6.8485829473599065,
           "funding_rate_contrarian": -0.002194891978314247,
           "ls_ratio_contrarian": -1.2149127443642704,
           "liquidation_imbalance": 95.40876376492045,
@@ -21667,16 +21741,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.1946,
+          "factor_score": -0.1763,
           "liquidity_quality": 30.25,
           "long_score": 0.0,
-          "short_score": 19.73,
+          "short_score": 18.64,
           "crowded_long_score": 47.32,
           "squeeze_risk_score": 11.21,
-          "confidence_score": 50.0,
+          "confidence_score": 52,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1534
         }
       },
       {
@@ -21684,7 +21759,7 @@
         "factors": {
           "momentum_24h": 2.3187035892174648,
           "reversal_3d": -1.7996681575452056,
-          "oi_price_signal": 0.5403761111296395,
+          "oi_price_signal": 0.6196663506531136,
           "funding_rate_contrarian": -1.0650862616538854,
           "ls_ratio_contrarian": -0.3793502736947698,
           "liquidation_imbalance": -1.52894382401666,
@@ -21701,7 +21776,7 @@
         "raw_factors": {
           "momentum_24h": 3.5140363072715677,
           "reversal_3d": -1.9174660933298546,
-          "oi_price_signal": 10.668445297165587,
+          "oi_price_signal": -0.8259790726616068,
           "funding_rate_contrarian": -0.0068289829062581206,
           "ls_ratio_contrarian": -0.5007752879124892,
           "liquidation_imbalance": 48.954022933096574,
@@ -21716,16 +21791,17 @@
           "volatility_expansion_4h": 2.8692360025169457
         },
         "scores": {
-          "factor_score": 0.0867,
+          "factor_score": 0.6048,
           "liquidity_quality": 61.32,
-          "long_score": 10.54,
+          "long_score": 31.63,
           "short_score": 15.33,
           "crowded_long_score": 63.32,
           "squeeze_risk_score": 42.38,
-          "confidence_score": 47.0,
+          "confidence_score": 57,
           "signal_conflict_score": 100.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1805
         }
       },
       {
@@ -21733,7 +21809,7 @@
         "factors": {
           "momentum_24h": -0.12555653454877977,
           "reversal_3d": 1.035205450898132,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.058471858850925554,
           "funding_rate_contrarian": 2.03077800128325,
           "ls_ratio_contrarian": 0.693295671569352,
           "liquidation_imbalance": -0.681595171132523,
@@ -21750,7 +21826,7 @@
         "raw_factors": {
           "momentum_24h": -4.763063193536876,
           "reversal_3d": 3.6197897843841496,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.904911975972901,
           "funding_rate_contrarian": 0.007667555803082468,
           "ls_ratio_contrarian": 0.16251892949777494,
           "liquidation_imbalance": 67.06634281876946,
@@ -21765,16 +21841,17 @@
           "volatility_expansion_4h": 2.3946627577404174
         },
         "scores": {
-          "factor_score": 0.3223,
+          "factor_score": 0.171,
           "liquidity_quality": 31.99,
-          "long_score": 19.03,
+          "long_score": 12.88,
           "short_score": 7.23,
           "crowded_long_score": 8.0,
           "squeeze_risk_score": 11.64,
-          "confidence_score": 34.0,
+          "confidence_score": 31,
           "signal_conflict_score": 100.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.137
         }
       },
       {
@@ -21782,7 +21859,7 @@
         "factors": {
           "momentum_24h": -0.9487248495294563,
           "reversal_3d": 0.831205950308194,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.8851271495233709,
           "funding_rate_contrarian": 0.8291810638205745,
           "ls_ratio_contrarian": 0.8116765234508803,
           "liquidation_imbalance": 0.5663168663173027,
@@ -21799,7 +21876,7 @@
         "raw_factors": {
           "momentum_24h": -7.550592222366005,
           "reversal_3d": 3.221324953243889,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -0.012169761261358047,
           "funding_rate_contrarian": 0.002041018255720209,
           "ls_ratio_contrarian": 0.23572233352106983,
           "liquidation_imbalance": 93.74081965252637,
@@ -21814,16 +21891,17 @@
           "volatility_expansion_4h": 3.016281319161103
         },
         "scores": {
-          "factor_score": 0.1708,
+          "factor_score": 0.1209,
           "liquidity_quality": 39.64,
-          "long_score": 14.34,
+          "long_score": 12.31,
           "short_score": 9.55,
           "crowded_long_score": 9.91,
           "squeeze_risk_score": 11.64,
-          "confidence_score": 35.0,
-          "signal_conflict_score": 98.0,
-          "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "confidence_score": 34,
+          "signal_conflict_score": 98,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1539
         }
       },
       {
@@ -21831,7 +21909,7 @@
         "factors": {
           "momentum_24h": -0.14163335753654765,
           "reversal_3d": 0.350723965297332,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.04004297383070598,
           "funding_rate_contrarian": -0.0011251256824468146,
           "ls_ratio_contrarian": 0.5478359211182444,
           "liquidation_imbalance": -0.1350102413452315,
@@ -21848,7 +21926,7 @@
         "raw_factors": {
           "momentum_24h": -4.8175048064539165,
           "reversal_3d": 2.282816905578925,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.848415505337667,
           "funding_rate_contrarian": -0.0018469318591585987,
           "ls_ratio_contrarian": 0.07257069283483537,
           "liquidation_imbalance": 78.74975207338846,
@@ -21863,16 +21941,17 @@
           "volatility_expansion_4h": 3.6402267314342285
         },
         "scores": {
-          "factor_score": -0.0065,
+          "factor_score": -0.0689,
           "liquidity_quality": 68.67,
           "long_score": 16.94,
-          "short_score": 17.52,
+          "short_score": 22.63,
           "crowded_long_score": 17.98,
           "squeeze_risk_score": 17.17,
-          "confidence_score": 65.0,
+          "confidence_score": 67,
           "signal_conflict_score": 0.0,
-          "regime_alignment_score": 0.0,
-          "breadth_alignment_score": 0.0
+          "regime_alignment_score": 1,
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1545
         }
       },
       {
@@ -21880,7 +21959,7 @@
         "factors": {
           "momentum_24h": -0.21239373561371774,
           "reversal_3d": -0.1923200861358611,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.041069748040003386,
           "funding_rate_contrarian": -0.5915535801966859,
           "ls_ratio_contrarian": 0.7514031041232085,
           "liquidation_imbalance": -0.3217567525067871,
@@ -21897,7 +21976,7 @@
         "raw_factors": {
           "momentum_24h": -5.0571236114921865,
           "reversal_3d": 1.222108640949364,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -2.5997524687901725,
           "funding_rate_contrarian": -0.004611642524425775,
           "ls_ratio_contrarian": 0.19845093872383832,
           "liquidation_imbalance": 74.75799196829041,
@@ -21912,16 +21991,17 @@
           "volatility_expansion_4h": 2.096121654368667
         },
         "scores": {
-          "factor_score": -0.0381,
+          "factor_score": -0.0204,
           "liquidity_quality": 37.74,
           "long_score": 8.86,
-          "short_score": 12.45,
+          "short_score": 10.56,
           "crowded_long_score": 11.45,
           "squeeze_risk_score": 9.43,
-          "confidence_score": 55.0,
+          "confidence_score": 53,
           "signal_conflict_score": 0,
-          "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "regime_alignment_score": 0,
+          "breadth_alignment_score": 0,
+          "round_trip_cost_pct": 0.1462
         }
       },
       {
@@ -21929,7 +22009,7 @@
         "factors": {
           "momentum_24h": -0.0047679134830659236,
           "reversal_3d": 1.2664856575171082,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.19693202670029405,
           "funding_rate_contrarian": -0.8356581849326182,
           "ls_ratio_contrarian": -2.5226970134245583,
           "liquidation_imbalance": -0.7827033633115879,
@@ -21946,7 +22026,7 @@
         "raw_factors": {
           "momentum_24h": -4.3540316729531146,
           "reversal_3d": 4.071541029901955,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.3293820835496106,
           "funding_rate_contrarian": -0.005754674502295982,
           "ls_ratio_contrarian": -1.8261608959453874,
           "liquidation_imbalance": 64.90512628343177,
@@ -21961,16 +22041,17 @@
           "volatility_expansion_4h": 1.548665729156259
         },
         "scores": {
-          "factor_score": -0.37,
+          "factor_score": -0.3444,
           "liquidity_quality": 84.99,
           "long_score": 10.53,
-          "short_score": 42.41,
+          "short_score": 40.97,
           "crowded_long_score": 58.76,
           "squeeze_risk_score": 21.25,
           "confidence_score": 71.0,
           "signal_conflict_score": 34.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1427
         }
       },
       {
@@ -21978,7 +22059,7 @@
         "factors": {
           "momentum_24h": 0.5796713223905312,
           "reversal_3d": 0.5012250166836429,
-          "oi_price_signal": -0.8454780386459819,
+          "oi_price_signal": -3,
           "funding_rate_contrarian": -0.5078167363575453,
           "ls_ratio_contrarian": -1.5437863002689312,
           "liquidation_imbalance": -0.16918199672761713,
@@ -21995,7 +22076,7 @@
         "raw_factors": {
           "momentum_24h": -2.3749208326353486,
           "reversal_3d": 2.5767851547837273,
-          "oi_price_signal": -6.652247072730557,
+          "oi_price_signal": -12.035440046201261,
           "funding_rate_contrarian": -0.0042195405796976,
           "ls_ratio_contrarian": -1.220829921392359,
           "liquidation_imbalance": 78.01932102539651,
@@ -22010,16 +22091,17 @@
           "volatility_expansion_4h": 0.7201218064184342
         },
         "scores": {
-          "factor_score": -0.1775,
+          "factor_score": -0.328,
           "liquidity_quality": 88.11,
           "long_score": 11.5,
-          "short_score": 32.09,
+          "short_score": 40.44,
           "crowded_long_score": 72.73,
           "squeeze_risk_score": 35.33,
-          "confidence_score": 65.0,
+          "confidence_score": 68,
           "signal_conflict_score": 39.0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1473
         }
       },
       {
@@ -22027,7 +22109,7 @@
         "factors": {
           "momentum_24h": -0.5014813180028932,
           "reversal_3d": 0.9610906562795903,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 0.3724512542416264,
           "funding_rate_contrarian": -1.5616123573638903,
           "ls_ratio_contrarian": 0.693295671569352,
           "liquidation_imbalance": 0.6763124529467226,
@@ -22044,7 +22126,7 @@
         "raw_factors": {
           "momentum_24h": -6.036072889687832,
           "reversal_3d": 3.4750240421285583,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -1.5838534866413037,
           "funding_rate_contrarian": -0.009153991096322941,
           "ls_ratio_contrarian": 0.16251892949777494,
           "liquidation_imbalance": 96.09200678696406,
@@ -22059,16 +22141,17 @@
           "volatility_expansion_4h": 2.4659152977933267
         },
         "scores": {
-          "factor_score": -0.3574,
+          "factor_score": -0.3286,
           "liquidity_quality": 53.05,
           "long_score": 12.12,
-          "short_score": 35.55,
+          "short_score": 32.37,
           "crowded_long_score": 17.27,
           "squeeze_risk_score": 13.26,
-          "confidence_score": 70.0,
-          "signal_conflict_score": 0,
+          "confidence_score": 66,
+          "signal_conflict_score": 26,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1325
         }
       },
       {
@@ -22076,7 +22159,7 @@
         "factors": {
           "momentum_24h": -2.915921322670545,
           "reversal_3d": 0.5268448197671192,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": 3,
           "funding_rate_contrarian": 1.9317793774732563,
           "ls_ratio_contrarian": 1.1776586934639375,
           "liquidation_imbalance": -0.38409927621013745,
@@ -22093,7 +22176,7 @@
         "raw_factors": {
           "momentum_24h": -14.212191283573542,
           "reversal_3d": 2.6268273876322503,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": 6.900866344386696,
           "funding_rate_contrarian": 0.007203989812992363,
           "ls_ratio_contrarian": 0.4620354595965587,
           "liquidation_imbalance": 73.42540268765386,
@@ -22108,16 +22191,17 @@
           "volatility_expansion_4h": 5.027174772320209
         },
         "scores": {
-          "factor_score": 0.1506,
+          "factor_score": 0.0417,
           "liquidity_quality": 51.14,
-          "long_score": 15.59,
+          "long_score": 11.16,
           "short_score": 9.34,
           "crowded_long_score": 12.79,
           "squeeze_risk_score": 29.13,
-          "confidence_score": 34.0,
-          "signal_conflict_score": 100.0,
-          "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "confidence_score": 32,
+          "signal_conflict_score": 100,
+          "regime_alignment_score": -1,
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1384
         }
       },
       {
@@ -22125,7 +22209,7 @@
         "factors": {
           "momentum_24h": 0.1738380862137618,
           "reversal_3d": 0.4369139075545587,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.4016683377760947,
           "funding_rate_contrarian": -1.1245851761198755,
           "ls_ratio_contrarian": -1.2913182314557383,
           "liquidation_imbalance": 0.37728632884057217,
@@ -22142,7 +22226,7 @@
         "raw_factors": {
           "momentum_24h": -3.749210763526297,
           "reversal_3d": 2.451168596088939,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.957031503141154,
           "funding_rate_contrarian": -0.007107589538676062,
           "ls_ratio_contrarian": -1.0647107369924282,
           "liquidation_imbalance": 89.70023783147121,
@@ -22157,16 +22241,17 @@
           "volatility_expansion_4h": 1.6828979229382066
         },
         "scores": {
-          "factor_score": -0.4063,
+          "factor_score": -0.2809,
           "liquidity_quality": 83.33,
           "long_score": 9.94,
-          "short_score": 46.63,
+          "short_score": 39.19,
           "crowded_long_score": 58.94,
           "squeeze_risk_score": 20.83,
-          "confidence_score": 73.0,
+          "confidence_score": 70,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1387
         }
       },
       {
@@ -22174,7 +22259,7 @@
         "factors": {
           "momentum_24h": 1.566345989497821,
           "reversal_3d": -0.9154314663755336,
-          "oi_price_signal": -0.20821922653273817,
+          "oi_price_signal": -1.5698211065259098,
           "funding_rate_contrarian": -1.5960675051764963,
           "ls_ratio_contrarian": 0.9617184619579345,
           "liquidation_imbalance": -3.0,
@@ -22191,7 +22276,7 @@
         "raw_factors": {
           "momentum_24h": 0.9662965423755573,
           "reversal_3d": -0.19031861102702502,
-          "oi_price_signal": 1.312345627306474,
+          "oi_price_signal": -7.538176457094254,
           "funding_rate_contrarian": -0.00931532904320296,
           "ls_ratio_contrarian": 0.3285040669720361,
           "liquidation_imbalance": -38.2850092308943,
@@ -22206,16 +22291,17 @@
           "volatility_expansion_4h": 3.017399166893949
         },
         "scores": {
-          "factor_score": 0.0851,
+          "factor_score": 0.2594,
           "liquidity_quality": 84.88,
-          "long_score": 18.31,
+          "long_score": 25.4,
           "short_score": 19.94,
           "crowded_long_score": 29.48,
           "squeeze_risk_score": 31.49,
-          "confidence_score": 51.0,
+          "confidence_score": 54,
           "signal_conflict_score": 100.0,
           "regime_alignment_score": -1.0,
-          "breadth_alignment_score": -0.357
+          "breadth_alignment_score": -0.357,
+          "round_trip_cost_pct": 0.1879
         }
       },
       {
@@ -22223,7 +22309,7 @@
         "factors": {
           "momentum_24h": 0.07881832590045158,
           "reversal_3d": 0.0,
-          "oi_price_signal": -0.3132219362802743,
+          "oi_price_signal": -0.292747051599394,
           "funding_rate_contrarian": -0.670727252256801,
           "ls_ratio_contrarian": 0.1904609133486952,
           "liquidation_imbalance": -0.45916543913801267,
@@ -22240,7 +22326,7 @@
         "raw_factors": {
           "momentum_24h": -4.07098012146369,
           "reversal_3d": null,
-          "oi_price_signal": -0.0,
+          "oi_price_signal": -3.623117202884666,
           "funding_rate_contrarian": -0.004982377189869795,
           "ls_ratio_contrarian": -0.14842000511827322,
           "liquidation_imbalance": 71.82084197830247,
@@ -22255,16 +22341,17 @@
           "volatility_expansion_4h": null
         },
         "scores": {
-          "factor_score": -0.1675,
+          "factor_score": -0.1132,
           "liquidity_quality": 26.51,
           "long_score": 6.01,
-          "short_score": 17.11,
+          "short_score": 13.88,
           "crowded_long_score": 8.81,
           "squeeze_risk_score": 6.63,
-          "confidence_score": 47.0,
+          "confidence_score": 46,
           "signal_conflict_score": 0,
           "regime_alignment_score": 1.0,
-          "breadth_alignment_score": 0.357
+          "breadth_alignment_score": 0.357,
+          "round_trip_cost_pct": 0.1451
         }
       }
     ]
