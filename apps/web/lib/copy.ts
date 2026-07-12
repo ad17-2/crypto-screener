@@ -800,6 +800,24 @@ export const METRIC: Record<string, CopyEntry> = {
     definition:
       "The model's average directional return, minus the estimated median round-trip cost across every coin that cleared data-quality checks this run -- not just the shortlist. This is the number that answers whether the model would make money after trading costs, not merely whether it calls direction correctly.",
   },
+  // -- Per-factor economic edge (apps/api/src/pipeline/economicEdge.ts) -- distinct from the
+  // whole-model `net_edge` above: this is one factor's own decile long-short spread, the number
+  // that decides whether that factor's weight comes from money instead of rank order.
+  factor_net_spread: {
+    label: 'Net spread',
+    definition:
+      "This factor's own long-short spread: sort coins by this factor, go long the top 10% and short the bottom 10%, average that spread across every past snapshot, then subtract the estimated round-trip cost of both legs. Positive means the bet would have made money after costs; this is what decides the factor's weight, not just whether it correctly called direction more often than not.",
+  },
+  factor_net_edge_30d: {
+    label: 'Net edge per 30 days',
+    definition:
+      "The net spread above, scaled to a rough 30-day pace based on how often the model's forward-return window repeats. A rate, not a promise -- it assumes the same edge repeats every window, which real markets rarely do exactly.",
+  },
+  factor_edge_t_stat: {
+    label: 'Edge t-stat',
+    definition:
+      "How consistent this factor's decile long-short spread has been across snapshots, not the consistency of its rank correlation (that's the separate 't-stat' above). As a rough rule of thumb, 2 or higher is normally treated as \"probably not noise.\"",
+  },
 };
 
 export const lookupMetric = makeLookup(METRIC, NOT_REPORTED);

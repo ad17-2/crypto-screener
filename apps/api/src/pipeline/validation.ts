@@ -1,3 +1,6 @@
+import type { LabeledFactorRecord } from '../db/types.js';
+import { roundTripCostPct } from './costs.js';
+import { type EconomicEdgeSummary, economicEdge } from './economicEdge.js';
 import { DIRECTIONAL_FACTORS } from './factorDefinitions.js';
 import { crossSectionalIc, type FactorRecord } from './ic.js';
 import { pyRound, toFloat } from './scoring.js';
@@ -290,6 +293,8 @@ export interface ValidationMetrics {
   observations: number;
   model: DirectionalValidationResult | Record<string, never>;
   factors: Record<string, DirectionalValidationResult>;
+  /** Per-factor money-after-costs read, alongside the rank-based `factors` above; null per factor when there's too little decile data. Always the RAW forward_return_pct -- see economicEdge.ts. */
+  economic_edge: Record<string, EconomicEdgeSummary | null>;
 }
 
 export function validationMetrics(
@@ -306,6 +311,7 @@ export function validationMetrics(
       observations: 0,
       model: {},
       factors: {},
+      economic_edge: {},
     };
   }
 
@@ -317,12 +323,22 @@ export function validationMetrics(
     (pair): pair is [number, number] => pair[0] !== null && pair[1] !== null,
   );
   const factorResults: Record<string, DirectionalValidationResult> = {};
+  const costPctPerLeg = roundTripCostPct({}, config.costs ?? {}, horizonHours, 0);
+  const economicEdgeResults: Record<string, EconomicEdgeSummary | null> = {};
   for (const factor of DIRECTIONAL_FACTORS) {
     factorResults[factor] = directionalValidation(
       records.map((record) => [
         toFloat(asRecord(record.factors)[factor]),
         toFloat(record.forward_return_pct),
       ]),
+    );
+    economicEdgeResults[factor] = economicEdge(
+      records as unknown as LabeledFactorRecord[],
+      factor,
+      {
+        forwardReturnHours: horizonHours,
+        costPctPerLeg,
+      },
     );
   }
 
@@ -332,6 +348,7 @@ export function validationMetrics(
     horizon_hours: horizonHours,
     observations: records.length,
     model: directionalValidation(modelValid),
+    economic_edge: economicEdgeResults,
     factors: factorResults,
   };
 }

@@ -34,7 +34,7 @@ const DEFAULT_OPTIONS: CrossSectionalIcOptions = {
 };
 
 /** Sample stdev (ddof=1) — a t-stat's SE needs this, not scoring.ts's population stdev(). */
-function sampleStdev(values: number[]): number {
+export function sampleStdev(values: number[]): number {
   if (values.length < 2) {
     return 0.0;
   }
@@ -55,6 +55,26 @@ function medianSpacingHours(sortedDistinctTimestampsMs: number[]): number | null
     gapsHours.push((curr - prev) / 3_600_000);
   }
   return median(gapsHours);
+}
+
+/**
+ * Shared with economicEdge.ts, which needs the identical overlap/n_effective derivation for its
+ * own t-stat. q = forwardReturnHours / medianSpacingHours (clamped >= 1, spacing from the
+ * retained periods' actual timestamp gaps); n_effective = n_periods / q (clamped >= 1).
+ */
+export function overlapAdjustedNEffective(
+  nPeriods: number,
+  retainedTimestampsMs: number[],
+  forwardReturnHours: number,
+  overlapCorrection: boolean,
+): { nEffective: number; overlapFactor: number } {
+  const sortedTimestampsMs = [...new Set(retainedTimestampsMs)].sort((a, b) => a - b);
+  const spacingHours = medianSpacingHours(sortedTimestampsMs);
+  const dataOverlapQ =
+    spacingHours !== null && spacingHours > 0 ? Math.max(1, forwardReturnHours / spacingHours) : 1;
+  const overlapFactor = overlapCorrection ? dataOverlapQ : 1;
+  const nEffective = Math.max(1, nPeriods / overlapFactor);
+  return { nEffective, overlapFactor };
 }
 
 /**
@@ -111,14 +131,14 @@ export function crossSectionalIc(
   let overlapFactor: number | null = null;
 
   if (nPeriods >= 2 && meanIc !== null) {
-    const sortedTimestampsMs = [...new Set(retainedTimestampsMs)].sort((a, b) => a - b);
-    const spacingHours = medianSpacingHours(sortedTimestampsMs);
-    const dataOverlapQ =
-      spacingHours !== null && spacingHours > 0
-        ? Math.max(1, options.forwardReturnHours / spacingHours)
-        : 1;
-    overlapFactor = options.overlapCorrection ? dataOverlapQ : 1;
-    nEffective = Math.max(1, nPeriods / overlapFactor);
+    const adjustment = overlapAdjustedNEffective(
+      nPeriods,
+      retainedTimestampsMs,
+      options.forwardReturnHours,
+      options.overlapCorrection,
+    );
+    nEffective = adjustment.nEffective;
+    overlapFactor = adjustment.overlapFactor;
 
     const icSampleStdev = sampleStdev(icSeries);
     if (icSampleStdev > 0) {

@@ -68,6 +68,11 @@ describe('factorWeights', () => {
         min_abs_ic: 0.02,
         ic_prior_strength: 10,
         ic_min_cross_section: 5,
+        // Pinned to the rank_ic escape hatch: only 6 symbols/period, under economicEdge's
+        // minNamesPerPeriod (20), and no forward_return_vol_adj on these records -- this test is
+        // about the pooled cross-sectional IC blend, not net_edge selection or vol-adjustment.
+        selection_objective: 'rank_ic' as const,
+        ic_target: 'raw' as const,
       },
     };
     const weights = factorWeights(records, config);

@@ -18673,7 +18673,12 @@
           "weight": 0.20547945205479445,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 0.18463263882339304,
+          "net_edge_per_30d_pct": 5.538979164701791,
+          "edge_t_stat": -0.2519897289271664,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "reversal_3d": {
           "ic": null,
@@ -18694,7 +18699,12 @@
           "weight": 0.05479452054794519,
           "regime_multiplier": 1.0,
           "n_effective": null,
-          "overlap_factor": null
+          "overlap_factor": null,
+          "net_spread_pct": null,
+          "net_edge_per_30d_pct": null,
+          "edge_t_stat": null,
+          "edge_n_effective": null,
+          "edge_overlap_factor": null
         },
         "oi_price_signal": {
           "ic": 0.007563608526946269,
@@ -18715,7 +18725,12 @@
           "weight": 0.13698630136986298,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 0.6700139026092478,
+          "net_edge_per_30d_pct": 20.10041707827743,
+          "edge_t_stat": 0.4895418601545182,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "funding_rate_contrarian": {
           "ic": -0.03210209514043357,
@@ -18736,7 +18751,12 @@
           "weight": 0.10958904109589038,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 1.5152985368800276,
+          "net_edge_per_30d_pct": 45.45895610640083,
+          "edge_t_stat": -0.7077171855618936,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "ls_ratio_contrarian": {
           "ic": -0.010347184302158379,
@@ -18757,7 +18777,12 @@
           "weight": 0.08219178082191778,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": -0.27119487492471706,
+          "net_edge_per_30d_pct": -8.135846247741512,
+          "edge_t_stat": 0.03527054387777731,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "liquidation_imbalance": {
           "ic": 0.07527616258806075,
@@ -18778,7 +18803,12 @@
           "weight": 0.06849315068493149,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 0.569327228024967,
+          "net_edge_per_30d_pct": 17.07981684074901,
+          "edge_t_stat": -0.7565273971191173,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "technical_trend_4h": {
           "ic": -0.10701387195709414,
@@ -18799,7 +18829,12 @@
           "weight": 0.08219178082191778,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 1.5520757609792724,
+          "net_edge_per_30d_pct": 46.56227282937817,
+          "edge_t_stat": -0.7649906197735009,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "technical_momentum_4h": {
           "ic": -0.044537653983482035,
@@ -18820,7 +18855,12 @@
           "weight": 0.05479452054794519,
           "regime_multiplier": 1.0,
           "n_effective": 2.6666666666666665,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 0.020340657951978702,
+          "net_edge_per_30d_pct": 0.6102197385593611,
+          "edge_t_stat": 0.24990566777519216,
+          "edge_n_effective": 2.6666666666666665,
+          "edge_overlap_factor": 6
         },
         "oi_acceleration_signal": {
           "ic": 0.004133739403559049,
@@ -18841,7 +18881,12 @@
           "weight": 0.05479452054794519,
           "regime_multiplier": 1.0,
           "n_effective": 2.3333333333333335,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": -0.10608158204349472,
+          "net_edge_per_30d_pct": -3.1824474613048412,
+          "edge_t_stat": -0.12154544302920443,
+          "edge_n_effective": 2.3333333333333335,
+          "edge_overlap_factor": 6
         },
         "funding_persistence_contrarian": {
           "ic": 0.032225955317196076,
@@ -18862,7 +18907,12 @@
           "weight": 0.05479452054794519,
           "regime_multiplier": 1.0,
           "n_effective": 2.3333333333333335,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 0.8892169670518326,
+          "net_edge_per_30d_pct": 26.676509011554977,
+          "edge_t_stat": 0.7332928299703246,
+          "edge_n_effective": 2.3333333333333335,
+          "edge_overlap_factor": 6
         },
         "taker_flow_24h": {
           "ic": 0.05008305363210365,
@@ -18883,7 +18933,12 @@
           "weight": 0.047945205479452045,
           "regime_multiplier": 1.0,
           "n_effective": 2.3333333333333335,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": -0.16008112488214332,
+          "net_edge_per_30d_pct": -4.8024337464643,
+          "edge_t_stat": -0.09090761519905725,
+          "edge_n_effective": 2.3333333333333335,
+          "edge_overlap_factor": 6
         },
         "liquidation_pressure_24h": {
           "ic": 0.018697566787418678,
@@ -18904,7 +18959,12 @@
           "weight": 0.047945205479452045,
           "regime_multiplier": 1.0,
           "n_effective": 2.3333333333333335,
-          "overlap_factor": 6
+          "overlap_factor": 6,
+          "net_spread_pct": 0.5984384880330145,
+          "net_edge_per_30d_pct": 17.953154640990434,
+          "edge_t_stat": 0.8244386562216907,
+          "edge_n_effective": 2.3333333333333335,
+          "edge_overlap_factor": 6
         }
       },
       "history_records": 641,
@@ -19061,6 +19121,119 @@
             "short_observations": 177,
             "short_hit_rate": 61.58,
             "avg_directional_return_pct": 0.223
+          }
+        },
+        "economic_edge": {
+          "momentum_24h": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": -0.504632638823393,
+            "net_spread_pct": 0.18463263882339304,
+            "t_stat": -0.2519897289271664,
+            "net_edge_per_30d_pct": 5.538979164701791,
+            "direction": -1
+          },
+          "reversal_3d": null,
+          "oi_price_signal": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": 0.9900139026092478,
+            "net_spread_pct": 0.6700139026092478,
+            "t_stat": 0.4895418601545182,
+            "net_edge_per_30d_pct": 20.10041707827743,
+            "direction": 1
+          },
+          "funding_rate_contrarian": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": -1.8352985368800276,
+            "net_spread_pct": 1.5152985368800276,
+            "t_stat": -0.7077171855618936,
+            "net_edge_per_30d_pct": 45.45895610640083,
+            "direction": -1
+          },
+          "ls_ratio_contrarian": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": 0.04880512507528298,
+            "net_spread_pct": -0.27119487492471706,
+            "t_stat": 0.03527054387777731,
+            "net_edge_per_30d_pct": -8.135846247741512,
+            "direction": 1
+          },
+          "liquidation_imbalance": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": -0.8893272280249671,
+            "net_spread_pct": 0.569327228024967,
+            "t_stat": -0.7565273971191173,
+            "net_edge_per_30d_pct": 17.07981684074901,
+            "direction": -1
+          },
+          "technical_trend_4h": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": -1.8720757609792724,
+            "net_spread_pct": 1.5520757609792724,
+            "t_stat": -0.7649906197735009,
+            "net_edge_per_30d_pct": 46.56227282937817,
+            "direction": -1
+          },
+          "technical_momentum_4h": {
+            "n_periods": 16,
+            "n_effective": 2.6666666666666665,
+            "overlap_factor": 6,
+            "gross_spread_pct": 0.3403406579519787,
+            "net_spread_pct": 0.020340657951978702,
+            "t_stat": 0.24990566777519216,
+            "net_edge_per_30d_pct": 0.6102197385593611,
+            "direction": 1
+          },
+          "oi_acceleration_signal": {
+            "n_periods": 14,
+            "n_effective": 2.3333333333333335,
+            "overlap_factor": 6,
+            "gross_spread_pct": -0.2139184179565053,
+            "net_spread_pct": -0.10608158204349472,
+            "t_stat": -0.12154544302920443,
+            "net_edge_per_30d_pct": -3.1824474613048412,
+            "direction": -1
+          },
+          "funding_persistence_contrarian": {
+            "n_periods": 14,
+            "n_effective": 2.3333333333333335,
+            "overlap_factor": 6,
+            "gross_spread_pct": 1.2092169670518327,
+            "net_spread_pct": 0.8892169670518326,
+            "t_stat": 0.7332928299703246,
+            "net_edge_per_30d_pct": 26.676509011554977,
+            "direction": 1
+          },
+          "taker_flow_24h": {
+            "n_periods": 14,
+            "n_effective": 2.3333333333333335,
+            "overlap_factor": 6,
+            "gross_spread_pct": -0.15991887511785668,
+            "net_spread_pct": -0.16008112488214332,
+            "t_stat": -0.09090761519905725,
+            "net_edge_per_30d_pct": -4.8024337464643,
+            "direction": -1
+          },
+          "liquidation_pressure_24h": {
+            "n_periods": 14,
+            "n_effective": 2.3333333333333335,
+            "overlap_factor": 6,
+            "gross_spread_pct": 0.9184384880330144,
+            "net_spread_pct": 0.5984384880330145,
+            "t_stat": 0.8244386562216907,
+            "net_edge_per_30d_pct": 17.953154640990434,
+            "direction": 1
           }
         }
       },
@@ -19830,7 +20003,9 @@
           "holds_hours": 24.0,
           "sufficient": true
         }
-      }
+      },
+      "ic_target_effective": "raw",
+      "selection_objective": "net_edge"
     },
     "regime": {
       "label": "btc-led",

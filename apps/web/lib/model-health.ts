@@ -91,11 +91,17 @@ function signalsMeasuredRung(validation: unknown, factors: unknown[]): EvidenceR
   return { key: 'signals_measured', claim, status, detail };
 }
 
-/** apps/api/src/pipeline/weighting.ts min_abs_t = 2.0 -- the significance bar for a factor's t-stat. */
+/** apps/api/src/pipeline/weighting.ts min_abs_t = 2.0 -- the significance bar, now applied to the economic-edge t-stat rather than the rank-IC t-stat. */
 const MIN_ABS_T_STAT = 2;
 
+/**
+ * "Working" means money, not rank order: a factor only counts here if its decile long-short
+ * spread clears a t-stat of 2 AND is still positive after both legs' round-trip costs
+ * (net_spread_pct > 0) -- see apps/api/src/pipeline/weighting.ts's net_edge selection gate. A
+ * factor with a significant rank IC but a negative net spread does NOT count as passing.
+ */
 function measurementsStrongRung(factors: unknown[]): EvidenceRung {
-  const claim = 'Measurements are strong enough to trust';
+  const claim = 'The signals that pass actually make money';
   const total = factors.length;
   if (total === 0) {
     return {
@@ -106,10 +112,11 @@ function measurementsStrongRung(factors: unknown[]): EvidenceRung {
     };
   }
   const strongCount = factors.filter((factor) => {
-    const t = num(factor, 't_stat');
-    return t !== null && Math.abs(t) >= MIN_ABS_T_STAT;
+    const t = num(factor, 'edge_t_stat');
+    const netSpread = num(factor, 'net_spread_pct');
+    return t !== null && Math.abs(t) >= MIN_ABS_T_STAT && netSpread !== null && netSpread > 0;
   }).length;
-  const detail = `${strongCount} of ${total} signals clear a t-stat of ${MIN_ABS_T_STAT} or more (the usual bar for "probably not noise").`;
+  const detail = `${strongCount} of ${total} signals are still profitable after both legs' trading costs, with a t-stat of ${MIN_ABS_T_STAT} or more (the usual bar for "probably not noise").`;
   const status: RungStatus =
     strongCount === 0 ? 'fail' : strongCount / total >= 0.5 ? 'pass' : 'partial';
   return { key: 'measurements_strong', claim, status, detail };
@@ -266,6 +273,10 @@ export interface FactorHealthRow {
   oosIc: number | null;
   robustness: string | null;
   decay: FactorDecayInfo;
+  /** Decile long-short spread net of round-trip costs -- the money number behind the net_edge selection gate. */
+  netSpreadPct: number | null;
+  netEdgePer30dPct: number | null;
+  edgeTStat: number | null;
 }
 
 function factorDecayInfo(entry: Record<string, unknown> | null): FactorDecayInfo {
@@ -299,6 +310,9 @@ export function factorHealthRows(modelWeights: unknown): FactorHealthRow[] {
       oosIc: num(factor, 'oos_ic'),
       robustness: str(factor, 'robustness'),
       decay: factorDecayInfo(rec(decayTable, name)),
+      netSpreadPct: num(factor, 'net_spread_pct'),
+      netEdgePer30dPct: num(factor, 'net_edge_per_30d_pct'),
+      edgeTStat: num(factor, 'edge_t_stat'),
     };
   });
   return rows.sort((a, b) => Math.abs(b.weight ?? 0) - Math.abs(a.weight ?? 0));

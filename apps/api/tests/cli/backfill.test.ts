@@ -11,6 +11,7 @@ import {
   saveFactorHistoryRecords,
 } from '../../src/db/index.js';
 import type { FactorHistoryRecordInput } from '../../src/db/types.js';
+import { rawFactors } from '../../src/pipeline/factors.js';
 import type { Row } from '../../src/pipeline/types.js';
 import { ProviderError } from '../../src/providers/errors.js';
 
@@ -125,6 +126,20 @@ describe('backfill: buildSymbolRows + scoreBackfillRows write only compact facto
     expect(historyCount).toBe(records.length);
     expect(factorsJson).toContain('oi_acceleration_signal');
     expect(labels.length).toBeGreaterThan(0);
+  });
+
+  it('never aliases taker flow onto long_short_ratio, so ls_ratio_contrarian cannot be derived from taker_flow_24h', () => {
+    const histories = syntheticHistories(100);
+    const rows = buildSymbolRows('BTC', 'OKX', 'BTC-USDT-SWAP', '4h', histories);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.long_short_account_ratio).toBeUndefined();
+      expect(row.long_short_ratio).toBeUndefined();
+      // taker_buy_sell_ratio_24h is real (derivativesSnapshot sets it) -- the bug was aliasing
+      // it onto long_short_ratio, making ls_ratio_contrarian a copy of taker_flow_24h.
+      expect(row.taker_buy_sell_ratio_24h).not.toBeUndefined();
+      expect(rawFactors(row, rows, {}).ls_ratio_contrarian).toBeNull();
+    }
   });
 });
 

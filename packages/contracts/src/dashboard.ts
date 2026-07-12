@@ -222,6 +222,11 @@ const ModelWeightFactorSchema = z.object({
   oos_ic: z.number().nullable(),
   regime_ic: z.number().nullable(),
   regime_mode: z.unknown(),
+  net_spread_pct: z.number().nullable(),
+  net_edge_per_30d_pct: z.number().nullable(),
+  edge_t_stat: z.number().nullable(),
+  edge_n_effective: z.number().nullable(),
+  edge_overlap_factor: z.number().nullable(),
 });
 
 export const ModelWeightsSchema = z.object({

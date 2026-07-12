@@ -469,6 +469,11 @@ interface ModelWeightFactor {
   oos_ic: number | null;
   regime_ic: number | null;
   regime_mode: unknown;
+  net_spread_pct: number | null;
+  net_edge_per_30d_pct: number | null;
+  edge_t_stat: number | null;
+  edge_n_effective: number | null;
+  edge_overlap_factor: number | null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -498,6 +503,11 @@ function modelWeightsSummary(factorWeights: Record<string, unknown>): ModelWeigh
       oos_ic: toFloat(details.oos_ic),
       regime_ic: toFloat(details.regime_ic),
       regime_mode: details.regime_mode ?? null,
+      net_spread_pct: toFloat(details.net_spread_pct),
+      net_edge_per_30d_pct: toFloat(details.net_edge_per_30d_pct),
+      edge_t_stat: toFloat(details.edge_t_stat),
+      edge_n_effective: toFloat(details.edge_n_effective),
+      edge_overlap_factor: toFloat(details.edge_overlap_factor),
     });
   }
   factors.sort((a, b) => Math.abs(b.weight ?? 0) - Math.abs(a.weight ?? 0));

@@ -26,7 +26,7 @@ const STATUS_PILL_TONE: Record<RungStatus, string> = {
 const RUNG_TERM: Record<EvidenceRung['key'], string | null> = {
   clean_data: null,
   signals_measured: 'observations',
-  measurements_strong: 't_stat',
+  measurements_strong: 'factor_net_spread',
   scored_end_to_end: 'calibration',
 };
 

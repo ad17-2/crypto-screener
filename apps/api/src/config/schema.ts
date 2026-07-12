@@ -99,6 +99,9 @@ const UniverseConfigSchema = z
     contract_type: z.string().default('PERPETUAL'),
     top_symbols_by_volume: z.number().int().default(80),
     min_quote_volume_usd: z.number().default(20_000_000),
+    // Also holds the tokenized equities/commodities CoinGlass lists alongside perps: a cross-sectional
+    // factor rank mixing XAU or MSFT with DOGE is a category error. Excluded here rather than after
+    // the universe cut, so an exclusion costs neither a universe slot nor a provider call.
     exclude_base_assets: z.array(z.string()).default([]),
   })
   .strict();
@@ -174,6 +177,11 @@ const FactorsConfigSchema = z
     ),
     regime: RegimeConfigSchema.default(() => RegimeConfigSchema.parse({})),
     priors: z.record(z.string(), z.number()).default({}),
+    // Rank the IC against risk-adjusted returns; raw-% targets let a few high-ATR names dominate.
+    // Downgrades to 'raw' when no row carries an ATR (weighting.ts's icTargetEffective).
+    ic_target: z.enum(['vol_adjusted', 'raw']).default('vol_adjusted'),
+    // See pipeline/weighting.ts: 'net_edge' gates factor selection on money after costs, not rank IC.
+    selection_objective: z.enum(['net_edge', 'rank_ic']).default('net_edge'),
   })
   .strict();
 

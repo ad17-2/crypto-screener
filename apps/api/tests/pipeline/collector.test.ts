@@ -326,6 +326,57 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
     expect((status.coinglass as { supported_symbols: number }).supported_symbols).toBe(2); // USDT excluded
   });
 
+  it('excludes non-crypto base assets from the candidate pool, so they cost neither a universe slot nor a provider call', async () => {
+    const excludeConfig = buildConfig({
+      providers: {
+        coinglass: {
+          exchanges: ['OKX', 'Bybit'],
+          min_exchange_count: 2,
+          candidate_symbols: 5,
+          request_delay_seconds: 0,
+          technical_indicators: { max_symbols: 0, request_delay_seconds: 0 },
+          derivatives_history: { max_symbols: 0, request_delay_seconds: 0 },
+          long_short_ratio: { max_symbols: 0, request_delay_seconds: 0 },
+        },
+      },
+      universe: {
+        // 'msft' lower-case proves the match is case-insensitive.
+        exclude_base_assets: ['USDT', 'USDC', 'msft'],
+        min_quote_volume_usd: 20_000_000,
+        top_symbols_by_volume: 1, // forces the slice to choose between BTC and MSFT
+      },
+      report: { core_symbols: [] },
+    });
+    const supportedPairs: Record<string, CoinGlassPair[]> = {
+      OKX: [
+        ...SUPPORTED_PAIRS.OKX,
+        {
+          base_asset: 'MSFT',
+          quote_asset: 'USDT',
+          instrument_id: 'MSFT-USDT-SWAP',
+          max_leverage: '10',
+        },
+      ],
+      Bybit: [
+        ...SUPPORTED_PAIRS.Bybit,
+        { base_asset: 'MSFT', quote_asset: 'USDT', instrument_id: 'MSFTUSDT', max_leverage: '10' },
+      ],
+    };
+    const client = new StubCoinGlassClient(supportedPairs, {
+      // MSFT has more volume than BTC, so without exclusion it would win the single top_symbols_by_volume slot.
+      BTC: [btcOkxPair({ volume_usd: 1_000_000_000 })],
+      MSFT: [
+        btcOkxPair({ symbol: 'MSFT/USDT', instrument_id: 'MSFTUSDT', volume_usd: 5_000_000_000 }),
+      ],
+    });
+
+    const rows = await collectCoinglassFutures(excludeConfig, {}, client);
+
+    expect(rows.map((row) => row.symbol)).toEqual(['BTC']);
+    expect(rows.map((row) => row.symbol)).not.toContain('MSFT');
+    expect(rows).toHaveLength(1); // still fills to top_symbols_by_volume(1), not starved by the exclusion
+  });
+
   it('records a provider failure in provider_status but keeps the run going for other symbols', async () => {
     const client = new StubCoinGlassClient(
       SUPPORTED_PAIRS,

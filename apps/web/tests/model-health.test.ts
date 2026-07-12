@@ -106,6 +106,8 @@ function realisticPayload(): RealisticPayload {
           oos_ic: -0.0955,
           regime_ic: -0.1709,
           regime_mode: 'pooled',
+          net_spread_pct: -0.3,
+          edge_t_stat: -1.1,
         },
         {
           name: 'oi_price_signal',
@@ -122,6 +124,8 @@ function realisticPayload(): RealisticPayload {
           oos_ic: -0.0448,
           regime_ic: -0.1459,
           regime_mode: 'pooled',
+          net_spread_pct: -0.1,
+          edge_t_stat: -0.4,
         },
         {
           name: 'technical_trend_4h',
@@ -138,6 +142,9 @@ function realisticPayload(): RealisticPayload {
           oos_ic: -0.1026,
           regime_ic: -0.05,
           regime_mode: 'pooled',
+          // The one factor that's both statistically significant AND still makes money after costs.
+          net_spread_pct: 0.8,
+          edge_t_stat: -3.45,
         },
         {
           name: 'taker_flow_24h',
@@ -154,6 +161,8 @@ function realisticPayload(): RealisticPayload {
           oos_ic: -0.0096,
           regime_ic: 0.01,
           regime_mode: 'pooled',
+          net_spread_pct: 0.2,
+          edge_t_stat: 1.6,
         },
       ],
     },
@@ -176,7 +185,7 @@ describe('evidenceLadder', () => {
     const byKey = Object.fromEntries(rungs.map((r) => [r.key, r]));
     expect(byKey.clean_data?.status).toBe('pass');
     expect(byKey.signals_measured?.status).toBe('pass');
-    // Only 1 of 4 sample factors clears |t| >= 2 here -> partial, not pass.
+    // Only 1 of 4 sample factors clears |edge t| >= 2 AND has a positive net spread -> partial, not pass.
     expect(byKey.measurements_strong?.status).toBe('partial');
     expect(byKey.measurements_strong?.detail).toContain('1 of 4');
     expect(byKey.scored_end_to_end?.status).toBe('fail');
@@ -199,13 +208,13 @@ describe('evidenceLadder', () => {
     assertClean(strong.detail);
   });
 
-  it('measurements_strong rung ignores factors with a null/missing t_stat rather than crashing', () => {
+  it('measurements_strong rung ignores factors with a null/missing edge t-stat rather than crashing', () => {
     const rungs = evidenceLadder({
       model_weights: {
         factors: [
-          { name: 'a', t_stat: null },
-          { name: 'b' },
-          { name: 'c', t_stat: 'not-a-number' },
+          { name: 'a', edge_t_stat: null, net_spread_pct: 5 },
+          { name: 'b', net_spread_pct: 5 },
+          { name: 'c', edge_t_stat: 'not-a-number', net_spread_pct: 5 },
         ],
       },
     });
@@ -214,17 +223,31 @@ describe('evidenceLadder', () => {
     expect(strong.detail).toContain('0 of 3');
   });
 
-  it('measurements_strong rung passes when every factor clears the t-stat bar', () => {
+  it('measurements_strong rung passes when every factor clears the edge t-stat bar with a positive net spread', () => {
     const rungs = evidenceLadder({
       model_weights: {
         factors: [
-          { name: 'a', t_stat: 3.1 },
-          { name: 'b', t_stat: -2.5 },
+          { name: 'a', edge_t_stat: 3.1, net_spread_pct: 1.2 },
+          { name: 'b', edge_t_stat: -2.5, net_spread_pct: 0.4 },
         ],
       },
     });
     const strong = rungs.find((r) => r.key === 'measurements_strong') as EvidenceRung;
     expect(strong.status).toBe('pass');
+  });
+
+  it('measurements_strong rung does not count a factor as passing when its net spread is not positive, even with a significant edge t-stat (a significant IC must not read as "working")', () => {
+    const rungs = evidenceLadder({
+      model_weights: {
+        factors: [
+          { name: 'a', edge_t_stat: 5, net_spread_pct: -0.5 },
+          { name: 'b', edge_t_stat: 4, net_spread_pct: 0 },
+        ],
+      },
+    });
+    const strong = rungs.find((r) => r.key === 'measurements_strong') as EvidenceRung;
+    expect(strong.status).toBe('fail');
+    expect(strong.detail).toContain('0 of 2');
   });
 
   it('scored_end_to_end rung passes once model.observations clears the min-observations bar', () => {

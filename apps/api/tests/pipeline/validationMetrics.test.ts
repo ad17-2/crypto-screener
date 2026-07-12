@@ -178,6 +178,7 @@ describe('validationMetrics', () => {
       observations: 0,
       model: {},
       factors: {},
+      economic_edge: {},
     });
   });
 });

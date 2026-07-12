@@ -108,12 +108,14 @@ interface FactorHistoryDbRow {
   price_usd: number | null;
   factors_json: string;
   scores_json: string;
+  /** Absent on rows from the market_rows fallback below -- that table has no metrics_json column. */
+  metrics_json?: string | null;
 }
 
 function loadFactorHistoryRows(db: Database.Database, cutoff: string): FactorHistoryDbRow[] {
   return db
     .prepare(`
-      SELECT generated_at, symbol, price_usd, factors_json, scores_json
+      SELECT generated_at, symbol, price_usd, factors_json, scores_json, metrics_json
       FROM factor_history
       WHERE generated_at >= ?
       ORDER BY generated_at ASC
@@ -129,6 +131,8 @@ interface LabelingItem {
   price_usd: number;
   factors: Record<string, unknown>;
   scores: Record<string, unknown>;
+  /** From metrics_json's atr_14_pct at the point of prediction; null when missing (market_rows fallback, or ATR not yet computed). */
+  atr_pct: number | null;
 }
 
 /** `scores_json` is NOT NULL in schema.ts, but the market_rows fallback and older rows can still be empty text. */
@@ -170,6 +174,8 @@ function labelingRowsBySymbol(
     if (price === null || price <= 0) {
       continue;
     }
+    const metrics = parseJsonObject(row.metrics_json ?? null);
+    const atrRaw = metrics.atr_14_pct;
     const item: LabelingItem = {
       generatedAt: row.generated_at,
       generatedAtInstant: parseGeneratedAt(row.generated_at),
@@ -177,6 +183,7 @@ function labelingRowsBySymbol(
       price_usd: price,
       factors: JSON.parse(row.factors_json) as Record<string, unknown>,
       scores: parseJsonObject(row.scores_json),
+      atr_pct: typeof atrRaw === 'number' && Number.isFinite(atrRaw) ? atrRaw : null,
     };
     const existing = bySymbol.get(item.symbol);
     if (existing) {
@@ -231,10 +238,15 @@ function labeledRecordsForHorizon(
         continue;
       }
       const forwardReturnPct = ((target.price_usd - current.price_usd) / current.price_usd) * 100.0;
+      // Vol-adjusts by the CURRENT row's ATR (point of prediction), never the target's. Floor
+      // matches factors.ts's reversal_3d denomOrOne precedent (Math.max(denomOrOne, 1.0)).
+      const forwardReturnVolAdj =
+        current.atr_pct === null ? null : forwardReturnPct / Math.max(current.atr_pct, 1.0);
       records.push({
         symbol: current.symbol,
         generated_at: current.generatedAt,
         forward_return_pct: forwardReturnPct,
+        forward_return_vol_adj: forwardReturnVolAdj,
         factors: current.factors,
         scores: current.scores,
       });

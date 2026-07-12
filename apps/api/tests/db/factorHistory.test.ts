@@ -263,3 +263,73 @@ describe('loadLabeledFactorRecords / loadLabeledRecordsByHorizon', () => {
     }
   });
 });
+
+describe('forward_return_vol_adj', () => {
+  it("divides forward_return_pct by the CURRENT row's ATR, not the target row's", () => {
+    const now = new Date();
+    const hoursAgo = (hours: number) =>
+      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
+
+    saveFactorHistoryRecords(db, [
+      {
+        run_id: 'base',
+        generated_at: hoursAgo(40),
+        symbol: 'BTC',
+        price_usd: 100,
+        atr_14_pct: 2.0,
+      },
+      // Target's own ATR (99) must be ignored -- only the current row's ATR feeds the divisor.
+      {
+        run_id: 'target',
+        generated_at: hoursAgo(13),
+        symbol: 'BTC',
+        price_usd: 110,
+        atr_14_pct: 99,
+      },
+    ]);
+
+    const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    expect(baseRecord?.forward_return_pct).toBeCloseTo(10.0); // (110-100)/100*100
+    expect(baseRecord?.forward_return_vol_adj).toBeCloseTo(5.0); // 10 / max(2.0, 1.0)
+  });
+
+  it('floors the ATR divisor at 1.0 when ATR is below that (matches reversal_3d precedent)', () => {
+    const now = new Date();
+    const hoursAgo = (hours: number) =>
+      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
+
+    saveFactorHistoryRecords(db, [
+      {
+        run_id: 'base',
+        generated_at: hoursAgo(40),
+        symbol: 'BTC',
+        price_usd: 100,
+        atr_14_pct: 0.3,
+      },
+      { run_id: 'target', generated_at: hoursAgo(13), symbol: 'BTC', price_usd: 106 },
+    ]);
+
+    const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    expect(baseRecord?.forward_return_pct).toBeCloseTo(6.0);
+    // Without the floor this would be 6 / 0.3 = 20; the floor caps the divisor at 1.0.
+    expect(baseRecord?.forward_return_vol_adj).toBeCloseTo(6.0);
+  });
+
+  it('is null when the current row has no ATR, while forward_return_pct is still computed', () => {
+    const now = new Date();
+    const hoursAgo = (hours: number) =>
+      formatJakartaIso(new Date(now.getTime() - hours * 3_600_000));
+
+    saveFactorHistoryRecords(db, [
+      { run_id: 'base', generated_at: hoursAgo(40), symbol: 'BTC', price_usd: 100 },
+      { run_id: 'target', generated_at: hoursAgo(13), symbol: 'BTC', price_usd: 120 },
+    ]);
+
+    const records = loadLabeledFactorRecords(db, { forwardReturnHours: 24, icWindowDays: 30 });
+    const baseRecord = records.find((record) => record.generated_at === hoursAgo(40));
+    expect(baseRecord?.forward_return_pct).toBeCloseTo(20.0);
+    expect(baseRecord?.forward_return_vol_adj).toBeNull();
+  });
+});

@@ -65,6 +65,8 @@ export interface FactorsConfigInput {
   regime_weighting?: RegimeWeightingConfigInput;
   regime?: RegimeConfigInput;
   priors?: Record<string, number>;
+  ic_target?: 'vol_adjusted' | 'raw';
+  selection_objective?: 'net_edge' | 'rank_ic';
 }
 
 export interface CostsConfigInput {

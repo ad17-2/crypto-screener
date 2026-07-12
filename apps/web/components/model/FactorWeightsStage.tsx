@@ -1,6 +1,6 @@
 import { InfoTip, Term } from '@/components/ui/Tooltip';
 import { lookupFactor, lookupMetric, lookupRobustnessVerdict } from '@/lib/copy';
-import { fmtNum } from '@/lib/format';
+import { fmtNum, fmtPct } from '@/lib/format';
 import {
   type FactorDecayInfo,
   type FactorHealthRow,
@@ -125,6 +125,21 @@ function FactorRow({ row, maxAbsWeight }: { row: FactorHealthRow; maxAbsWeight: 
             value={fmtNum(row.oosIc, 3)}
           />
           <DecayDetailStat decay={row.decay} />
+          <DetailStat
+            label="Net spread"
+            metricKey="factor_net_spread"
+            value={fmtPct(row.netSpreadPct, 2)}
+          />
+          <DetailStat
+            label="Net edge / 30d"
+            metricKey="factor_net_edge_30d"
+            value={fmtPct(row.netEdgePer30dPct, 1)}
+          />
+          <DetailStat
+            label="Edge t-stat"
+            metricKey="factor_edge_t_stat"
+            value={fmtNum(row.edgeTStat, 2)}
+          />
         </div>
         <RobustnessLine robustness={row.robustness} />
       </details>

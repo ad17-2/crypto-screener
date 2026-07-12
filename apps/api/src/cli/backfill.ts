@@ -216,12 +216,12 @@ export function buildSymbolRows(
     if (row.oi_change_24h_pct_history !== null && row.oi_change_24h_pct_history !== undefined) {
       row.oi_change_24h_pct = row.oi_change_24h_pct_history;
     }
+    // Proxies a 24h mean onto a point-in-time rate; live rows use the instantaneous rate.
     if (row.funding_avg_24h_pct !== null && row.funding_avg_24h_pct !== undefined) {
       row.funding_rate_pct = row.funding_avg_24h_pct;
     }
-    if (row.taker_buy_sell_ratio_24h !== null && row.taker_buy_sell_ratio_24h !== undefined) {
-      row.long_short_ratio = row.taker_buy_sell_ratio_24h;
-    }
+    // No historical account long/short data exists -- do not alias taker flow onto
+    // long_short_ratio, or ls_ratio_contrarian silently becomes a copy of taker_flow_24h.
     if (
       row.long_liquidation_usd_24h_history !== null &&
       row.long_liquidation_usd_24h_history !== undefined

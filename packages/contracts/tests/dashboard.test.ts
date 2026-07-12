@@ -165,6 +165,11 @@ describe('DashboardPayloadSchema', () => {
             oos_ic: 0.04,
             regime_ic: 0.06,
             regime_mode: 'trend',
+            net_spread_pct: 0.5,
+            net_edge_per_30d_pct: 15.0,
+            edge_t_stat: 2.3,
+            edge_n_effective: 12.0,
+            edge_overlap_factor: 6.0,
           },
         ],
         factor_correlations: [
