@@ -21,11 +21,14 @@ interface ColumnDef {
   label: string;
   /** Present only where the term isn't self-evident -- renders via Term (label + ⓘ). */
   definition?: string;
+  /** Text columns read left; numbers read right. Must match the body cell, or the header floats
+      away from the data it labels. */
+  align?: 'left';
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: 'symbol', label: 'Coin' },
-  { key: 'setup', label: 'Setup' },
+  { key: 'symbol', label: 'Coin', align: 'left' },
+  { key: 'setup', label: 'Setup', align: 'left' },
   { key: 'price', label: '24h' },
   { key: 'volume', ...lookupMetric('volume') },
   { key: 'oi', label: 'OI 24h', definition: lookupMetric('open_interest').definition },
@@ -82,10 +85,15 @@ export function WatchlistTable({
   }
 
   return (
-    <table aria-label="Watchlist rows" className="watch-table w-full overflow-hidden block">
+    // No `overflow-hidden` here. It clipped the column-header tooltips (the Crowding popover, being
+    // the rightmost column, was sliced down to a few characters at the table's edge) and it bought
+    // nothing: `.watch-table` carries no border-radius or bleed to clip. It also made the table its
+    // own scrollport, which silently disabled the sticky header below -- a table that never scrolls
+    // internally pins `top: 0` to its own top edge forever.
+    <table aria-label="Watchlist rows" className="watch-table w-full block">
       <thead className="block">
         <tr
-          className={`watch-head ${GRID_COLUMNS} sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-muted text-[11px] font-bold tracking-wide uppercase text-right`}
+          className={`watch-head ${GRID_COLUMNS} sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-muted text-[11px] font-bold tracking-wide uppercase`}
         >
           {COLUMNS.map((column) => (
             <HeaderCell
@@ -93,6 +101,7 @@ export function WatchlistTable({
               columnKey={column.key}
               label={column.label}
               definition={column.definition}
+              align={column.align}
               active={sortKey === column.key}
               dir={sortDir}
               onSort={onSort}
@@ -122,6 +131,7 @@ function HeaderCell({
   columnKey,
   label,
   definition,
+  align,
   active,
   dir,
   onSort,
@@ -129,12 +139,18 @@ function HeaderCell({
   columnKey: SortColumnKey;
   label: string;
   definition?: string | undefined;
+  align?: 'left' | undefined;
   active: boolean;
   dir: SortDirection;
   onSort: (key: SortColumnKey) => void;
 }) {
   const arrow = active ? (dir === 'asc' ? '▲' : '▼') : '';
   const ariaSort = active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none';
+  // Alignment has to be a utility here, not a `@layer components` rule: Tailwind v4 fixes the layer
+  // order (theme, base, components, utilities), so ANY utility in this className beats a component
+  // rule of any specificity. globals.css used to carry a `:first-child/:nth-child(2)` left-align
+  // rule for exactly this and it could never win against `justify-end`.
+  const alignment = align === 'left' ? 'justify-start text-left' : 'justify-end text-right';
 
   // The ⓘ trigger can sit inside this clickable/keydown-handled header cell — bail out of
   // sorting when the interaction originated there, the same `.closest()` guard WatchlistRow
@@ -157,11 +173,16 @@ function HeaderCell({
         event.preventDefault();
         onSort(columnKey);
       }}
-      className={`watch-th inline-flex items-center justify-end gap-0.5 cursor-pointer select-none whitespace-nowrap hover:text-ink${active ? ' sorted text-ink' : ''}`}
+      className={`watch-th inline-flex items-center ${alignment} gap-0.5 cursor-pointer select-none whitespace-nowrap hover:text-ink${active ? ' sorted text-ink' : ''}`}
     >
-      {/* placement="bottom": .watch-table sets overflow:hidden, so a tooltip opening upward from
-          this sticky header row is clipped out of existence. */}
-      {definition ? <Term label={label} definition={definition} placement="bottom" /> : label}
+      {/* Opens down and inward: down because the header is the table's top edge with nothing above
+          it, and inward (align="right") because every column carrying a definition is a right-aligned
+          numeric one, the last of which (Crowding) sits flush against the page's right margin. */}
+      {definition ? (
+        <Term label={label} definition={definition} placement="bottom" align="right" />
+      ) : (
+        label
+      )}
       <span className="sort-arrow text-[9px] leading-none transition-colors duration-100">
         {arrow}
       </span>

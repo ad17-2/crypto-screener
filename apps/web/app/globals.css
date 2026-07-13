@@ -176,7 +176,12 @@
     font-weight: 500;
     line-height: 1.45;
     /* Triggers live inside uppercase, letter-spaced labels (.stat-label, .watch-head, .sieve-label)
-       and the popover would inherit both. Definitions are prose — reset, or they render shouting. */
+       and the popover would inherit both. Definitions are prose — reset, or they render shouting.
+       The third inherited hazard, `white-space: nowrap` from the coin table's headers, is reset with
+       a `whitespace-normal` utility on the element itself instead of here: `white-space: normal` is
+       the property's INITIAL value, and Lightning CSS prunes initial-valued declarations without
+       accounting for the fact that an inherited `nowrap` is exactly what makes this one load-bearing.
+       It was silently dropped from the build output. */
     text-transform: none;
     letter-spacing: normal;
     text-align: left;
@@ -186,12 +191,20 @@
     opacity: 0;
     transition: opacity 120ms ease;
   }
-  /* Opens below the trigger instead of above. Required inside `overflow: hidden` boxes whose
-     trigger sits at the top edge — the coin table clips its own sticky header row, so a tooltip
-     opening upward from a column header is invisible. */
+  /* Opens below the trigger instead of above — for triggers with nothing above them to open into,
+     like the coin table's column headers. */
   .tooltip-popover.below {
     top: calc(100% + 8px);
     bottom: auto;
+  }
+  /* Grows leftward from the trigger instead of rightward. The coin table's rightmost columns sit at
+     the page's right margin, and a left-anchored 260px popover there hangs off the viewport: it used
+     to be sliced to a sliver by an `overflow: hidden` on the table, and once that was removed it
+     would instead push the document's scroll width out and give every page a phantom sideways
+     scroll. Anchoring the right edge keeps the box inside the layout either way. */
+  .tooltip-popover.align-right {
+    right: 0;
+    left: auto;
   }
   .tooltip-popover.open {
     visibility: visible;
@@ -316,11 +329,6 @@
       minmax(50px, 0.45fr) minmax(84px, 0.8fr) minmax(84px, 0.78fr);
     gap: 8px;
     align-items: center;
-  }
-  .watch-head .watch-th:first-child,
-  .watch-head .watch-th:nth-child(2) {
-    justify-content: flex-start;
-    text-align: left;
   }
   .watch-row {
     width: 100%;

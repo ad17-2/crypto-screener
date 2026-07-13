@@ -3,16 +3,20 @@
 import { useEffect, useId, useState } from 'react';
 
 type Placement = 'top' | 'bottom';
+type Align = 'left' | 'right';
 
 type InfoTipProps = {
   term: string;
   definition: string;
-  /**
-   * 'bottom' is required inside `overflow: hidden` containers whose trigger sits at the top edge
-   * — the coin table clips its own sticky header row, so a tooltip opening upward there is
-   * invisible. Default 'top' everywhere else.
-   */
+  /** Which side of the trigger the popover opens toward vertically. Default 'top'. */
   placement?: Placement;
+  /**
+   * Which edge of the popover is pinned to the trigger. 'left' (default) grows rightward; 'right'
+   * grows leftward and is required for triggers near the right edge of the page, where a
+   * left-anchored 260px box would otherwise hang off the viewport and give the whole document a
+   * phantom sideways scroll.
+   */
+  align?: Align;
 };
 
 /**
@@ -21,7 +25,7 @@ type InfoTipProps = {
  * the popover stays mounted (so aria-describedby always resolves to a real element) and
  * visibility is toggled with CSS rather than the native `title` attribute.
  */
-export function InfoTip({ term, definition, placement = 'top' }: InfoTipProps) {
+export function InfoTip({ term, definition, placement = 'top', align = 'left' }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const tooltipId = useId();
 
@@ -48,10 +52,12 @@ export function InfoTip({ term, definition, placement = 'top' }: InfoTipProps) {
       >
         ⓘ
       </button>
+      {/* `whitespace-normal` is a utility rather than part of `.tooltip-popover` on purpose -- see the
+          note there. Column headers set `nowrap`, and the popover inherits it without this. */}
       <span
         id={tooltipId}
         role="tooltip"
-        className={`tooltip-popover${placement === 'bottom' ? ' below' : ''}${open ? ' open' : ''}`}
+        className={`tooltip-popover whitespace-normal${placement === 'bottom' ? ' below' : ''}${align === 'right' ? ' align-right' : ''}${open ? ' open' : ''}`}
       >
         <strong>{term}</strong>
         {': '}
@@ -65,14 +71,15 @@ type TermProps = {
   label: string;
   definition: string;
   placement?: Placement;
+  align?: Align;
 };
 
 /** A label paired with its InfoTip — the label + ⓘ combo recurs constantly across the dashboard. */
-export function Term({ label, definition, placement = 'top' }: TermProps) {
+export function Term({ label, definition, placement = 'top', align = 'left' }: TermProps) {
   return (
     <span className="inline-flex items-center gap-1">
       {label}
-      <InfoTip term={label} definition={definition} placement={placement} />
+      <InfoTip term={label} definition={definition} placement={placement} align={align} />
     </span>
   );
 }
