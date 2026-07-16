@@ -115,8 +115,6 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .tag,
-  .status-pill,
   .quality-flag-chip {
     display: inline-flex;
     align-items: center;
@@ -125,10 +123,6 @@
     padding: 0 8px;
     font-size: 12px;
     font-weight: 700;
-  }
-  .tag {
-    background: color-mix(in srgb, var(--gold) 14%, var(--panel));
-    color: var(--gold);
   }
   .help-tip {
     position: relative;
@@ -259,43 +253,6 @@
     flex-basis: 100%;
     border-style: dashed;
     background: color-mix(in srgb, var(--gold) 12%, var(--panel));
-  }
-  .list-row span:last-child {
-    color: var(--muted);
-    text-align: right;
-    font-family: var(--mono);
-    font-variant-numeric: tabular-nums;
-  }
-  /* Colour is opt-in. A pill stays neutral unless it has something to say; `.pos` is reserved for a
-     claim the data actually earned -- an evidence rung the numbers cleared, a weight backed by a
-     measured track record, a factor that held up out of sample. It never means "nothing is wrong". */
-  .status-pill,
-  .status-pill.neutral {
-    height: 24px;
-    background: color-mix(in srgb, var(--muted) 16%, var(--panel));
-    color: var(--muted);
-  }
-  .status-pill.pos {
-    background: color-mix(in srgb, var(--up) 16%, var(--panel));
-    color: var(--up);
-  }
-  .status-pill.warn {
-    background: color-mix(in srgb, var(--gold) 16%, var(--panel));
-    color: var(--gold);
-  }
-  .status-pill.neg {
-    background: color-mix(in srgb, var(--down) 16%, var(--panel));
-    color: var(--down);
-  }
-  .quality-card {
-    border: 1px solid color-mix(in srgb, var(--gold) 30%, var(--line));
-    background: color-mix(in srgb, var(--gold) 9%, var(--panel));
-  }
-  .quality-card-head span {
-    color: var(--muted);
-    font-size: 12px;
-    text-align: right;
-    font-family: var(--mono);
   }
   .quality-flag-chip {
     height: auto;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { scoreSnapshot } from '../../src/pipeline/factors.js';
 import { marketSensingSummary } from '../../src/pipeline/market.js';
-import { classifyRegime, inferRegime } from '../../src/pipeline/regime.js';
+import { classifyRegime, inferRegime, REGIME_STATES } from '../../src/pipeline/regime.js';
 import type { Row } from '../../src/pipeline/types.js';
 
 const config = { factors: { regime: {} } };
@@ -52,6 +52,24 @@ describe('classifyRegime', () => {
       breadth: { score: 0.1 },
     };
     expect(classifyRegime(context, null, config).state).toBe('neutral');
+  });
+
+  it('guards a zero scale config against NaN (test_classify_regime_zero_scale_guard)', () => {
+    const context = {
+      btc_dominance_delta_pct: 0.4,
+      eth_btc_performance_pct: 0.0,
+      return_dispersion_pct: 3.0,
+      breadth: { score: -0.2 },
+    };
+    const zeroScaleConfig = {
+      factors: {
+        regime: { dominance_delta_scale_pct: 0, eth_btc_scale_pct: 0 },
+      },
+    };
+    const result = classifyRegime(context, null, zeroScaleConfig);
+    for (const state of REGIME_STATES) {
+      expect(Number.isFinite(result.scores[state])).toBe(true);
+    }
   });
 
   it('hysteresis blocks a marginal flip (test_hysteresis_blocks_marginal_flip)', () => {

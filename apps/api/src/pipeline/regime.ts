@@ -21,8 +21,8 @@ export function classifyRegime(
   const hysteresisMargin = regimeCfg.hysteresis_margin ?? 0.15;
   const breadthWeak = regimeCfg.breadth_weak_threshold ?? 0.15;
   const breadthStrong = regimeCfg.breadth_strong_threshold ?? 0.25;
-  const dominanceDeltaScale = regimeCfg.dominance_delta_scale_pct ?? 0.5;
-  const ethBtcScale = regimeCfg.eth_btc_scale_pct ?? 2.0;
+  const dominanceDeltaScale = Math.max(regimeCfg.dominance_delta_scale_pct ?? 0.5, 1e-6);
+  const ethBtcScale = Math.max(regimeCfg.eth_btc_scale_pct ?? 2.0, 1e-6);
 
   const btcDomDelta = toFloat(context.btc_dominance_delta_pct);
   const ethBtc = toFloat(context.eth_btc_performance_pct);

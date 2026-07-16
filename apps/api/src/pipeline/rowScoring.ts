@@ -16,9 +16,9 @@ export interface RowScores {
 /**
  * No directional model prediction exists any more (the factor-weighting engine that used to
  * produce one was deleted -- no factor forward-validates, so every weight was 0 anyway). The
- * signal-conflict/confidence/cost computations below used to take a sign from that deleted
- * factor-weighted score; they now treat direction as neutral (0), which is exactly their
- * already-observed production behaviour under the old zero_unvalidated_weights gate.
+ * cost computation below used to take a sign from that deleted factor-weighted score; direction
+ * is now intentionally treated as neutral (0), which is exactly the already-observed production
+ * behaviour under the old zero_unvalidated_weights gate.
  */
 const NO_DIRECTIONAL_SIGNAL = 0;
 

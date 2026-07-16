@@ -202,28 +202,6 @@ export function robustZscoreByKey(
   );
 }
 
-/** Ranks are 1-indexed; ties get the average rank of the tied span (tied-rank Spearman). */
-function averageRanks(values: number[]): number[] {
-  const indexed = values
-    .map((value, index) => ({ index, value }))
-    .sort((a, b) => a.value - b.value);
-  const ranks = new Array<number>(values.length).fill(0);
-  let index = 0;
-  while (index < indexed.length) {
-    let end = index + 1;
-    while (end < indexed.length && indexed[end]?.value === indexed[index]?.value) {
-      end += 1;
-    }
-    const avgRank = (index + 1 + end) / 2.0;
-    for (let rankedIndex = index; rankedIndex < end; rankedIndex += 1) {
-      const originalIndex = indexed[rankedIndex]?.index as number;
-      ranks[originalIndex] = avgRank;
-    }
-    index = end;
-  }
-  return ranks;
-}
-
 export function pearsonCorr(xValues: number[], yValues: number[]): number | null {
   if (xValues.length !== yValues.length || xValues.length < 2) {
     return null;
@@ -246,13 +224,6 @@ export function pearsonCorr(xValues: number[], yValues: number[]): number | null
     return null;
   }
   return numerator / (xDen * yDen);
-}
-
-export function spearmanCorr(xValues: number[], yValues: number[]): number | null {
-  if (xValues.length !== yValues.length || xValues.length < 2) {
-    return null;
-  }
-  return pearsonCorr(averageRanks(xValues), averageRanks(yValues));
 }
 
 /** OLS residuals of y regressed on x (e_i = y_i - (a + b*x_i)); null if x has zero variance or fewer than 2 points. */

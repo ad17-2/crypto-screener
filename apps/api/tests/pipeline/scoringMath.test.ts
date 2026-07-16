@@ -4,7 +4,6 @@ import {
   median,
   pyRound,
   robustZscoreByKey,
-  spearmanCorr,
   zscoreByKey,
 } from '../../src/pipeline/scoring.js';
 
@@ -36,13 +35,6 @@ describe('robustZscoreByKey', () => {
     const plainSpread = (plain[2] as number) - (plain[0] as number);
     const robustSpread = (robust[2] as number) - (robust[0] as number);
     expect(Math.abs(plainSpread)).toBeLessThan(Math.abs(robustSpread));
-  });
-});
-
-describe('spearmanCorr', () => {
-  it('returns +/-1 for perfectly monotonic sequences', () => {
-    expect(spearmanCorr([1, 2, 3], [10, 20, 30])).toBeCloseTo(1.0, 9);
-    expect(spearmanCorr([1, 2, 3], [30, 20, 10])).toBeCloseTo(-1.0, 9);
   });
 });
 

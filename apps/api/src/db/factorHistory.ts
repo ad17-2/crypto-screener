@@ -1,19 +1,14 @@
 import type Database from 'better-sqlite3';
 import { stableStringify } from './json.js';
-import { loadRegimeStates } from './regimeHistory.js';
 import {
   formatJakartaIso,
   horizonTolerance,
   parseGeneratedAt,
   selectHorizonMatch,
 } from './time.js';
-import type {
-  FactorHistoryRecordInput,
-  LabeledFactorRecord,
-  LabeledFactorRecordWithRegime,
-} from './types.js';
+import type { FactorHistoryRecordInput } from './types.js';
 
-/** Allowlist copied into factor_history.metrics_json — every downstream IC/decay/walk-forward computation reads this column. */
+/** Allowlist copied into factor_history.metrics_json — backs factor history and the dashboard sparklines. */
 const HISTORY_METRIC_KEYS = [
   'price_change_24h_pct',
   'oi_change_24h_pct',
@@ -93,194 +88,13 @@ export function saveFactorHistoryRecords(
   return records.length;
 }
 
-interface FactorHistoryDbRow {
-  generated_at: string;
-  symbol: string;
-  price_usd: number | null;
-  factors_json: string;
-  scores_json: string;
-  /** Absent on rows from the market_rows fallback below -- that table has no metrics_json column. */
-  metrics_json?: string | null;
-}
-
-function loadFactorHistoryRows(db: Database.Database, cutoff: string): FactorHistoryDbRow[] {
-  return db
-    .prepare(`
-      SELECT generated_at, symbol, price_usd, factors_json, scores_json, metrics_json
-      FROM factor_history
-      WHERE generated_at >= ?
-      ORDER BY generated_at ASC
-    `)
-    .all(cutoff) as FactorHistoryDbRow[];
-}
-
-interface LabelingItem {
-  /** Raw DB text, reused verbatim in output records instead of re-formatting a parsed Date. */
-  generatedAt: string;
-  generatedAtInstant: Date;
-  symbol: string;
-  price_usd: number;
-  factors: Record<string, unknown>;
-  scores: Record<string, unknown>;
-  /** From metrics_json's atr_14_pct at the point of prediction; null when missing (market_rows fallback, or ATR not yet computed). */
-  atr_pct: number | null;
-}
-
-/** `scores_json` is NOT NULL in schema.ts, but the market_rows fallback and older rows can still be empty text. */
-function parseJsonObject(text: string | null): Record<string, unknown> {
-  if (!text) {
-    return {};
-  }
-  try {
-    const parsed: unknown = JSON.parse(text);
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
-/** Rows grouped by symbol, keeping only positive prices; falls back to market_rows if factor_history has none yet. */
-function labelingRowsBySymbol(
-  db: Database.Database,
-  icWindowDays: number,
-): Map<string, LabelingItem[]> {
-  const cutoff = formatJakartaIso(new Date(Date.now() - (icWindowDays + 3) * 24 * 3_600_000));
-  let rows = loadFactorHistoryRows(db, cutoff);
-  if (rows.length === 0) {
-    rows = db
-      .prepare(`
-        SELECT generated_at, symbol, price_usd, factors_json, scores_json
-        FROM market_rows
-        WHERE generated_at >= ?
-        ORDER BY generated_at ASC
-      `)
-      .all(cutoff) as FactorHistoryDbRow[];
-  }
-
-  const bySymbol = new Map<string, LabelingItem[]>();
-  for (const row of rows) {
-    const price = row.price_usd;
-    if (price === null || price <= 0) {
-      continue;
-    }
-    const metrics = parseJsonObject(row.metrics_json ?? null);
-    const atrRaw = metrics.atr_14_pct;
-    const item: LabelingItem = {
-      generatedAt: row.generated_at,
-      generatedAtInstant: parseGeneratedAt(row.generated_at),
-      symbol: row.symbol,
-      price_usd: price,
-      factors: JSON.parse(row.factors_json) as Record<string, unknown>,
-      scores: parseJsonObject(row.scores_json),
-      atr_pct: typeof atrRaw === 'number' && Number.isFinite(atrRaw) ? atrRaw : null,
-    };
-    const existing = bySymbol.get(item.symbol);
-    if (existing) {
-      existing.push(item);
-    } else {
-      bySymbol.set(item.symbol, [item]);
-    }
-  }
-  return bySymbol;
-}
-
-/**
- * Matches on the MIDPOINT of the tolerance band — unlike `loadPriceLookback` below, which matches
- * on the raw horizon. Scan breaks at the first candidate past the window (ascending order).
- */
-function findForwardRow(
-  candidates: LabelingItem[],
-  generatedAt: Date,
-  minTargetHours: number,
-  maxTargetHours: number,
-): LabelingItem | null {
-  const items: Array<{ value: LabelingItem; deltaHours: number }> = [];
-  for (const candidate of candidates) {
-    const deltaHours = (candidate.generatedAtInstant.getTime() - generatedAt.getTime()) / 3_600_000;
-    if (deltaHours < minTargetHours) {
-      continue;
-    }
-    if (deltaHours > maxTargetHours) {
-      break;
-    }
-    items.push({ value: candidate, deltaHours });
-  }
-  const forwardTargetHours = (minTargetHours + maxTargetHours) / 2.0;
-  return selectHorizonMatch(items, minTargetHours, maxTargetHours, forwardTargetHours);
-}
-
-function labeledRecordsForHorizon(
-  bySymbol: Map<string, LabelingItem[]>,
-  horizonHours: number,
-): LabeledFactorRecord[] {
-  const [minTargetHours, maxTargetHours] = horizonTolerance(horizonHours);
-  const records: LabeledFactorRecord[] = [];
-  for (const symbolRows of bySymbol.values()) {
-    for (const [index, current] of symbolRows.entries()) {
-      const target = findForwardRow(
-        symbolRows.slice(index + 1),
-        current.generatedAtInstant,
-        minTargetHours,
-        maxTargetHours,
-      );
-      if (!target) {
-        continue;
-      }
-      const forwardReturnPct = ((target.price_usd - current.price_usd) / current.price_usd) * 100.0;
-      // Vol-adjusts by the CURRENT row's ATR (point of prediction), never the target's. Floor
-      // matches factors.ts's reversal_3d denomOrOne precedent (Math.max(denomOrOne, 1.0)).
-      const forwardReturnVolAdj =
-        current.atr_pct === null ? null : forwardReturnPct / Math.max(current.atr_pct, 1.0);
-      records.push({
-        symbol: current.symbol,
-        generated_at: current.generatedAt,
-        forward_return_pct: forwardReturnPct,
-        forward_return_vol_adj: forwardReturnVolAdj,
-        atr_pct: current.atr_pct,
-        factors: current.factors,
-        scores: current.scores,
-      });
-    }
-  }
-  return records;
-}
-
-export function loadLabeledFactorRecords(
-  db: Database.Database,
-  options: { forwardReturnHours?: number; icWindowDays?: number } = {},
-): LabeledFactorRecordWithRegime[] {
-  const horizonHours = options.forwardReturnHours ?? 24;
-  const bySymbol = labelingRowsBySymbol(db, options.icWindowDays ?? 30);
-  const records = labeledRecordsForHorizon(bySymbol, horizonHours);
-  const regimeMap = loadRegimeStates(db);
-  return records.map((record) => ({
-    ...record,
-    regime: regimeMap[record.generated_at] ?? null,
-  }));
-}
-
-export function loadLabeledRecordsByHorizon(
-  db: Database.Database,
-  horizons: number[],
-  options: { icWindowDays?: number } = {},
-): Map<number, LabeledFactorRecord[]> {
-  const bySymbol = labelingRowsBySymbol(db, options.icWindowDays ?? 30);
-  const result = new Map<number, LabeledFactorRecord[]>();
-  for (const horizon of horizons) {
-    result.set(horizon, labeledRecordsForHorizon(bySymbol, horizon));
-  }
-  return result;
-}
-
 interface PriceLookbackDbRow {
   generated_at: string;
   symbol: string;
   price_usd: number;
 }
 
-/** Unlike `findForwardRow` above, the match target is `hours` itself, not the tolerance band's midpoint. */
+/** The match target is `hours` itself, not a tolerance band's midpoint. */
 export function loadPriceLookback(db: Database.Database, hours: number): Record<string, number> {
   const referenceAt = new Date();
   const [minTargetHours, maxTargetHours] = horizonTolerance(hours);

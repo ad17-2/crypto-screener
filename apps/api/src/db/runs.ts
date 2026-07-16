@@ -63,7 +63,7 @@ export function saveSnapshot(
 
 /**
  * Deletes only from `runs` and `market_rows`. factor_history and market_regime_history must never
- * be touched here — the IC/decay/walk-forward engine needs the full, unpruned series.
+ * be touched here — they back the dashboard sparklines, which need the full, unpruned series.
  */
 export function pruneOldRuns(db: Database.Database, keep: number): PruneResult {
   if (keep <= 0) {

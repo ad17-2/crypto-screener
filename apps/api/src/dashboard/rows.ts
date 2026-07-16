@@ -134,12 +134,10 @@ export function setupTone(side: string): string {
 
 /**
  * Purely observable ranking key (score magnitude x data quality) used to pick and order the
- * cross-section "chart_next" watchlist, and persisted as `recommendations.priority` for the
- * scoreboard.
+ * cross-section "chart_next" watchlist.
  */
-export function chartPriority(row: Row, scoreField: string | null, score: unknown): number {
-  const numericScore =
-    Math.abs(toFloat(score) ?? 0.0) * (scoreField === 'factor_score' ? 100.0 : 1.0);
+export function chartPriority(row: Row, score: unknown): number {
+  const numericScore = Math.abs(toFloat(score) ?? 0.0);
   const quality = toFloat(row.data_quality_score);
   let qualityMultiplier = Math.max(
     0.0,
@@ -361,7 +359,7 @@ export function dashboardRow(
   const scores = asRecord(row.scores);
   const score = scoreField === null ? null : row[scoreField];
   const setup = setupLabel(row, side);
-  const priority = chartPriority(row, scoreField, score);
+  const priority = chartPriority(row, score);
   let positioningRatio = row.long_short_account_ratio;
   if (positioningRatio === null || positioningRatio === undefined) {
     positioningRatio = row.long_short_ratio;

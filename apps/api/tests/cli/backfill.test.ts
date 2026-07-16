@@ -5,11 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BackfillCliArgs, BackfillHistories } from '../../src/cli/backfill.js';
 import { buildSymbolRows, runBackfill, scoreBackfillRows } from '../../src/cli/backfill.js';
 import { AppConfigSchema } from '../../src/config/schema.js';
-import {
-  loadLabeledFactorRecords,
-  openDatabase,
-  saveFactorHistoryRecords,
-} from '../../src/db/index.js';
+import { openDatabase, saveFactorHistoryRecords } from '../../src/db/index.js';
 import type { FactorHistoryRecordInput } from '../../src/db/types.js';
 import { rawFactors } from '../../src/pipeline/factors.js';
 import type { Row } from '../../src/pipeline/types.js';
@@ -102,7 +98,6 @@ describe('backfill: buildSymbolRows + scoreBackfillRows write only compact facto
       db2,
       records as unknown as FactorHistoryRecordInput[],
     );
-    const labels = loadLabeledFactorRecords(db2, { forwardReturnHours: 24, icWindowDays: 5000 });
 
     const runsCount = (db2.prepare('SELECT COUNT(*) AS count FROM runs').get() as { count: number })
       .count;
@@ -125,7 +120,6 @@ describe('backfill: buildSymbolRows + scoreBackfillRows write only compact facto
     expect(marketRowsCount).toBe(0);
     expect(historyCount).toBe(records.length);
     expect(factorsJson).toContain('oi_acceleration_signal');
-    expect(labels.length).toBeGreaterThan(0);
   });
 
   it('never aliases taker flow onto long_short_ratio, so ls_ratio_contrarian cannot be derived from taker_flow_24h', () => {
