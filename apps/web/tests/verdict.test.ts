@@ -199,7 +199,9 @@ describe('sieveStages', () => {
     expect(byKey.scanned?.count).toBe(80);
     expect(byKey.priced?.count).toBe(50);
     expect(byKey.trusted?.count).toBe(50);
-    expect(byKey.shortlisted?.count).toBe(12);
+    // 11, not 12: the full-signal membership gate drops the one directional candidate in this
+    // frozen fixture that had no crowding-list fallback (the capture predates btc_beta/corr).
+    expect(byKey.shortlisted?.count).toBe(11);
     expect(byKey.shortlisted?.label.toLowerCase()).not.toContain('passed');
   });
 

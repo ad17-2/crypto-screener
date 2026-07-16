@@ -69,6 +69,11 @@ export async function collectCoinglassFutures(
       apiKey,
       baseUrl: providerCfg.base_url,
       timeoutSeconds: providerCfg.request_timeout_seconds,
+      retry429: providerCfg.retry_429,
+      retry429InitialDelaySeconds: providerCfg.retry_429_initial_delay_seconds,
+      retry429MaxDelaySeconds: providerCfg.retry_429_max_delay_seconds,
+      retry429JitterSeconds: providerCfg.retry_429_jitter_seconds,
+      retry429MaxAttempts: providerCfg.retry_429_max_attempts,
     });
 
   const exchanges = new Set(providerCfg.exchanges);

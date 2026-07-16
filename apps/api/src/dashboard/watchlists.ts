@@ -50,19 +50,35 @@ function isCoreSymbol(row: Row): boolean {
   return symbol !== null && (CORE_SYMBOLS as readonly string[]).includes(symbol);
 }
 
+// A row missing btc_beta, btc_correlation, or atr_14_pct is scored with BTC-residualization and
+// the fights-BTC veto silently disabled and a flat momentum scale (pipeline/rowScoring.ts:71-77,
+// 93-100) -- typical of listings younger than ~10 days of 4h bars (MIN_CORR_PAIRS=60,
+// pipeline/enrichment.ts:16). Those rows must not compete for Longs/Shorts slots.
+function hasDirectionalSignals(row: Row): boolean {
+  return (
+    toFloat(row.btc_beta) !== null &&
+    toFloat(row.btc_correlation) !== null &&
+    toFloat(row.atr_14_pct) !== null
+  );
+}
+
 // Membership is an OBSERVATION -- this coin is advancing / declining -- not a prediction. Gating on
 // factor_score would empty both lists the moment no factor validates, which is now the standing state.
 // Majors are excluded: they are context (the Core section), never directional candidates, and a
 // sub-floor move isn't a real advance/decline either way.
 export function isLongCandidate(row: Row): boolean {
   return (
-    !isCoreSymbol(row) && (toFloat(row.price_change_24h_pct, 0) ?? 0) >= MEMBERSHIP_MOVE_FLOOR_PCT
+    !isCoreSymbol(row) &&
+    (toFloat(row.price_change_24h_pct, 0) ?? 0) >= MEMBERSHIP_MOVE_FLOOR_PCT &&
+    hasDirectionalSignals(row)
   );
 }
 
 export function isShortCandidate(row: Row): boolean {
   return (
-    !isCoreSymbol(row) && (toFloat(row.price_change_24h_pct, 0) ?? 0) <= -MEMBERSHIP_MOVE_FLOOR_PCT
+    !isCoreSymbol(row) &&
+    (toFloat(row.price_change_24h_pct, 0) ?? 0) <= -MEMBERSHIP_MOVE_FLOOR_PCT &&
+    hasDirectionalSignals(row)
   );
 }
 

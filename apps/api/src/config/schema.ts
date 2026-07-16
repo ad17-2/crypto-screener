@@ -50,6 +50,13 @@ const CoinGlassConfigSchema = z
     min_exchange_count: z.number().int().default(2),
     request_delay_seconds: z.number().default(2.1),
     request_timeout_seconds: z.number().default(12),
+    // Bounded, unlike CoinGecko's unlimited retries (retry_429_max_attempts 0): a refresh issues
+    // ~700 sequential CoinGlass requests, so an unbounded 429 retry storm could hang a run for hours.
+    retry_429: z.boolean().default(true),
+    retry_429_initial_delay_seconds: z.number().default(10),
+    retry_429_max_delay_seconds: z.number().default(120),
+    retry_429_jitter_seconds: z.number().default(5),
+    retry_429_max_attempts: z.number().int().default(3),
     exchanges: z.array(z.string()).default([]),
     technical_indicators: TechnicalIndicatorsConfigSchema.default(() =>
       TechnicalIndicatorsConfigSchema.parse({}),

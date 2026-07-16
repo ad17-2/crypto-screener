@@ -12,12 +12,17 @@ describe('screener CLI', () => {
       run_id: 'run-cli',
       rows: [
         // Long/short membership is an observation (the coin advanced/declined), not a factor_score.
+        // Directional rows carry the full-signal fields (btc_beta/btc_correlation/atr_14_pct)
+        // required by the membership gate; the crowding rows below deliberately do not.
         {
           symbol: 'LONG',
           price_change_24h_pct: 5,
           factor_score: 0.5,
           long_score: 10,
           is_trusted: true,
+          btc_beta: 1.1,
+          btc_correlation: 0.7,
+          atr_14_pct: 4.2,
         },
         {
           symbol: 'SHORT',
@@ -25,6 +30,9 @@ describe('screener CLI', () => {
           factor_score: -0.5,
           short_score: 11,
           is_trusted: true,
+          btc_beta: 0.9,
+          btc_correlation: 0.6,
+          atr_14_pct: 3.8,
         },
         {
           symbol: 'FADE',
