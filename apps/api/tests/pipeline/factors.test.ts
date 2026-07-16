@@ -260,3 +260,53 @@ describe('scoreSnapshot', () => {
     );
   });
 });
+
+describe('BTC context extraction', () => {
+  it('reads btc_change_24h_pct/btc_momentum_score off the BTC row when present (test_btc_context_from_row)', () => {
+    const rows: Row[] = [
+      {
+        symbol: 'BTC',
+        price_usd: 100,
+        price_change_24h_pct: 2.5,
+        oi_change_24h_pct: 1,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 200_000_000,
+        technical_momentum_score: 0.42,
+      },
+      {
+        symbol: 'ALT',
+        price_usd: 10,
+        price_change_24h_pct: 5,
+        oi_change_24h_pct: 4,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 100_000_000,
+      },
+    ];
+    // marketContext carries an unrelated fallback value: the BTC row must win over it.
+    const scored = scoreSnapshot(rows, { btc_price_change_24h_pct: 999 }, [], { factors: {} });
+    expect(scored.market_context.btc_change_24h_pct).toBeCloseTo(2.5, 9);
+    expect(scored.market_context.btc_momentum_score).toBeCloseTo(0.42, 9);
+  });
+
+  it('falls back to marketContext.btc_price_change_24h_pct when no BTC row exists, else null (test_btc_context_fallback)', () => {
+    const rows: Row[] = [
+      {
+        symbol: 'ALT',
+        price_usd: 10,
+        price_change_24h_pct: 5,
+        oi_change_24h_pct: 4,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 100_000_000,
+      },
+    ];
+    const withFallback = scoreSnapshot(rows, { btc_price_change_24h_pct: -1.5 }, [], {
+      factors: {},
+    });
+    expect(withFallback.market_context.btc_change_24h_pct).toBeCloseTo(-1.5, 9);
+    expect(withFallback.market_context.btc_momentum_score).toBeNull();
+
+    const withoutFallback = scoreSnapshot(rows, {}, [], { factors: {} });
+    expect(withoutFallback.market_context.btc_change_24h_pct).toBeNull();
+    expect(withoutFallback.market_context.btc_momentum_score).toBeNull();
+  });
+});

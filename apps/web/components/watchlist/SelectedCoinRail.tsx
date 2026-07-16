@@ -12,7 +12,7 @@ import {
 } from '@/lib/copy';
 import { oiPriceQuadrant, positioningDivergence, tradingViewUrl } from '@/lib/dashboard-row';
 import { fmtNum, fmtPct, fmtUsd, numeric, ordinal, qualityTone } from '@/lib/format';
-import { sideMeta } from './WatchlistTable';
+import { FightsBtcChip, sideMeta } from './WatchlistTable';
 
 export interface SelectedCoinRailProps {
   row: DashboardRow | null;
@@ -111,6 +111,7 @@ function VerdictBlock({ row }: { row: DashboardRow }) {
       <div className="detail-badges flex flex-wrap gap-1.5">
         <span className={`setup-badge ${side.tone}`}>{side.label}</span>
         <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
+        {row.fights_btc ? <FightsBtcChip /> : null}
       </div>
       <p className="text-sm text-ink m-0 leading-snug">
         {side.label} setup: {setup.label}.
@@ -359,6 +360,17 @@ function MetricTiles({ row }: { row: DashboardRow }) {
         tone={signTone(row.oi_change_24h_pct)}
       />
       {(() => {
+        // Explicit server null means "inside the noise dead-zone" -- distinct from no data at all
+        // (oiPriceQuadrant() itself can't tell the two apart from a bare null return; see its doc).
+        if (row.oi_price_quadrant === null) {
+          return (
+            <StatTile
+              label={lookupMetric('oi_price_read').label}
+              definition={lookupMetric('oi_price_read').definition}
+              value="Quiet"
+            />
+          );
+        }
         const q = oiPriceQuadrant(row);
         return q ? (
           <StatTile
@@ -410,6 +422,21 @@ function MetricTiles({ row }: { row: DashboardRow }) {
           row.scores.size_multiplier == null ? '-' : `${fmtNum(row.scores.size_multiplier, 2)}x`
         }
       />
+      {row.btc_beta == null ? null : (
+        <StatTile
+          label={lookupMetric('btc_beta').label}
+          definition={lookupMetric('btc_beta').definition}
+          value={fmtNum(row.btc_beta, 2)}
+        />
+      )}
+      {row.residual_change_24h_pct == null ? null : (
+        <StatTile
+          label={lookupMetric('residual_change_24h').label}
+          definition={lookupMetric('residual_change_24h').definition}
+          value={fmtPct(row.residual_change_24h_pct)}
+          tone={signTone(row.residual_change_24h_pct)}
+        />
+      )}
       <PositioningTile row={row} />
     </div>
   );
@@ -430,6 +457,11 @@ function PositioningTile({ row }: { row: DashboardRow }) {
         ? 'pos'
         : 'neutral'
     : 'neutral';
+
+  const positionRatio = row.top_trader_position_ratio;
+  const positionDelta = row.top_trader_ratio_delta_24h;
+  const deltaTone = signTone(positionDelta);
+
   return (
     <div className="stat">
       <div className="stat-label">
@@ -441,6 +473,28 @@ function PositioningTile({ row }: { row: DashboardRow }) {
           <span className={`conflict-badge ${badgeTone}`}>{divergence.label}</span>
         ) : null}
       </div>
+      {positionRatio == null && positionDelta == null ? null : (
+        <div className="driver-line mt-1 flex items-center gap-1.5 flex-wrap">
+          {positionRatio == null ? null : (
+            <span className="inline-flex items-center gap-1 text-ink">
+              <Term
+                label="top pos"
+                definition={lookupMetric('top_trader_position_ratio').definition}
+              />
+              {fmtNum(positionRatio, 2)}
+            </span>
+          )}
+          {positionDelta == null ? null : (
+            <span
+              className={deltaTone === 'pos' ? 'text-up' : deltaTone === 'neg' ? 'text-down' : ''}
+              title={lookupMetric('top_trader_ratio_delta_24h').definition}
+            >
+              Δ24h {positionDelta >= 0 ? '+' : ''}
+              {fmtNum(positionDelta, 2)}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

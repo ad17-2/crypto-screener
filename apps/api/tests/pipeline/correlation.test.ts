@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeSeries, returnCorrelation, returnsByTime } from '../../src/pipeline/correlation.js';
+import { closeSeries, returnStats, returnsByTime } from '../../src/pipeline/correlation.js';
 
 describe('closeSeries', () => {
   it('sorts by time and drops non-finite/<=0 closes', () => {
@@ -60,76 +60,196 @@ describe('returnsByTime', () => {
   });
 });
 
-describe('returnCorrelation', () => {
-  it('returns 1 for an identical returns series (within 1e-9)', () => {
-    const a = new Map([
-      [1, 0.1],
-      [2, -0.05],
-      [3, 0.2],
-      [4, 0.0],
-    ]);
-    const b = new Map(a);
+/** Builds a close-price series from a starting price and a list of period-over-period returns, so
+ *  hand-computed "returns" fixtures can be fed through `returnStats` (which takes raw price bars,
+ *  not pre-built return maps). */
+function closesFromReturns(startClose: number, returns: number[], times: number[]) {
+  const bars = [{ time: times[0] as number, close: startClose }];
+  let close = startClose;
+  for (let index = 0; index < returns.length; index += 1) {
+    close *= 1 + (returns[index] as number);
+    bars.push({ time: times[index + 1] as number, close });
+  }
+  return bars;
+}
 
-    const correlation = returnCorrelation(a, b, 3);
+describe('returnStats', () => {
+  it('returns correlation ~1 and beta ~1 for an identical returns series', () => {
+    const returns = [0.1, -0.05, 0.2];
+    const coinBars = closesFromReturns(100, returns, [0, 1, 2, 3]);
+    const btcBars = closesFromReturns(100, returns, [0, 1, 2, 3]);
 
-    expect(correlation).not.toBeNull();
-    expect(correlation as number).toBeCloseTo(1, 9);
+    const stats = returnStats(coinBars, btcBars, 3);
+
+    expect(stats.correlation).not.toBeNull();
+    expect(stats.correlation as number).toBeCloseTo(1, 9);
+    expect(stats.beta).not.toBeNull();
+    expect(stats.beta as number).toBeCloseTo(1, 9);
+    expect(stats.gapped).toBe(false);
   });
 
-  it('returns -1 for an exactly inverse returns series', () => {
-    const a = new Map([
-      [1, 0.1],
-      [2, -0.05],
-      [3, 0.2],
-      [4, 0.0],
-    ]);
-    const b = new Map([...a.entries()].map(([time, value]) => [time, -value]));
+  it('returns correlation ~-1 and beta ~-1 for an exactly inverse returns series', () => {
+    const btcReturns = [0.1, -0.05, 0.2];
+    const coinReturns = btcReturns.map((value) => -value);
+    const btcBars = closesFromReturns(100, btcReturns, [0, 1, 2, 3]);
+    const coinBars = closesFromReturns(100, coinReturns, [0, 1, 2, 3]);
 
-    const correlation = returnCorrelation(a, b, 3);
+    const stats = returnStats(coinBars, btcBars, 3);
 
-    expect(correlation).not.toBeNull();
-    expect(correlation as number).toBeCloseTo(-1, 9);
+    expect(stats.correlation).not.toBeNull();
+    expect(stats.correlation as number).toBeCloseTo(-1, 9);
+    expect(stats.beta).not.toBeNull();
+    expect(stats.beta as number).toBeCloseTo(-1, 9);
   });
 
-  it('returns null when the two series share fewer than minPairs timestamps', () => {
-    const a = new Map([
-      [1, 0.1],
-      [2, 0.2],
-      [3, 0.3],
-      [4, 0.4],
-      [5, 0.5],
-    ]);
-    // Only timestamps 1 and 2 overlap with `a` -- 2 shared points, below minPairs.
-    const b = new Map([
-      [1, 0.05],
-      [2, 0.15],
-      [100, 0.9],
-      [101, -0.4],
-    ]);
+  it('returns null correlation and beta when shared pairs are below minPairs', () => {
+    const coinBars = closesFromReturns(1, [1, 2, 3], [0, 1, 2, 3]);
+    const btcBars = closesFromReturns(1, [2, 4, 5], [0, 1, 2, 3]);
 
-    expect(returnCorrelation(a, b, 3)).toBeNull();
+    const stats = returnStats(coinBars, btcBars, 4); // only 3 shared pairs are available
+
+    expect(stats.pairs).toBe(3);
+    expect(stats.correlation).toBeNull();
+    expect(stats.beta).toBeNull();
   });
 
-  it('computes the expected Pearson r on a hand-built example over shared timestamps', () => {
-    // x-values (keyed by time 1,2,3) are 1,2,3; y-values are 2,4,5. Extra non-overlapping keys on
-    // both sides prove the function intersects by timestamp rather than assuming aligned order.
-    const a = new Map([
-      [1, 1],
-      [2, 2],
-      [3, 3],
-      [999, 42], // not present in b -- must be excluded from the computation
-    ]);
-    const b = new Map([
-      [1, 2],
-      [2, 4],
-      [3, 5],
-      [888, -7], // not present in a -- must be excluded from the computation
-    ]);
+  it('returns null beta (and correlation) when BTC returns have zero variance', () => {
+    const coinBars = closesFromReturns(1, [1, 2, 3], [0, 1, 2, 3]);
+    const btcBars = [
+      { time: 0, close: 10 },
+      { time: 1, close: 10 },
+      { time: 2, close: 10 },
+      { time: 3, close: 10 },
+    ]; // flat: every period return is 0, so BTC return variance is 0
 
-    const correlation = returnCorrelation(a, b, 3);
+    const stats = returnStats(coinBars, btcBars, 3);
 
-    // Hand-computed: mean(x)=2, mean(y)=11/3; r = 3 / sqrt(2 * 14/3) = 0.9819805060619659.
-    expect(correlation).not.toBeNull();
-    expect(correlation as number).toBeCloseTo(0.9819805060619659, 9);
+    expect(stats.pairs).toBe(3);
+    expect(stats.beta).toBeNull();
+    expect(stats.correlation).toBeNull();
+  });
+
+  it(
+    'computes the expected correlation and beta on a hand-built example (regression guard: the ' +
+      'correlation value must match the pre-refactor returnCorrelation output for the same returns)',
+    () => {
+      // x-returns (keyed by time 1,2,3) are 1,2,3; y-returns are 2,4,5 -- the exact fixture the old
+      // returnCorrelation() test used, rebuilt here as a close-price series.
+      const coinBars = closesFromReturns(1, [1, 2, 3], [0, 1, 2, 3]);
+      const btcBars = closesFromReturns(1, [2, 4, 5], [0, 1, 2, 3]);
+
+      const stats = returnStats(coinBars, btcBars, 3);
+
+      // Hand-computed: mean(x)=2, mean(y)=11/3; r = 3 / sqrt(2 * 14/3) = 0.9819805060619659 (identical
+      // to the pre-refactor hand-computed test). beta = cov(x,y)/var(y) = 3 / (14/3) = 9/14.
+      expect(stats.pairs).toBe(3);
+      expect(stats.correlation).not.toBeNull();
+      expect(stats.correlation as number).toBeCloseTo(0.9819805060619659, 9);
+      expect(stats.beta).not.toBeNull();
+      expect(stats.beta as number).toBeCloseTo(9 / 14, 9);
+      expect(stats.gapped).toBe(false);
+    },
+  );
+});
+
+describe('returnStats unit detection', () => {
+  const HOUR_MS = 3_600_000;
+  const HOUR_S = 3_600;
+
+  it('anchors on epoch-ms timestamps (>= 1e11) with no gap: gapped stays false', () => {
+    const stepMs = 4 * HOUR_MS;
+    const t0 = 1_700_000_000_000; // >= 1e11 -> detected as epoch-ms
+    const times = Array.from({ length: 10 }, (_, index) => t0 + index * stepMs);
+    const btcBars = times.map((time, index) => ({
+      time,
+      close: 100 + (index % 5) * 3 + (index % 3),
+    }));
+    const coinBars = times.map((time, index) => ({
+      time,
+      close: 50 + (index % 4) * 2 + (index % 2),
+    }));
+
+    const stats = returnStats(coinBars, btcBars, 5, '4h');
+
+    expect(stats.gapped).toBe(false);
+    expect(stats.pairs).toBe(9);
+    expect(stats.correlation).not.toBeNull();
+  });
+
+  it('anchors on epoch-seconds timestamps ([1e8, 1e11)) with no gap: gapped stays false', () => {
+    const stepS = 4 * HOUR_S;
+    const t0 = 1_700_000_000; // in [1e8, 1e11) -> detected as epoch-seconds
+    const times = Array.from({ length: 10 }, (_, index) => t0 + index * stepS);
+    const btcBars = times.map((time, index) => ({
+      time,
+      close: 100 + (index % 5) * 3 + (index % 3),
+    }));
+    const coinBars = times.map((time, index) => ({
+      time,
+      close: 50 + (index % 4) * 2 + (index % 2),
+    }));
+
+    const stats = returnStats(coinBars, btcBars, 5, '4h');
+
+    expect(stats.gapped).toBe(false);
+    expect(stats.pairs).toBe(9);
+    expect(stats.correlation).not.toBeNull();
+  });
+
+  it('keeps the historic min-delta fallback for small synthetic timestamps (< 1e8), ignoring the interval anchor', () => {
+    // Small-int timestamps are a synthetic/test fixture, not a real epoch -- an interval that would
+    // wildly disagree with the actual (inferred) step must NOT trigger gap correction here.
+    const btcBars = [
+      { time: 0, close: 100 },
+      { time: 1, close: 103 },
+      { time: 2, close: 99 },
+      { time: 3, close: 105 },
+      { time: 4, close: 101 },
+    ];
+    const coinBars = [
+      { time: 0, close: 50 },
+      { time: 1, close: 52 },
+      { time: 2, close: 48 },
+      { time: 3, close: 53 },
+      { time: 4, close: 49 },
+    ];
+
+    const stats = returnStats(coinBars, btcBars, 3, '4h');
+
+    expect(stats.gapped).toBe(false);
+    expect(stats.pairs).toBe(4);
+    expect(stats.correlation).not.toBeNull();
+  });
+});
+
+describe('returnStats gap-anchored pairing', () => {
+  // Regression test for the mispairing bug: a coin series missing every other 4h candle has a
+  // uniform 8h min-delta, so naive inference called this "8h data" and happily paired it, timestamp
+  // for timestamp, against BTC's real 4h returns -- silently mixing 2-period coin moves with
+  // 1-period BTC moves. With the fix, pairing is anchored to the configured interval (4h), so the
+  // gapped coin's own consecutive bars (8h apart) never match the 4h step and contribute no returns.
+  it('does not silently pair an under-sampled coin series (8h gaps) against BTC as if it were 4h', () => {
+    const HOUR_MS = 3_600_000;
+    const stepMs = 4 * HOUR_MS;
+    const t0 = 1_700_000_000_000; // epoch-ms
+
+    // BTC: complete 4h series, 20 candles.
+    const btcBars = Array.from({ length: 20 }, (_, index) => ({
+      time: t0 + index * stepMs,
+      close: 100 + (index % 5) * 3 + (index % 3),
+    }));
+
+    // Coin: missing every other 4h candle -- only the even-indexed BTC timestamps survive, so its
+    // own bars are a uniform 8h apart (naive min-delta inference would call this "8h" data).
+    const coinBars = btcBars
+      .filter((_, index) => index % 2 === 0)
+      .map((bar, index) => ({ time: bar.time, close: 50 + (index % 4) * 2 }));
+
+    const stats = returnStats(coinBars, btcBars, 5, '4h');
+
+    expect(stats.gapped).toBe(true);
+    expect(stats.pairs).toBe(0);
+    expect(stats.correlation).toBeNull();
+    expect(stats.beta).toBeNull();
   });
 });

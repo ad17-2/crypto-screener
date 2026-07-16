@@ -64,6 +64,14 @@ export interface CoinGlassClient {
     startTime?: number,
     endTime?: number,
   ): Promise<CoinGlassHistoryRow[]>;
+  topLongShortPositionRatioHistory(
+    exchange: string,
+    symbol: string,
+    interval: string,
+    limit: number,
+    startTime?: number,
+    endTime?: number,
+  ): Promise<CoinGlassHistoryRow[]>;
 }
 
 export interface CoinGlassClientOptions {
@@ -265,6 +273,24 @@ export class CoinGlassHttpClient implements CoinGlassClient {
     endTime?: number,
   ): Promise<CoinGlassHistoryRow[]> {
     return this.getJsonArray('/api/futures/top-long-short-account-ratio/history', {
+      exchange,
+      symbol,
+      interval,
+      limit,
+      start_time: startTime,
+      end_time: endTime,
+    });
+  }
+
+  async topLongShortPositionRatioHistory(
+    exchange: string,
+    symbol: string,
+    interval: string,
+    limit: number,
+    startTime?: number,
+    endTime?: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    return this.getJsonArray('/api/futures/top-long-short-position-ratio/history', {
       exchange,
       symbol,
       interval,

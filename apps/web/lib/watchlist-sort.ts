@@ -1,9 +1,11 @@
 import type { DashboardRow } from '@crypto-screener/contracts';
 import { numeric } from './format';
 
-/** Default sort is 'price' (24h change) descending — set by WatchlistWorkbench. Every column is
- * an observable fact, not a model opinion -- there is no rank/conviction column to sort by. */
+/** Default sort is 'rank' (the API's own row order) — set by WatchlistWorkbench. The API now
+ * ranks on residual momentum + vetoes, so its order is a meaningful signal, not just arrival
+ * order; the other keys re-sort on a single observable column instead. */
 export type SortColumnKey =
+  | 'rank'
   | 'symbol'
   | 'setup'
   | 'price'
@@ -34,7 +36,8 @@ interface SortColumnConfig {
   type: 'string' | 'numeric';
 }
 
-export const SORT_COLUMNS: Record<SortColumnKey, SortColumnConfig> = {
+/** 'rank' has no backing field here — it preserves array order instead of sorting on one. */
+export const SORT_COLUMNS: Record<Exclude<SortColumnKey, 'rank'>, SortColumnConfig> = {
   symbol: { field: 'symbol', type: 'string' },
   setup: { field: 'setup', type: 'string' },
   price: { field: 'price_change_24h_pct', type: 'numeric' },
@@ -47,6 +50,7 @@ export const SORT_COLUMNS: Record<SortColumnKey, SortColumnConfig> = {
 };
 
 export function defaultSortDirection(key: SortColumnKey): SortDirection {
+  if (key === 'rank') return 'asc';
   return SORT_COLUMNS[key].type === 'string' ? 'asc' : 'desc';
 }
 
@@ -55,7 +59,9 @@ export function sortRows(
   key: SortColumnKey | null,
   dir: SortDirection,
 ): DashboardRow[] {
-  if (!key) return rows;
+  // 'rank' (and no key at all) preserve the API's own row order -- there's no field to re-sort on,
+  // and direction doesn't invert it (there's no clickable Rank header to toggle from).
+  if (!key || key === 'rank') return rows;
   const { field, type } = SORT_COLUMNS[key];
   const sign = dir === 'asc' ? 1 : -1;
   return rows.slice().sort((a, b) => {

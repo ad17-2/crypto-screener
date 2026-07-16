@@ -3,7 +3,7 @@ import type { CoinGlassClient, CoinGlassHistoryRow } from '../providers/coinglas
 import { collectProviderError } from '../providers/errors.js';
 import { sleep } from '../providers/http.js';
 import type { PriceBar } from './correlation.js';
-import { closeSeries, returnCorrelation, returnsByTime } from './correlation.js';
+import { closeSeries, returnStats } from './correlation.js';
 import { derivativesSnapshot } from './derivatives.js';
 import { toFloat } from './scoring.js';
 import { technicalSnapshot } from './technicals.js';
@@ -68,16 +68,25 @@ export async function appendCoinglassTechnicals(
   let btcCorrelationRows = 0;
   const btcBars = seriesBySymbol.get('BTC');
   if (btcBars) {
-    const btcReturns = returnsByTime(btcBars);
     for (const row of target) {
-      const bars = seriesBySymbol.get(String(row.symbol ?? ''));
+      const symbol = String(row.symbol ?? '');
+      if (symbol === 'BTC') {
+        continue; // BTC has no correlation/beta against itself
+      }
+      const bars = seriesBySymbol.get(symbol);
       if (!bars) {
         continue;
       }
-      const correlation = returnCorrelation(returnsByTime(bars), btcReturns, MIN_CORR_PAIRS);
-      if (correlation !== null) {
-        row.btc_correlation = correlation;
+      const stats = returnStats(bars, btcBars, MIN_CORR_PAIRS, interval);
+      if (stats.correlation !== null) {
+        row.btc_correlation = stats.correlation;
         btcCorrelationRows += 1;
+      }
+      if (stats.beta !== null) {
+        row.btc_beta = stats.beta;
+      }
+      if (stats.gapped) {
+        row.price_history_gapped = true;
       }
     }
   }
@@ -194,6 +203,7 @@ export async function appendCoinglassLongShortRatio(
   const maxSymbols = cfg.max_symbols;
   const ratioExchange = cfg.ratio_exchange;
   const includeTop = cfg.include_top_trader;
+  const includeTopPosition = cfg.include_top_position;
   const requestDelay = cfg.request_delay_seconds;
   const target = maxSymbols <= 0 ? rows : rows.slice(0, maxSymbols);
   let enriched = 0;
@@ -232,13 +242,36 @@ export async function appendCoinglassLongShortRatio(
           interval,
           limit,
         );
-        const topRatio = parseRatioEntry(topHistory, [
+        const topKeys = [
           'top_account_long_short_ratio',
           'long_short_ratio',
           'account_long_short_ratio',
-        ]);
+        ];
+        const topRatio = parseRatioEntry(topHistory, topKeys);
         if (topRatio !== null) {
           row.top_trader_long_short_ratio = topRatio;
+        }
+        const ratioDelta24h = parseRatioDelta(topHistory, topKeys);
+        if (ratioDelta24h !== null) {
+          row.top_trader_ratio_delta_24h = ratioDelta24h;
+        }
+        await sleepBetweenRequests(requestDelay);
+      }
+
+      if (includeTopPosition) {
+        const positionHistory = await client.topLongShortPositionRatioHistory(
+          exchange,
+          pair,
+          interval,
+          limit,
+        );
+        const positionRatio = parseRatioEntry(positionHistory, [
+          'top_position_long_short_ratio',
+          'long_short_ratio',
+          'position_long_short_ratio',
+        ]);
+        if (positionRatio !== null) {
+          row.top_trader_position_ratio = positionRatio;
         }
         await sleepBetweenRequests(requestDelay);
       }
@@ -269,9 +302,30 @@ function parseRatioEntry(data: CoinGlassHistoryRow[], keys: string[]): number | 
   if (data.length === 0) {
     return null;
   }
-  const latest = data.at(-1) as CoinGlassHistoryRow;
+  return parseRatioValue(data.at(-1) as CoinGlassHistoryRow, keys);
+}
+
+// 24h delta at 4h bars = 6 bars back from the latest, i.e. index length-7.
+const RATIO_DELTA_24H_BARS_BACK = 6;
+
+function parseRatioDelta(data: CoinGlassHistoryRow[], keys: string[]): number | null {
+  if (data.length < RATIO_DELTA_24H_BARS_BACK + 1) {
+    return null;
+  }
+  const latest = parseRatioValue(data.at(-1) as CoinGlassHistoryRow, keys);
+  const prior = parseRatioValue(
+    data[data.length - 1 - RATIO_DELTA_24H_BARS_BACK] as CoinGlassHistoryRow,
+    keys,
+  );
+  if (latest === null || prior === null) {
+    return null;
+  }
+  return latest - prior;
+}
+
+function parseRatioValue(entry: CoinGlassHistoryRow, keys: string[]): number | null {
   for (const key of keys) {
-    const value = toFloat(latest[key]);
+    const value = toFloat(entry[key]);
     if (value !== null) {
       return value;
     }

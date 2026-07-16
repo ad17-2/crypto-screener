@@ -45,6 +45,15 @@ export function scoreSnapshot(
     .filter((value): value is number => value !== null);
   enrichedContext.median_atr_pct = validAtr.length > 0 ? median(validAtr) : null;
 
+  // BTC's own state, for the fights-BTC veto in rowScoring.ts: prefer BTC's own row (it carries
+  // technicals already; see collector.ts's appendCoinglassTechnicals, which runs before
+  // scoreSnapshot), fall back to the coingecko-derived context field, else null.
+  const btcRow = trustedRows.find((row) => row.symbol === 'BTC');
+  enrichedContext.btc_change_24h_pct = btcRow
+    ? toFloat(btcRow.price_change_24h_pct)
+    : toFloat(marketContext.btc_price_change_24h_pct);
+  enrichedContext.btc_momentum_score = btcRow ? toFloat(btcRow.technical_momentum_score) : null;
+
   const rawFactorsList = trustedRows.map((row) => rawFactors(row, trustedRows, enrichedContext));
   const factorCfg = config.factors ?? {};
   if (factorCfg.residualise_collinear_factors ?? true) {

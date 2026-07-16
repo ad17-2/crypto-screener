@@ -3,6 +3,7 @@ import { ReloadButton } from '@/components/layout/ReloadButton';
 import { BreadthRotationStage, CoreReadStage, MarketStage } from '@/components/market';
 import { WatchlistWorkbench } from '@/components/watchlist';
 import { getDashboard } from '@/lib/api';
+import { btcRunPrice } from '@/lib/btc-pulse';
 
 // Live DB state — never statically cache this route.
 export const dynamic = 'force-dynamic';
@@ -91,7 +92,10 @@ export default async function Page({ searchParams }: PageProps) {
         <h2 id="screened-coins-title" className="stage-title mb-3">
           Screened coins
         </h2>
-        <WatchlistWorkbench watchlists={screenedWatchlists} />
+        <WatchlistWorkbench
+          watchlists={screenedWatchlists}
+          runBtcPrice={btcRunPrice(payload.sections.core)}
+        />
       </section>
     </main>
   );

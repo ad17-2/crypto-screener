@@ -35,6 +35,16 @@ export function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+/** Passes a value through only if it is already a JS `boolean`, else `null`; no coercion. */
+export function booleanOrNull(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+/** Passes 'long'/'short' through as-is; anything else (absent, garbage) becomes null. */
+export function fightsBtcOrNull(value: unknown): 'long' | 'short' | null {
+  return value === 'long' || value === 'short' ? value : null;
+}
+
 /** Top-trader long/short positioning relative to the crowd's (top ÷ global). >1 = smart money more long than retail; null when either ratio is missing or the crowd ratio is non-positive. */
 export function positioningDivergenceRatio(
   global: number | null,
@@ -44,6 +54,30 @@ export function positioningDivergenceRatio(
     return null;
   }
   return top / global;
+}
+
+// Below these magnitudes a 24h price or OI move is noise, not a legible positioning read.
+const OI_PRICE_QUADRANT_PRICE_DEADZONE_PCT = 0.5;
+const OI_PRICE_QUADRANT_OI_DEADZONE_PCT = 1.0;
+
+/** Reads price change x OI change into a positioning quadrant; null when either input is missing or either magnitude sits inside its dead-zone. */
+export function oiPriceQuadrant(
+  priceChangePct: number | null,
+  oiChangePct: number | null,
+): DashboardRow['oi_price_quadrant'] {
+  if (priceChangePct === null || oiChangePct === null) {
+    return null;
+  }
+  if (
+    Math.abs(priceChangePct) < OI_PRICE_QUADRANT_PRICE_DEADZONE_PCT ||
+    Math.abs(oiChangePct) < OI_PRICE_QUADRANT_OI_DEADZONE_PCT
+  ) {
+    return null;
+  }
+  if (priceChangePct > 0) {
+    return oiChangePct > 0 ? 'new_longs' : 'short_covering';
+  }
+  return oiChangePct > 0 ? 'new_shorts' : 'long_liquidation';
 }
 
 export function historyPercentile(
@@ -391,6 +425,16 @@ export function dashboardRow(
     long_short_account_ratio: numberOrNull(row.long_short_account_ratio),
     top_trader_long_short_ratio: numberOrNull(row.top_trader_long_short_ratio),
     btc_correlation: numberOrNull(row.btc_correlation),
+    btc_beta: numberOrNull(row.btc_beta),
+    residual_change_24h_pct: numberOrNull(row.residual_change_24h_pct),
+    fights_btc: fightsBtcOrNull(row.fights_btc),
+    oi_price_quadrant: oiPriceQuadrant(
+      numberOrNull(row.price_change_24h_pct),
+      numberOrNull(row.oi_change_24h_pct),
+    ),
+    top_trader_position_ratio: numberOrNull(row.top_trader_position_ratio),
+    top_trader_ratio_delta_24h: numberOrNull(row.top_trader_ratio_delta_24h),
+    price_history_gapped: booleanOrNull(row.price_history_gapped),
     funding_percentile: fundingPercentile,
     oi_change_percentile: oiChangePercentile,
     positioning_percentile: positioningPercentile,

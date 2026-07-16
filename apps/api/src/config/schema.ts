@@ -25,6 +25,7 @@ const LongShortRatioConfigSchema = z
     max_symbols: z.number().int().default(0),
     ratio_exchange: z.string().default('Binance'),
     include_top_trader: z.boolean().default(true),
+    include_top_position: z.boolean().default(true),
     request_delay_seconds: z.number().default(2.1),
   })
   .strict();
@@ -126,10 +127,6 @@ const RegimeConfigSchema = z
     breadth_strong_threshold: z.number().default(0.25),
     dominance_delta_scale_pct: z.number().default(0.5),
     eth_btc_scale_pct: z.number().default(2.0),
-    nudge_btc_led: z.number().default(1.12),
-    nudge_alts_strong: z.number().default(1.1),
-    nudge_chaos_trend: z.number().default(0.88),
-    nudge_chaos_contrarian: z.number().default(1.12),
   })
   .strict();
 

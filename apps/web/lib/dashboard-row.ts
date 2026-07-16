@@ -92,9 +92,35 @@ export function positioningDivergence(
   };
 }
 
+type OiPriceQuadrantTone = 'pos' | 'neg' | 'warn';
+
+/** apps/api's `oi_price_quadrant` enum -> the same label/tone pairs the old client-side read used. */
+const OI_PRICE_QUADRANT: Record<
+  NonNullable<DashboardRow['oi_price_quadrant']>,
+  { label: string; tone: OiPriceQuadrantTone }
+> = {
+  new_longs: { label: 'New longs', tone: 'pos' }, // fresh money
+  short_covering: { label: 'Short covering', tone: 'warn' }, // weak rally
+  new_shorts: { label: 'New shorts', tone: 'neg' }, // fresh downside
+  long_liquidation: { label: 'Long liquidation', tone: 'warn' }, // washout
+};
+
+/**
+ * Precedence: a server-computed `oi_price_quadrant` string wins (the server's read, including its
+ * noise dead-zone); an explicit `null` means the server judged the moves too small to read and is
+ * passed straight through (the rail renders its own muted "Quiet" state for that case rather than
+ * this function inventing one); `undefined` (old runs, field predates this read) falls back to the
+ * original client-side sign computation, unchanged.
+ */
 export function oiPriceQuadrant(
-  row: Pick<DashboardRow, 'price_change_24h_pct' | 'oi_change_24h_pct'>,
-): { label: string; tone: 'pos' | 'neg' | 'warn' } | null {
+  row: Pick<DashboardRow, 'price_change_24h_pct' | 'oi_change_24h_pct' | 'oi_price_quadrant'>,
+): { label: string; tone: OiPriceQuadrantTone } | null {
+  if (typeof row.oi_price_quadrant === 'string') {
+    return OI_PRICE_QUADRANT[row.oi_price_quadrant];
+  }
+  if (row.oi_price_quadrant === null) {
+    return null;
+  }
   const price = row.price_change_24h_pct;
   const oi = row.oi_change_24h_pct;
   if (price == null || oi == null) return null;

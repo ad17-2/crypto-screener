@@ -27,23 +27,26 @@ The dashboard is a top-down read. You do not pick a tab and start hunting; you s
 
 Then confirm the setup on a chart before doing anything.
 
-Nothing on the page is a black box. Every term (open interest, funding, crowding, correlation, positioning) sits behind an ⓘ that gives a plain-English definition and names the underlying field.
+Nothing on the page is a black box. Every term (open interest, funding, crowding, correlation, positioning) sits behind an ⓘ that gives a plain-English definition and names the underlying field. A dismissible "How to read this screener" guide, reachable from the header, walks a first-time visitor through the same four lists and the BTC fakeout guards in plain English before they ever open a row.
 
 ## What The Screener Shows
 
-Each row is scored into one of four watchlists — **long**, **short**, **crowded long** (fade watch), and **squeeze risk** — and carries a set of display-only observables. None of these feed the score's direction; they are lenses for manual review.
+Each row is scored into one of four watchlists — **long**, **short**, **crowded long** (fade watch), and **squeeze risk** — and carries a set of observables for manual review. Most are display-only; BTC correlation and BTC beta are the exception — they also feed the long/short formulas directly, as a residual and a fights-BTC guard (see How Ranking Works). Rows default to the API's own score order; click any column header to re-sort on that one value instead.
 
 The **table** shows, per coin: the setup label, 24h price change, quote volume, 24h OI change, funding rate, crowding, and two risk lenses:
 
-- **BTC correlation** — Pearson ρ of the coin's 4h returns against BTC's. A high positive ρ means a BTC pump can reverse a technically-justified short; a coin near zero moves on its own. (Populated only after a fresh run computes it; blank on older runs.)
+- **BTC correlation** — Pearson ρ of the coin's 4h returns against BTC's over the last ~30 days. A high positive ρ means a BTC pump can reverse a technically-justified short; a coin near zero moves on its own. (Populated only after a fresh run computes it; blank on older runs.)
 - **Smart $** (positioning divergence) — top-trader ÷ crowd long/short account ratio. Above 1, professional accounts lean more long than retail; below 1, the crowd is more long than the pros.
+
+A row whose direction is opposed by a live BTC impulse it's correlated to also carries a **Fights BTC** chip next to its setup label — the same guard the ranking formula subtracts for, not a prediction.
 
 Click a row to open the **detail rail**, which adds:
 
-- **OI / price read** — a four-way quadrant from the signs of 24h price and OI change: _New longs_ (both up, fresh money), _Short covering_ (price up, OI down, a weak rally), _New shorts_ (price down, OI up, fresh downside), _Long liquidation_ (both down, a washout). Computed in the browser from the price/OI fields.
+- **OI / price read** — a four-way quadrant from the signs of 24h price and OI change: _New longs_ (both up, fresh money), _Short covering_ (price up, OI down, a weak rally), _New shorts_ (price down, OI up, fresh downside), _Long liquidation_ (both down, a washout). Computed server-side, with a dead-zone below 0.5% price change or 1% OI change; inside it the rail shows a muted "Quiet" read instead of a quadrant.
+- **BTC beta** — the coin's move per 1% BTC move, from the same ~30-day shared 4h-return series as BTC correlation. **Residual 24h** — the 24h move left after subtracting the beta-implied BTC move; shown only when the row was actually residualized.
 - **Liquidation imbalance** — net 24h skew; positive means more shorts were liquidated (squeeze pressure), negative means more longs (a washout).
 - **Taker flow** — net 24h aggressive buy vs sell volume; positive is net buying.
-- **Positioning** — retail and top-trader long/short ratios side by side, with an alignment badge.
+- **Positioning** — retail and top-trader long/short account ratios side by side, with an alignment badge, plus the top-trader position ratio (weighted by position size, not headcount) and its 24h change.
 - Funding, open interest (change and notional), crowding, round-trip cost and size estimates, the 4h technical state, a sparkline of recent history, and the reason chips that explain why the row scored where it did.
 
 ## What It Produces
@@ -82,18 +85,18 @@ The observables the screener reads:
 - 4h technical trend and momentum.
 - Historical OI, funding, liquidation, and taker-flow context.
 - Market breadth and sector rotation.
-- BTC return correlation.
+- BTC return correlation, beta, and the resulting residual 24h move.
+- Top-trader position ratio (size-weighted) and its 24h change.
 
 Rows that fail data-quality checks stay visible for inspection but are excluded from trusted ranking.
 
 ## How Ranking Works
 
-There is no learned model and no confidence score. Each row gets four independent scores from fixed, hand-tuned formulas over raw observables (`apps/api/src/pipeline/rowScoring.ts`):
+There is no learned model and no confidence score. Each row gets four independent scores from fixed, hand-set formulas over observables (`apps/api/src/pipeline/rowScoring.ts`) — mechanical rationale, not fitted weights; this codebase deliberately has none:
 
-- **long** — rewards positive 24h price change and rising open interest, credits liquidity and data quality, and penalizes long crowding.
-- **short** — the mirror image on the downside.
-- **crowded long** — flags one-sided long positioning and funding as a fade watch.
-- **squeeze risk** — flags short-heavy positioning that could be squeezed.
+- **long** / **short** — rank on the coin's own move with BTC's pull subtracted out first: 24h price change minus beta × BTC's 24h change (falls back to the raw 24h change when beta isn't available), scaled by the coin's own volatility (an ATR-based scale, clamped both ways; a fixed legacy scale when ATR is missing). Rising open interest still confirms either side; falling OI now drags — a short-covering drag on **long**, a long-liquidation-washout drag on **short**. Liquidity/quality still credits both sides, and long/short crowding still penalizes them. Three subtractive guards sit on top: a **fights-BTC veto** (the candidate's direction is opposed by a live BTC impulse the coin is correlated to — needs correlation ≥ 0.5 and a ≥1% BTC 24h move not contradicted by BTC's own 4h momentum), a **3-day stretch penalty** (the move is already extended relative to the coin's volatility), and a **liquidation-lateness penalty** (the flush already happened, so the row is late rather than early).
+- **crowded long** — flags one-sided long positioning and funding as a fade watch. Unchanged by the above.
+- **squeeze risk** — flags short-heavy positioning that could be squeezed. Unchanged by the above.
 
 The one cross-sectional input is a liquidity/quality percentile, a robust (median/MAD) z-score of each symbol against the rest of the current run, passed through a sigmoid to a 0–100 scale. The broader factor normalization still runs, but it mostly drives the plain-English reason chips shown on each row, not the score itself.
 
@@ -220,10 +223,13 @@ GET  /                          HTML dashboard (Next.js)
 GET  /health                    {"status":"ok","database_exists":bool,"refresh":{...}}
 GET  /api/dashboard             Latest dashboard payload
 GET  /api/dashboard?run_id=...  Specific run payload
+GET  /api/btc-pulse             Near-live BTC spot price, for staleness detection
 POST /api/refresh               Protected manual refresh
 ```
 
-The Express app registers only `/health`, `/api/dashboard`, and `/api/refresh` (`apps/api/src/http/app.ts`); `GET /` is served by Next.js. `/health` only implements `GET` — use `GET`, not `HEAD`, for health checks.
+The Express app registers only `/health`, `/api/dashboard`, `/api/btc-pulse`, and `/api/refresh` (`apps/api/src/http/app.ts`); `GET /` is served by Next.js. `/health` only implements `GET` — use `GET`, not `HEAD`, for health checks.
+
+`GET /api/btc-pulse` fetches BTC's spot price from Binance's public ticker (keyless), cached in memory for 30s; on fetch failure it serves the last value stale for up to 5 minutes, else `503 {"error":"btc_pulse_unavailable"}`. The dashboard polls it every 60s and compares it against the run's BTC price: the Watchlist panel's header always shows a small live-price chip, and once BTC has moved ≥1.5% since the run, a warning banner appears above the threatened list (shorts on a BTC pump, longs on a BTC dump) — the tripwire for the fact that runs are batch, 4×/day, while BTC moves live.
 
 `POST /api/refresh` is default-deny: it returns `403` unless `CRYPTO_DASHBOARD_REFRESH_TOKEN` is set _and_ the request supplies it via an `X-Refresh-Token` header or an `Authorization: Bearer` header (compared with a constant-time check).
 
@@ -353,7 +359,7 @@ apps/api/src/
   config/               config loading + schema (config/default.json contract)
   dashboard/            dashboard payload builder, row shaping, watchlists, freshness
   db/                   better-sqlite3 client, schema, runs/factor-history persistence
-  http/                 Express app + routes (health, dashboard, refresh)
+  http/                 Express app + routes (health, dashboard, refresh, btc-pulse)
   pipeline/             collector, factors, scoring, regime, technicals, correlation, derivatives
   providers/            CoinGlass and CoinGecko HTTP clients
   refresh/              refresh runtime + scheduler (interval and daily-time triggers)

@@ -1,6 +1,6 @@
 import type { DashboardRow, Watchlist, WatchlistId } from '@crypto-screener/contracts';
 import { Panel } from '@/components/layout/Panel';
-import { lookupWatchlist } from '@/lib/copy';
+import { lookupMetric, lookupWatchlist } from '@/lib/copy';
 import type { WatchlistFilterState } from '@/lib/watchlist-filters';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 import { WatchlistTable } from './WatchlistTable';
@@ -22,6 +22,10 @@ export interface WatchlistPanelProps {
   rows: WatchlistPanelRows;
   selectedKey: string | null;
   onSelectRow: (key: string) => void;
+  /** "BTC now $67,234 · +2.3% since run" -- null until the first successful poll (or if it's unavailable). */
+  btcPulseChip: string | null;
+  /** Set only while viewing the list a BTC move since this run threatens (Longs on a dump, Shorts on a pump). */
+  btcStalenessBanner: string | null;
 }
 
 // Ranked setups vs "crowding risk" fade/squeeze candidates -- two intents, not one flat list.
@@ -59,6 +63,8 @@ export function WatchlistPanel({
   rows,
   selectedKey,
   onSelectRow,
+  btcPulseChip,
+  btcStalenessBanner,
 }: WatchlistPanelProps) {
   const shortlist = watchlists.filter((list) => SHORTLIST_IDS.includes(list.id));
   const crowdingRisk = watchlists.filter((list) => CROWDING_RISK_IDS.includes(list.id));
@@ -67,8 +73,18 @@ export function WatchlistPanel({
     <Panel
       title="Watchlist"
       meta={
-        <span className="text-muted text-xs font-mono tabular-nums">
-          {rows.visible.length} / {rows.total}
+        <span className="flex items-center gap-2.5">
+          {btcPulseChip ? (
+            <span
+              className="text-muted text-xs font-mono tabular-nums"
+              title={lookupMetric('btc_pulse').definition}
+            >
+              {btcPulseChip}
+            </span>
+          ) : null}
+          <span className="text-muted text-xs font-mono tabular-nums">
+            {rows.visible.length} / {rows.total}
+          </span>
         </span>
       }
       aria-label="Watchlist workbench"
@@ -98,6 +114,11 @@ export function WatchlistPanel({
           onChange={(event) => onFiltersChange({ query: event.target.value })}
         />
       </div>
+      {btcStalenessBanner ? (
+        <div role="status" className="staleness-banner mx-3 mt-2.5">
+          {btcStalenessBanner}
+        </div>
+      ) : null}
       <WatchlistTable
         rows={rows.visible}
         sortKey={sortKey}

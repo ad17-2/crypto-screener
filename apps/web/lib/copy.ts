@@ -489,10 +489,35 @@ export const METRIC: Record<string, CopyEntry> = {
     definition:
       "How closely this coin's 4h price moves track BTC's over the last ~30 days (Pearson correlation, −1 to +1). Near +1 = moves with BTC, so a BTC pump can squeeze a short even when the coin's own signal says short; near 0 = decoupled, so its own technicals stand alone.",
   },
+  btc_beta: {
+    label: 'BTC beta',
+    definition:
+      'How many percent this coin has moved per 1% BTC move, estimated over ~30 days of 4h bars. Paired with BTC corr, it tells you how hard a BTC move hits this coin.',
+  },
+  residual_change_24h: {
+    label: 'Residual 24h',
+    definition:
+      "The 24h move left after subtracting the beta-implied BTC move -- the coin's own strength or weakness, independent of what BTC did. This is what the ranking now uses.",
+  },
+  fights_btc: {
+    label: 'Fights BTC',
+    definition:
+      "This candidate's direction is opposed by a live BTC impulse it's historically correlated to -- the classic fakeout, where BTC is moving against the trade right now.",
+  },
   positioning_divergence: {
     label: 'Smart $',
     definition:
       "Top traders' long/short positioning vs. the broader crowd's (top-trader ÷ global account ratio). Above 1 = smart money leans more long than retail; below 1 = the crowd is more long than the pros — a divergence that flags where retail may be offside.",
+  },
+  top_trader_position_ratio: {
+    label: 'Top pos',
+    definition:
+      "Top traders' long/short ratio weighted by position size rather than headcount -- a whale's position counts more than a shrimp's, unlike the plain account ratio above.",
+  },
+  top_trader_ratio_delta_24h: {
+    label: 'Positioning delta',
+    definition:
+      '24h change in the top-trader position ratio. Positive means pros have been adding to their lean, negative means cutting it -- pros adding longs into a dump is a different story than a static lean.',
   },
   change_24h: {
     label: '24h change',
@@ -538,6 +563,12 @@ export const METRIC: Record<string, CopyEntry> = {
     label: 'Position size',
     definition:
       "A suggested position size relative to a typical coin, based on this coin's own volatility (14-period ATR) versus the median across trusted coins this run. A calmer-than-typical coin sizes up (up to 2x); a choppier one sizes down (as low as 0.25x) — so a fixed amount of risk buys a similarly-sized bet across very different coins.",
+  },
+  // GET /api/btc-pulse, polled client-side -- see lib/btc-pulse.ts.
+  btc_pulse: {
+    label: 'BTC pulse',
+    definition:
+      "A near-live BTC price, polled about once a minute and compared against BTC's price when this run was computed. A large move since the run means the ranked lists below may already be stale.",
   },
 };
 

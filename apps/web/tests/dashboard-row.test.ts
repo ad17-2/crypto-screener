@@ -31,6 +31,58 @@ describe('oiPriceQuadrant', () => {
   });
 });
 
+// Server-field precedence: a string `oi_price_quadrant` wins over the client-side price/OI-sign
+// read above; an explicit `null` passes straight through (the rail renders its own muted "Quiet"
+// state for that case, checked directly against `row.oi_price_quadrant`, not through this
+// function's return value); `undefined` (old runs, predating the field) falls back to the
+// client-side read unchanged -- exercised by every case above, which omits the field entirely.
+describe('oiPriceQuadrant server-field precedence', () => {
+  it('maps a server oi_price_quadrant string over what the price/OI signs would compute', () => {
+    // Signs alone (both negative) would read as "Long liquidation" -- the server string must win.
+    const result = oiPriceQuadrant({
+      price_change_24h_pct: -3.2,
+      oi_change_24h_pct: -1.5,
+      oi_price_quadrant: 'new_longs',
+    });
+    expect(result).toEqual({ label: 'New longs', tone: 'pos' });
+  });
+
+  it('maps every server enum value to its label/tone', () => {
+    const base = { price_change_24h_pct: null, oi_change_24h_pct: null };
+    expect(oiPriceQuadrant({ ...base, oi_price_quadrant: 'short_covering' })).toEqual({
+      label: 'Short covering',
+      tone: 'warn',
+    });
+    expect(oiPriceQuadrant({ ...base, oi_price_quadrant: 'new_shorts' })).toEqual({
+      label: 'New shorts',
+      tone: 'neg',
+    });
+    expect(oiPriceQuadrant({ ...base, oi_price_quadrant: 'long_liquidation' })).toEqual({
+      label: 'Long liquidation',
+      tone: 'warn',
+    });
+  });
+
+  it('returns null for an explicit server null instead of falling back to the price/OI signs', () => {
+    // Signs alone (both positive) would read as "New longs" -- the explicit null must win.
+    const result = oiPriceQuadrant({
+      price_change_24h_pct: 3.2,
+      oi_change_24h_pct: 1.5,
+      oi_price_quadrant: null,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('falls back to the client-side sign read when oi_price_quadrant is undefined (old runs)', () => {
+    const result = oiPriceQuadrant({
+      price_change_24h_pct: 3.2,
+      oi_change_24h_pct: 1.5,
+      oi_price_quadrant: undefined,
+    });
+    expect(result).toEqual({ label: 'New longs', tone: 'pos' });
+  });
+});
+
 // WatchlistTable's `positioningDivergenceTone` (apps/web/components/watchlist/WatchlistTable.tsx)
 // delegates to this function so its Smart $ column tone stays consistent with the SelectedCoinRail
 // badge for the same row. The .tsx module can't be imported into this vitest node surface (JSX

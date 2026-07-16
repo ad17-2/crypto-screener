@@ -88,6 +88,16 @@ export const DashboardRowSchema = z.object({
   long_short_account_ratio: z.number().nullable(),
   top_trader_long_short_ratio: z.number().nullable(),
   btc_correlation: z.number().nullable(),
+  btc_beta: z.number().nullable().optional(),
+  residual_change_24h_pct: z.number().nullable().optional(),
+  fights_btc: z.enum(['long', 'short']).nullable().optional(),
+  oi_price_quadrant: z
+    .enum(['new_longs', 'short_covering', 'new_shorts', 'long_liquidation'])
+    .nullable()
+    .optional(),
+  top_trader_position_ratio: z.number().nullable().optional(),
+  top_trader_ratio_delta_24h: z.number().nullable().optional(),
+  price_history_gapped: z.boolean().nullable().optional(),
   funding_percentile: z.number().nullable(),
   oi_change_percentile: z.number().nullable(),
   positioning_percentile: z.number().nullable(),

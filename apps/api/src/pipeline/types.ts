@@ -41,10 +41,6 @@ export interface RegimeConfigInput {
   breadth_strong_threshold?: number;
   dominance_delta_scale_pct?: number;
   eth_btc_scale_pct?: number;
-  nudge_btc_led?: number;
-  nudge_alts_strong?: number;
-  nudge_chaos_trend?: number;
-  nudge_chaos_contrarian?: number;
 }
 
 export interface FactorsConfigInput {

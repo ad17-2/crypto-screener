@@ -272,6 +272,18 @@
     border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
     color: var(--gold);
   }
+  /* The BTC staleness tripwire banner -- same amber-warn recipe as .quality-flag-chip.warn, but a
+     full-width block rather than an inline chip. */
+  .staleness-banner {
+    border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--gold) 12%, var(--panel));
+    color: var(--gold);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
   .tab-btn.active {
     background: var(--ink);
     border-color: var(--ink);

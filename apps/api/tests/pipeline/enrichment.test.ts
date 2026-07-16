@@ -18,6 +18,7 @@ class FakeCoinGlassClient implements CoinGlassClient {
   priceHistoryCalls: Array<[string, string, string, number]> = [];
   globalCalls: Array<[string, string]> = [];
   topCalls: Array<[string, string]> = [];
+  positionCalls: Array<[string, string]> = [];
 
   constructor(private readonly failOn?: { method: string; symbol: string }) {}
 
@@ -93,6 +94,14 @@ class FakeCoinGlassClient implements CoinGlassClient {
   ): Promise<CoinGlassHistoryRow[]> {
     this.topCalls.push([exchange, symbol]);
     return [{ top_account_long_short_ratio: 2.4 }];
+  }
+
+  async topLongShortPositionRatioHistory(
+    exchange: string,
+    symbol: string,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.positionCalls.push([exchange, symbol]);
+    return [{ top_position_long_short_ratio: 3.1 }];
   }
 }
 
@@ -224,7 +233,43 @@ describe('appendCoinglassDerivativesHistory', () => {
   });
 });
 
+// Overrides topLongShortPositionRatioHistory to return a caller-supplied history, for the
+// top_trader_position_ratio tests below (empty history, disabled flag).
+class PositionRatioHistoryClient extends FakeCoinGlassClient {
+  constructor(private readonly positionHistory: CoinGlassHistoryRow[]) {
+    super();
+  }
+
+  override async topLongShortPositionRatioHistory(
+    exchange: string,
+    symbol: string,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.positionCalls.push([exchange, symbol]);
+    return this.positionHistory;
+  }
+}
+
+// Overrides topLongShortAccountRatioHistory to return a caller-supplied history, for the
+// top_trader_ratio_delta_24h tests below (short history, malformed older entry).
+class AccountRatioHistoryClient extends FakeCoinGlassClient {
+  constructor(private readonly accountHistory: CoinGlassHistoryRow[]) {
+    super();
+  }
+
+  override async topLongShortAccountRatioHistory(
+    exchange: string,
+    symbol: string,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.topCalls.push([exchange, symbol]);
+    return this.accountHistory;
+  }
+}
+
 describe('appendCoinglassLongShortRatio', () => {
+  const buildRow = (): Row[] => [
+    { symbol: 'BTC', base_asset: 'BTC', quote_asset: 'USDT', primary_exchange: 'Binance' },
+  ];
+
   it('fetches global + top-trader account ratios and merges them onto the row', async () => {
     const rows: Row[] = [
       { symbol: 'BTC', base_asset: 'BTC', quote_asset: 'USDT', primary_exchange: 'Binance' },
@@ -250,6 +295,96 @@ describe('appendCoinglassLongShortRatio', () => {
     expect((status.long_short_ratio as { status: string }).status).toBe('ok');
     expect(client.globalCalls).toEqual([['Binance', 'BTCUSDT']]);
     expect(client.topCalls).toEqual([['Binance', 'BTCUSDT']]);
+  });
+
+  it('sets top_trader_position_ratio from the top-long-short-position-ratio endpoint', async () => {
+    const client = new FakeCoinGlassClient();
+    const status: ProviderStatus = {};
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { request_delay_seconds: 0, include_top_position: true },
+    });
+
+    await appendCoinglassLongShortRatio(buildRow(), client, providerCfg, status);
+
+    expect(client.positionCalls).toEqual([['Binance', 'BTCUSDT']]);
+  });
+
+  it('leaves top_trader_position_ratio unset when the endpoint returns no entries', async () => {
+    const client = new PositionRatioHistoryClient([]);
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { request_delay_seconds: 0, include_top_position: true },
+    });
+    const rows = buildRow();
+
+    await appendCoinglassLongShortRatio(rows, client, providerCfg, {});
+
+    expect(rows[0]).not.toHaveProperty('top_trader_position_ratio');
+  });
+
+  it('does not call the top-long-short-position-ratio endpoint when include_top_position is false', async () => {
+    const client = new FakeCoinGlassClient();
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { request_delay_seconds: 0, include_top_position: false },
+    });
+    const rows = buildRow();
+
+    await appendCoinglassLongShortRatio(rows, client, providerCfg, {});
+
+    expect(client.positionCalls).toEqual([]);
+    expect(rows[0]).not.toHaveProperty('top_trader_position_ratio');
+  });
+
+  it('computes top_trader_ratio_delta_24h as latest minus the value 6 bars earlier', async () => {
+    // 30 entries, top_account_long_short_ratio rising 0.05 per bar from 2.0.
+    const accountHistory: CoinGlassHistoryRow[] = Array.from({ length: 30 }, (_, index) => ({
+      top_account_long_short_ratio: 2.0 + index * 0.05,
+    }));
+    const client = new AccountRatioHistoryClient(accountHistory);
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { request_delay_seconds: 0, include_top_trader: true },
+    });
+    const rows = buildRow();
+
+    await appendCoinglassLongShortRatio(rows, client, providerCfg, {});
+
+    // latest = entry[29] = 2.0 + 29*0.05 = 3.45; prior = entry[23] = 2.0 + 23*0.05 = 3.15
+    expect(rows[0]?.top_trader_ratio_delta_24h).toBeCloseTo(0.3, 10);
+  });
+
+  it('leaves top_trader_ratio_delta_24h unset when the history has fewer than 7 entries', async () => {
+    const accountHistory: CoinGlassHistoryRow[] = Array.from({ length: 5 }, (_, index) => ({
+      top_account_long_short_ratio: 2.0 + index * 0.05,
+    }));
+    const client = new AccountRatioHistoryClient(accountHistory);
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { request_delay_seconds: 0, include_top_trader: true },
+    });
+    const rows = buildRow();
+
+    await appendCoinglassLongShortRatio(rows, client, providerCfg, {});
+
+    expect(rows[0]).not.toHaveProperty('top_trader_ratio_delta_24h');
+    // The latest-only ratio is unaffected by the short history.
+    expect(rows[0]?.top_trader_long_short_ratio).toBeCloseTo(2.2, 10);
+  });
+
+  it('leaves top_trader_ratio_delta_24h unset when the older entry is malformed', async () => {
+    const accountHistory: CoinGlassHistoryRow[] = Array.from({ length: 30 }, (_, index) => ({
+      top_account_long_short_ratio: 2.0 + index * 0.05,
+    }));
+    // Corrupt the entry 6 bars back from the latest (index length-7 = 23): no parseable key.
+    accountHistory[23] = { top_account_long_short_ratio: 'not-a-number' };
+    const client = new AccountRatioHistoryClient(accountHistory);
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { request_delay_seconds: 0, include_top_trader: true },
+    });
+    const rows = buildRow();
+
+    await appendCoinglassLongShortRatio(rows, client, providerCfg, {});
+
+    expect(rows[0]).not.toHaveProperty('top_trader_ratio_delta_24h');
+    // The latest entry still parses fine.
+    expect(rows[0]?.top_trader_long_short_ratio).toBeCloseTo(3.45, 10);
   });
 });
 
@@ -313,7 +448,7 @@ describe('appendCoinglassTechnicals BTC correlation', () => {
     contract_symbol: `${symbol}-USDT-SWAP`,
   });
 
-  it('sets a per-row correlation to BTC: self and a clone ~= 1, an inverse ~= -1', async () => {
+  it('sets a per-row correlation and beta to BTC: a clone ~= 1, an inverse ~= -1; BTC itself is left unset', async () => {
     const rows = [rowFor('BTC'), rowFor('CLONE'), rowFor('INV')];
     const client = new VariedSeriesClient({
       'BTC-USDT-SWAP': btcCloses,
@@ -324,10 +459,13 @@ describe('appendCoinglassTechnicals BTC correlation', () => {
 
     await appendCoinglassTechnicals(rows, client, coinglassConfig(technicalCfg), status);
 
-    expect(rows[0]?.btc_correlation).toBeCloseTo(1, 6);
+    expect(rows[0]).not.toHaveProperty('btc_correlation'); // BTC has no correlation/beta against itself
+    expect(rows[0]).not.toHaveProperty('btc_beta');
     expect(rows[1]?.btc_correlation).toBeCloseTo(1, 6);
+    expect(rows[1]?.btc_beta).toBeCloseTo(1, 6);
     expect(rows[2]?.btc_correlation).toBeCloseTo(-1, 6);
-    expect((status.technicals as { btc_correlation_rows: number }).btc_correlation_rows).toBe(3);
+    expect(rows[2]?.btc_beta).toBeCloseTo(-1, 6);
+    expect((status.technicals as { btc_correlation_rows: number }).btc_correlation_rows).toBe(2);
   });
 
   it('leaves btc_correlation unset when the shared overlap is below the minimum', async () => {
@@ -340,9 +478,10 @@ describe('appendCoinglassTechnicals BTC correlation', () => {
 
     await appendCoinglassTechnicals(rows, client, coinglassConfig(technicalCfg), status);
 
-    expect(rows[0]?.btc_correlation).toBeCloseTo(1, 6);
+    expect(rows[0]).not.toHaveProperty('btc_correlation'); // BTC has no correlation/beta against itself
+    expect(rows[0]).not.toHaveProperty('btc_beta');
     expect(rows[1]).not.toHaveProperty('btc_correlation');
-    expect((status.technicals as { btc_correlation_rows: number }).btc_correlation_rows).toBe(1);
+    expect((status.technicals as { btc_correlation_rows: number }).btc_correlation_rows).toBe(0);
   });
 
   it('assigns no correlation when BTC is absent from the universe', async () => {

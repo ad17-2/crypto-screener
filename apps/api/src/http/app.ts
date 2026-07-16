@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import express, { type Express } from 'express';
 import type { AppConfig } from '../config/index.js';
 import type { RefreshRuntime } from '../refresh/runtime.js';
+import { btcPulseRoute } from './routes/btcPulse.js';
 import { dashboardRoute } from './routes/dashboard.js';
 import { healthRoute } from './routes/health.js';
 import { refreshRoute } from './routes/refresh.js';
@@ -29,6 +30,7 @@ export function createApp(deps: AppDeps): Express {
 
   app.get('/health', healthRoute(deps));
   app.get('/api/dashboard', dashboardRoute(deps));
+  app.get('/api/btc-pulse', btcPulseRoute());
   app.post('/api/refresh', refreshRoute(deps));
 
   return app;

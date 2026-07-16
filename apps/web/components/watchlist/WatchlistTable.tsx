@@ -329,6 +329,20 @@ function SetupCell({ row }: { row: DashboardRow }) {
     <td className="watch-cell left watch-setup" data-label="Setup">
       <span className={`setup-badge ${side.tone}`}>{side.label}</span>
       <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
+      {row.fights_btc ? <FightsBtcChip /> : null}
     </td>
+  );
+}
+
+/**
+ * The classic fakeout flag: this row's direction is opposed by a live BTC impulse it's
+ * historically correlated to. Shared with SelectedCoinRail (same reuse pattern as `sideMeta`
+ * above) so the same chip, wording, and definition appear in both places.
+ */
+export function FightsBtcChip() {
+  return (
+    <span className="setup-badge warn" title={lookupMetric('fights_btc').definition}>
+      Fights BTC
+    </span>
   );
 }

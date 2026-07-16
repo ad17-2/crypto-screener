@@ -256,6 +256,10 @@ class StubCoinGlassClient implements CoinGlassClient {
   async topLongShortAccountRatioHistory(): Promise<CoinGlassHistoryRow[]> {
     return [{ top_account_long_short_ratio: 2.4 }];
   }
+
+  async topLongShortPositionRatioHistory(): Promise<CoinGlassHistoryRow[]> {
+    return [{ top_position_long_short_ratio: 3.1 }];
+  }
 }
 
 function btcOkxPair(overrides: Partial<CoinGlassPair> = {}): CoinGlassPair {
