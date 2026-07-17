@@ -1,2 +1,2 @@
-export * from './dashboard';
-export * from './pulse';
+export * from './dashboard.js';
+export * from './pulse.js';
