@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AppConfig } from '../config/index.js';
+import { annotateWatchlistMembership } from '../dashboard/watchlists.js';
 import {
   loadLatestRegimeState,
   loadPriceLookback,
@@ -80,6 +81,13 @@ export async function runPipeline(
       // RunPayload's Record<string, unknown> field is rejected even though it's unknown-compatible.
       regime: { ...scored.regime },
     };
+
+    // Persisted membership is a point-in-time record of what the screener said under
+    // then-current config -- it deliberately does NOT track later config/predicate changes (the
+    // dashboard keeps recomputing live from market_rows on every request; that drift between the
+    // persisted record and a re-derived one is accepted and wanted, since forward-validation needs
+    // to know what was actually shown at the time, not what today's code would show in hindsight).
+    annotateWatchlistMembership(payload.rows, config);
 
     if (save) {
       // Row and MarketRow are the same open row shape, differing only in whether `symbol` is

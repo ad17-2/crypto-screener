@@ -41,6 +41,63 @@ describe('historyMetrics', () => {
     expect(metrics).not.toHaveProperty('funding_rate_pct');
     expect(metrics).not.toHaveProperty('atr_14_pct');
   });
+
+  it('passes through the newer TA/membership allowlist keys and omits a null one among them', () => {
+    const metrics = historyMetrics({
+      trend_state: 'uptrend',
+      btc_beta: 1.15,
+      btc_correlation: 0.62,
+      residual_change_24h_pct: 3.4,
+      price_change_72h_pct: 12.5,
+      top_trader_position_ratio: 1.02,
+      top_trader_ratio_delta_24h: 0.05,
+      breakout_pct_20: 2.1,
+      breakdown_pct_20: 0,
+      donchian_position_20: 0.8,
+      breakout_volume_ratio_20: 1.4,
+      ema_cross_direction: 'bullish',
+      ema_cross_bars_since: 3,
+      technical_divergence: 'bearish',
+      technical_divergence_strength: 0.4,
+      oi_change_72h_pct_history: -5.2,
+      fights_btc: 'long',
+      cvd_absorption_state: 'confirmation_long',
+      oi_price_trend_state: 'confirmed_long',
+      is_trusted: false,
+      data_quality_flags: ['stale_price'],
+      watchlist_side: 'long',
+      watchlist_rank: 1,
+      setup_confidence: 'A',
+      cvd_trend_72h_pct: null,
+    });
+    expect(metrics).toMatchObject({
+      trend_state: 'uptrend',
+      btc_beta: 1.15,
+      btc_correlation: 0.62,
+      residual_change_24h_pct: 3.4,
+      price_change_72h_pct: 12.5,
+      top_trader_position_ratio: 1.02,
+      top_trader_ratio_delta_24h: 0.05,
+      breakout_pct_20: 2.1,
+      breakdown_pct_20: 0,
+      donchian_position_20: 0.8,
+      breakout_volume_ratio_20: 1.4,
+      ema_cross_direction: 'bullish',
+      ema_cross_bars_since: 3,
+      technical_divergence: 'bearish',
+      technical_divergence_strength: 0.4,
+      oi_change_72h_pct_history: -5.2,
+      fights_btc: 'long',
+      cvd_absorption_state: 'confirmation_long',
+      oi_price_trend_state: 'confirmed_long',
+      is_trusted: false,
+      data_quality_flags: ['stale_price'],
+      watchlist_side: 'long',
+      watchlist_rank: 1,
+      setup_confidence: 'A',
+    });
+    expect(metrics).not.toHaveProperty('cvd_trend_72h_pct');
+  });
 });
 
 describe('saveFactorHistoryRecords', () => {

@@ -46,6 +46,26 @@ CREATE INDEX IF NOT EXISTS idx_factor_history_symbol_time
 CREATE INDEX IF NOT EXISTS idx_factor_history_time
     ON factor_history(generated_at);
 
+-- Forward-outcome labels derived from factor_history (db/outcomeLabels.ts). Same no-FK stance as
+-- factor_history above: run_id/matched_run_id may point at backfill-* synthetic runs with no
+-- matching runs row.
+CREATE TABLE IF NOT EXISTS outcome_labels (
+    run_id TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    horizon_hours INTEGER NOT NULL,
+    fwd_return_pct REAL,
+    fwd_residual_pct REAL,
+    btc_fwd_return_pct REAL,
+    beta_used REAL,
+    matched_run_id TEXT NOT NULL,
+    matched_delta_hours REAL NOT NULL,
+    PRIMARY KEY (run_id, symbol, horizon_hours)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outcome_labels_symbol_time
+    ON outcome_labels(symbol, generated_at);
+
 CREATE TABLE IF NOT EXISTS market_regime_history (
     run_id TEXT NOT NULL,
     generated_at TEXT NOT NULL,

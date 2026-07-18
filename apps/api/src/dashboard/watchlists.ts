@@ -1,6 +1,8 @@
 import type { WatchlistId } from '@crypto-screener/contracts';
+import type { AppConfig } from '../config/schema.js';
 import { toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
+import { fightsBtcOrNull, setupConfidence } from './rows.js';
 
 /** Keyed by the full WatchlistId union (not `Record<string, string>`) so indexing stays plain `string` under tsconfig's noUncheckedIndexedAccess. */
 export const WATCHLIST_LABELS: Record<WatchlistId, string> = {
@@ -29,9 +31,17 @@ export function topBy(
   if (trustedOnly) {
     candidates = candidates.filter((row) => row.is_trusted ?? true);
   }
-  let ranked = [...candidates].sort(
-    (a, b) => (toFloat(b[field], 0) ?? 0) - (toFloat(a[field], 0) ?? 0),
-  );
+  // Secondary key (symbol ASC) makes the sort deterministic on ties -- without it, JS's stable
+  // sort just preserves input order, and the two call sites feed different orderings (pipeline:
+  // quote-volume-desc via collector.ts; dashboard: symbol-ASC via the market_rows PK-index scan),
+  // so a tied row at the rank=limit cutoff could persist a different winner than the dashboard shows.
+  let ranked = [...candidates].sort((a, b) => {
+    const scoreDiff = (toFloat(b[field], 0) ?? 0) - (toFloat(a[field], 0) ?? 0);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+    return String(a.symbol ?? '').localeCompare(String(b.symbol ?? ''));
+  });
   if (options.predicate) {
     ranked = ranked.filter(options.predicate);
   }
@@ -94,6 +104,34 @@ export function isShortCandidate(row: Row): boolean {
     hasDirectionalSignals(row) &&
     !isTrendExcluded(row, GATE_EXCLUDED_TREND_STATES_SHORT)
   );
+}
+
+function annotateSide(rankedRows: Row[], side: 'long' | 'short'): void {
+  rankedRows.forEach((row, index) => {
+    row.watchlist_side = side;
+    row.watchlist_rank = index + 1;
+    row.setup_confidence = setupConfidence(
+      side,
+      toFloat(row.technical_trend_score),
+      toFloat(row.technical_momentum_score),
+      toFloat(row.oi_change_24h_pct),
+      fightsBtcOrNull(row.fights_btc),
+    );
+  });
+}
+
+/**
+ * Mutates `rows` in place, stamping `watchlist_side`/`watchlist_rank`/`setup_confidence` onto the
+ * rows that would have made the long/short lists for this cross-section -- mirrors
+ * dashboard/payload.ts's buildSections EXACTLY (same predicates, same topBy sort/limit) so a
+ * persisted row matches what the dashboard would have shown for this run. Non-members are left
+ * untouched (no keys set). Crowded/squeeze lists are out of scope -- membership there isn't
+ * persisted.
+ */
+export function annotateWatchlistMembership(rows: Row[], config: AppConfig): void {
+  const limit = config.report.limit;
+  annotateSide(topBy(rows, 'long_score', limit, { predicate: isLongCandidate }), 'long');
+  annotateSide(topBy(rows, 'short_score', limit, { predicate: isShortCandidate }), 'short');
 }
 
 export function isCrowdedLong(row: Row): boolean {

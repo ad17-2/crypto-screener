@@ -41,6 +41,33 @@ const HISTORY_METRIC_KEYS = [
   'taker_buy_sell_ratio_24h',
   'taker_imbalance_24h_pct',
   'derivatives_confirmation_score',
+  'btc_beta',
+  'btc_correlation',
+  'residual_change_24h_pct',
+  'price_change_72h_pct',
+  'top_trader_position_ratio',
+  'top_trader_ratio_delta_24h',
+  'trend_state',
+  'breakout_pct_20',
+  'breakdown_pct_20',
+  'donchian_position_20',
+  'breakout_volume_ratio_20',
+  'ema_cross_direction',
+  'ema_cross_bars_since',
+  'technical_divergence',
+  'technical_divergence_strength',
+  'cvd_trend_72h_pct',
+  'oi_change_72h_pct_history',
+  'fights_btc',
+  'cvd_absorption_state',
+  'oi_price_trend_state',
+  'is_trusted',
+  'data_quality_flags',
+  // Membership annotation (dashboard/watchlists.ts's annotateWatchlistMembership) -- set only on
+  // rows that made the long/short watchlist for this run; absent on every other row.
+  'watchlist_side',
+  'watchlist_rank',
+  'setup_confidence',
 ] as const;
 
 export function historyMetrics(row: Record<string, unknown>): Record<string, unknown> {

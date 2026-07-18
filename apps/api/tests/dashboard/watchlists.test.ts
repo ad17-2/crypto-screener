@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { AppConfigSchema } from '../../src/config/schema.js';
+import { buildSections } from '../../src/dashboard/payload.js';
+import { fightsBtcOrNull, setupConfidence } from '../../src/dashboard/rows.js';
 import {
+  annotateWatchlistMembership,
   isCrowdedLong,
   isCrowdedShort,
   isLongCandidate,
   isShortCandidate,
+  topBy,
 } from '../../src/dashboard/watchlists.js';
+import { toFloat } from '../../src/pipeline/scoring.js';
 import type { Row } from '../../src/pipeline/types.js';
 
 function row(overrides: Partial<Row>): Row {
@@ -211,6 +217,25 @@ describe('isShortCandidate trend-state gate', () => {
   });
 });
 
+describe('topBy tie-break', () => {
+  it('selects and ranks identical symbols regardless of input order, for tied scores', () => {
+    const tiedRows = (order: string[]): Row[] =>
+      order.map((symbol) => row({ symbol, long_score: 10 }));
+
+    // Same three tied-score symbols, fed in two different input orderings -- mirrors the
+    // divergence between collector.ts's quote-volume-desc feed and the dashboard's symbol-ASC
+    // market_rows scan (see topBy's comment).
+    const orderA = tiedRows(['CCC', 'AAA', 'BBB']);
+    const orderB = tiedRows(['BBB', 'CCC', 'AAA']);
+
+    const rankedA = topBy(orderA, 'long_score', 2).map((r) => r.symbol);
+    const rankedB = topBy(orderB, 'long_score', 2).map((r) => r.symbol);
+
+    expect(rankedA).toEqual(['AAA', 'BBB']);
+    expect(rankedB).toEqual(['AAA', 'BBB']);
+  });
+});
+
 describe('isCrowdedLong', () => {
   it('is unaffected by the membership move floor or core-symbol gate', () => {
     expect(
@@ -256,5 +281,119 @@ describe('isCrowdedShort', () => {
         }),
       ),
     ).toBe(true);
+  });
+});
+
+describe('annotateWatchlistMembership', () => {
+  const config = AppConfigSchema.parse({ report: { limit: 2 } });
+
+  function candidateRow(overrides: Partial<Row>): Row {
+    return row({
+      ...directionalSignals,
+      technical_trend_score: 0.6,
+      technical_momentum_score: 0.2,
+      oi_change_24h_pct: 1.0,
+      fights_btc: null,
+      ...overrides,
+    });
+  }
+
+  function buildRows(): Row[] {
+    return [
+      candidateRow({ symbol: 'AAA', price_change_24h_pct: 8.0, long_score: 30 }),
+      candidateRow({ symbol: 'BBB', price_change_24h_pct: 5.0, long_score: 50 }),
+      candidateRow({ symbol: 'CCC', price_change_24h_pct: 3.0, long_score: 10 }),
+      candidateRow({
+        symbol: 'DDD',
+        price_change_24h_pct: -6.0,
+        short_score: 40,
+        technical_trend_score: -0.6,
+        technical_momentum_score: -0.2,
+      }),
+      candidateRow({
+        symbol: 'EEE',
+        price_change_24h_pct: -9.0,
+        short_score: 20,
+        technical_trend_score: -0.6,
+        technical_momentum_score: -0.2,
+      }),
+      // Core symbol: excluded from both lists no matter how strong its score.
+      candidateRow({ symbol: 'BTC', price_change_24h_pct: 10.0, long_score: 999 }),
+      // Below the 0.5% membership move floor: excluded despite a nonzero long_score.
+      candidateRow({ symbol: 'FFF', price_change_24h_pct: 0.1, long_score: 5 }),
+    ];
+  }
+
+  it('stamps side/rank/confidence on members in topBy order, and leaves non-members untouched', () => {
+    const rows = buildRows();
+    const expectedLong = topBy(rows, 'long_score', config.report.limit, {
+      predicate: isLongCandidate,
+    });
+    const expectedShort = topBy(rows, 'short_score', config.report.limit, {
+      predicate: isShortCandidate,
+    });
+    expect(expectedLong.map((r) => r.symbol)).toEqual(['BBB', 'AAA']);
+    expect(expectedShort.map((r) => r.symbol)).toEqual(['DDD', 'EEE']);
+
+    annotateWatchlistMembership(rows, config);
+
+    expectedLong.forEach((memberRow, index) => {
+      expect(memberRow.watchlist_side).toBe('long');
+      expect(memberRow.watchlist_rank).toBe(index + 1);
+      expect(memberRow.setup_confidence).toBe(
+        setupConfidence(
+          'long',
+          toFloat(memberRow.technical_trend_score),
+          toFloat(memberRow.technical_momentum_score),
+          toFloat(memberRow.oi_change_24h_pct),
+          fightsBtcOrNull(memberRow.fights_btc),
+        ),
+      );
+    });
+    expectedShort.forEach((memberRow, index) => {
+      expect(memberRow.watchlist_side).toBe('short');
+      expect(memberRow.watchlist_rank).toBe(index + 1);
+      expect(memberRow.setup_confidence).toBe(
+        setupConfidence(
+          'short',
+          toFloat(memberRow.technical_trend_score),
+          toFloat(memberRow.technical_momentum_score),
+          toFloat(memberRow.oi_change_24h_pct),
+          fightsBtcOrNull(memberRow.fights_btc),
+        ),
+      );
+    });
+    expect(rows.find((r) => r.symbol === 'BBB')?.setup_confidence).toBe('A');
+
+    const memberSymbols = new Set(
+      [...expectedLong, ...expectedShort].map((memberRow) => memberRow.symbol),
+    );
+    for (const candidate of rows) {
+      if (!memberSymbols.has(candidate.symbol)) {
+        expect(candidate.watchlist_side).toBeUndefined();
+        expect(candidate.watchlist_rank).toBeUndefined();
+        expect(candidate.setup_confidence).toBeUndefined();
+      }
+    }
+  });
+
+  it("matches buildSections' long/short selection exactly for the same cross-section", () => {
+    const rowsForAnnotation = buildRows();
+    const rowsForSections = buildRows();
+
+    annotateWatchlistMembership(rowsForAnnotation, config);
+    const sections = buildSections(rowsForSections, config.report.limit, {});
+
+    const annotatedLong = rowsForAnnotation
+      .filter((r) => r.watchlist_side === 'long')
+      .sort((a, b) => (a.watchlist_rank as number) - (b.watchlist_rank as number))
+      .map((r) => r.symbol);
+    const annotatedShort = rowsForAnnotation
+      .filter((r) => r.watchlist_side === 'short')
+      .sort((a, b) => (a.watchlist_rank as number) - (b.watchlist_rank as number))
+      .map((r) => r.symbol);
+
+    expect(annotatedLong).toEqual(sections.long.map((r) => r.symbol));
+    expect(annotatedShort).toEqual(sections.short.map((r) => r.symbol));
   });
 });
