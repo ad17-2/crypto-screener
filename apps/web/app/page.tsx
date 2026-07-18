@@ -67,6 +67,7 @@ export default async function Page({ searchParams }: PageProps) {
         freshness={payload.freshness}
         runs={payload.runs}
         selectedRunId={payload.run.run_id}
+        refreshStatus={payload.refresh_status}
       />
 
       <MarketStage
@@ -92,6 +93,7 @@ export default async function Page({ searchParams }: PageProps) {
         <WatchlistWorkbench
           watchlists={screenedWatchlists}
           runBtcPrice={btcRunPrice(payload.sections.core)}
+          watchlistChanges={payload.watchlist_changes}
         />
       </section>
     </main>

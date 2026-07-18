@@ -280,6 +280,20 @@ export function positioningDivergenceTone(
   return '';
 }
 
+/** SymbolCell renders in every tab, including the merged 'Top Setups' view, so the NEW chip's
+ *  tooltip can't assume a single list context -- it reads the row's own `side` instead. */
+const NEW_TO_LIST_TITLES: Partial<Record<DashboardRowSide, string>> = {
+  long: "Joined the Long list at the latest run — wasn't on it in the previous run.",
+  short: "Joined the Short list at the latest run — wasn't on it in the previous run.",
+};
+
+const NEW_TO_LIST_DEFAULT_TITLE =
+  "Joined a watchlist at the latest run — wasn't on it in the previous run.";
+
+function newToListTitle(side: DashboardRowSide): string {
+  return NEW_TO_LIST_TITLES[side] ?? NEW_TO_LIST_DEFAULT_TITLE;
+}
+
 function SymbolCell({ row }: { row: DashboardRow }) {
   const href = tradingViewUrl(row);
   const flagged = row.data_quality_flags.length > 0 || row.is_trusted === false;
@@ -300,6 +314,11 @@ function SymbolCell({ row }: { row: DashboardRow }) {
           <span className="symbol-link">{row.symbol || '-'}</span>
         )}
         {flagged ? <QualityWarningMark row={row} /> : null}
+        {row.new_to_list ? (
+          <span className="setup-badge warn" title={newToListTitle(row.side)}>
+            NEW
+          </span>
+        ) : null}
       </span>
     </td>
   );

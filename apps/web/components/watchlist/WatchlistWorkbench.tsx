@@ -1,6 +1,6 @@
 'use client';
 
-import type { Watchlist, WatchlistId } from '@crypto-screener/contracts';
+import type { Watchlist, WatchlistChanges, WatchlistId } from '@crypto-screener/contracts';
 import { useEffect, useMemo, useState } from 'react';
 import {
   BTC_PULSE_POLL_MS,
@@ -23,6 +23,8 @@ export interface WatchlistWorkbenchProps {
   /** BTC's price_usd at the time this run was computed, from the core section -- null on old runs
    * or when BTC has no core row. Feeds the staleness poll against GET /api/btc-pulse below. */
   runBtcPrice: number | null;
+  /** Run-over-run watchlist diff; null when the API has no usable baseline. See lib/watchlist-changes.ts. */
+  watchlistChanges?: WatchlistChanges | null | undefined;
 }
 
 const SORT_KEYS: readonly SortColumnKey[] = [
@@ -44,7 +46,11 @@ function defaultTab(watchlists: Watchlist[]): WatchlistId {
     : (watchlists[0]?.id ?? 'chart_next');
 }
 
-export function WatchlistWorkbench({ watchlists, runBtcPrice }: WatchlistWorkbenchProps) {
+export function WatchlistWorkbench({
+  watchlists,
+  runBtcPrice,
+  watchlistChanges,
+}: WatchlistWorkbenchProps) {
   const [activeTab, setActiveTab] = useState<WatchlistId>(() => defaultTab(watchlists));
   const [filters, setFilters] = useState<WatchlistFilterState>(DEFAULT_WATCHLIST_FILTERS);
   const [sortKey, setSortKey] = useState<SortColumnKey | null>('rank');
@@ -165,6 +171,7 @@ export function WatchlistWorkbench({ watchlists, runBtcPrice }: WatchlistWorkben
         onSelectRow={setSelectedKey}
         btcPulseChip={btcPulseChip}
         btcStalenessBanner={btcStalenessBanner}
+        watchlistChanges={watchlistChanges}
       />
       <aside className="detail-rail">
         <SelectedCoinRail row={selectedRow} />

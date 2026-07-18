@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cvdAbsorptionStateOrNull,
+  dashboardRow,
   fightsBtcOrNull,
   oiPriceQuadrant,
   oiPriceTrendStateOrNull,
@@ -320,5 +321,24 @@ describe('reasonParts new-signal chips', () => {
       'long',
     );
     expect(parts.find((part) => part.label === 'Fresh EMA20/50 cross')).toBeUndefined();
+  });
+});
+
+describe('dashboardRow new_to_list wire emission', () => {
+  const baseRow: Row = {
+    symbol: 'BTC',
+    price_change_24h_pct: null,
+    oi_change_24h_pct: null,
+    funding_rate_pct: null,
+  };
+
+  it('emits new_to_list: true when the caller flags the row as newly on the list', () => {
+    const row = dashboardRow(baseRow, null, 'long', null, true);
+    expect(row.new_to_list).toBe(true);
+  });
+
+  it('omits new_to_list entirely (not null/false) when the caller does not flag it', () => {
+    const row = dashboardRow(baseRow, null, 'long');
+    expect('new_to_list' in row).toBe(false);
   });
 });

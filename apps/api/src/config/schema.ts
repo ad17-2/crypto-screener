@@ -103,12 +103,24 @@ const FearGreedConfigSchema = z
   })
   .strict();
 
+// ForexFactory weekly macro calendar -- keyless and free like feargreed above, so no api_key_env
+// either. No retry_429 knobs: the provider hardcodes a bounded retry (see providers/forexfactory.ts)
+// since this is a single request, not the sequential per-symbol calls CoinGlass/CoinGecko retry.
+const ForexFactoryConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    base_url: z.string().default('https://nfs.faireconomy.media'),
+    request_timeout_seconds: z.number().default(10),
+  })
+  .strict();
+
 const ProvidersConfigSchema = z
   .object({
     coinglass: CoinGlassConfigSchema.default(() => CoinGlassConfigSchema.parse({})),
     coingecko: CoinGeckoConfigSchema.default(() => CoinGeckoConfigSchema.parse({})),
     sosovalue: SoSoValueConfigSchema.default(() => SoSoValueConfigSchema.parse({})),
     feargreed: FearGreedConfigSchema.default(() => FearGreedConfigSchema.parse({})),
+    forexfactory: ForexFactoryConfigSchema.default(() => ForexFactoryConfigSchema.parse({})),
   })
   .strict();
 
@@ -197,6 +209,7 @@ export type CoinGlassConfig = z.infer<typeof CoinGlassConfigSchema>;
 export type CoinGeckoConfig = z.infer<typeof CoinGeckoConfigSchema>;
 export type SoSoValueConfig = z.infer<typeof SoSoValueConfigSchema>;
 export type FearGreedConfig = z.infer<typeof FearGreedConfigSchema>;
+export type ForexFactoryConfig = z.infer<typeof ForexFactoryConfigSchema>;
 export type DataQualityConfig = z.infer<typeof DataQualityConfigSchema>;
 export type FactorsConfig = z.infer<typeof FactorsConfigSchema>;
 export type RegimeConfig = z.infer<typeof RegimeConfigSchema>;

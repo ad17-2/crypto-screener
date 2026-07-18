@@ -8,6 +8,7 @@ import {
   donchianPosition,
   donchianRange,
   emaCrossOf,
+  goldenPocket,
   type RawCandle,
   rsiSeries,
   technicalSnapshot,
@@ -275,5 +276,60 @@ describe('divergenceOf', () => {
     const divergence = divergenceOf(closes, rsiValues);
     expect(divergence.direction).toBeNull();
     expect(divergence.strength).toBeNull();
+  });
+});
+
+describe('goldenPocket', () => {
+  it('computes the fib 0.5-0.618 zone of an up-leg: swing high more recent than swing low (test_golden_pocket_up_leg)', () => {
+    // Swing low confirmed at index 3 (value 0), swing high confirmed at index 9 (value 100);
+    // strictly monotonic between them so no other swings qualify.
+    const closes = [40, 30, 20, 0, 20, 40, 60, 80, 90, 100, 90, 80, 70, 55];
+    const gp = goldenPocket(closes);
+    expect(gp.legHigh).toBe(100);
+    expect(gp.legLow).toBe(0);
+    expect(gp.direction).toBe('up');
+    // range = 100 - 0 = 100; upper = 100 - 0.5*100 = 50; lower = 100 - 0.618*100 = 38.2
+    expect(gp.upper).toBe(50);
+    expect(gp.lower).toBe(38.2);
+    // last close = 55, above the zone: (55-50)/50*100 = 10
+    expect(gp.distancePct).toBe(10);
+  });
+
+  it('computes the fib 0.5-0.618 zone of a down-leg: swing low more recent than swing high (test_golden_pocket_down_leg)', () => {
+    // Swing high confirmed at index 3 (value 100), swing low confirmed at index 9 (value 0);
+    // strictly monotonic between them so no other swings qualify.
+    const closes = [60, 70, 80, 100, 80, 60, 40, 20, 10, 0, 10, 20, 30, 45];
+    const gp = goldenPocket(closes);
+    expect(gp.legHigh).toBe(100);
+    expect(gp.legLow).toBe(0);
+    expect(gp.direction).toBe('down');
+    // range = 100 - 0 = 100; lower = 0 + 0.5*100 = 50; upper = 0 + 0.618*100 = 61.8
+    expect(gp.lower).toBe(50);
+    expect(gp.upper).toBe(61.8);
+    // last close = 45, below the zone: (45-50)/50*100 = -10
+    expect(gp.distancePct).toBe(-10);
+  });
+
+  it('returns all-null when there is no confirmed swing high or low (test_golden_pocket_no_swings)', () => {
+    const closes = Array.from({ length: 20 }, (_, i) => 100 + i); // strictly monotonic, no extrema
+    const gp = goldenPocket(closes);
+    expect(gp.legHigh).toBeNull();
+    expect(gp.legLow).toBeNull();
+    expect(gp.direction).toBeNull();
+    expect(gp.upper).toBeNull();
+    expect(gp.lower).toBeNull();
+    expect(gp.distancePct).toBeNull();
+  });
+});
+
+describe('technicalSnapshot donchian levels', () => {
+  it('emits donchian_high_20/donchian_low_20 as the absolute prior-20-bar extremes (test_donchian_levels_on_snapshot)', () => {
+    const closes = wigglyCloses(80);
+    const snapshot = technicalSnapshot(makeCandles(closes), '4h');
+    const expected = donchianRange(closes, closes, DONCHIAN_PERIOD);
+    expect(expected.high).not.toBeNull();
+    expect(expected.low).not.toBeNull();
+    expect(snapshot.donchian_high_20).toBe(expected.high);
+    expect(snapshot.donchian_low_20).toBe(expected.low);
   });
 });

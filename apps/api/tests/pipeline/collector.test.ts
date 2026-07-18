@@ -6,6 +6,7 @@ import {
   coinglassCandidateStats,
   collectCoinglassFutures,
   collectFearGreedContext,
+  collectMacroCalendarContext,
   collectMarket,
   rankCoinglassCandidates,
 } from '../../src/pipeline/collector';
@@ -17,6 +18,7 @@ import type {
 } from '../../src/providers/coinglass';
 import { ProviderError } from '../../src/providers/errors';
 import type { FearGreedClient, FearGreedSnapshot } from '../../src/providers/feargreed';
+import type { ForexFactoryClient, MacroEvent } from '../../src/providers/forexfactory';
 import fixture from '../fixtures/parity-run.json';
 
 function buildConfig(overrides: Record<string, unknown> = {}): AppConfig {
@@ -473,6 +475,17 @@ class StubFearGreedClient implements FearGreedClient {
   }
 }
 
+class StubForexFactoryClient implements ForexFactoryClient {
+  constructor(private readonly events: MacroEvent[] | null = null) {}
+
+  async weeklyEvents(): Promise<MacroEvent[]> {
+    if (!this.events) {
+      throw new ProviderError('simulated forexfactory outage');
+    }
+    return this.events;
+  }
+}
+
 describe('collectMarket', () => {
   it('assembles rows, market_context, and provider_status from both providers, and quality-flags rows', async () => {
     const config = buildConfig({
@@ -500,11 +513,22 @@ describe('collectMarket', () => {
       classification: 'Extreme Fear',
       yesterdayValue: 27,
     });
+    const forexfactoryClient = new StubForexFactoryClient([
+      {
+        title: 'CPI m/m',
+        country: 'USD',
+        impact: 'High',
+        time_utc: '2026-07-14T16:30:00.000Z',
+        forecast: '-0.1%',
+        previous: '0.5%',
+      },
+    ]);
 
     const result = await collectMarket(config, {
       coinglassClient,
       coingeckoClient,
       feargreedClient,
+      forexfactoryClient,
     });
 
     expect(result.rows.map((row) => row.symbol)).toEqual(['BTC']);
@@ -514,9 +538,20 @@ describe('collectMarket', () => {
     expect(result.market_context.fear_greed_value).toBe(25);
     expect(result.market_context.fear_greed_classification).toBe('Extreme Fear');
     expect(result.market_context.fear_greed_value_yesterday).toBe(27);
+    expect(result.market_context.macro_events).toEqual([
+      {
+        title: 'CPI m/m',
+        country: 'USD',
+        impact: 'High',
+        time_utc: '2026-07-14T16:30:00.000Z',
+        forecast: '-0.1%',
+        previous: '0.5%',
+      },
+    ]);
     expect((result.provider_status.coinglass as { status: string }).status).toBe('ok');
     expect((result.provider_status.coingecko as { status: string }).status).toBe('ok');
     expect((result.provider_status.feargreed as { status: string }).status).toBe('ok');
+    expect((result.provider_status.forexfactory as { status: string }).status).toBe('ok');
     expect((result.provider_status.data_quality as { excluded: number }).excluded).toBe(0);
   });
 });
@@ -595,5 +630,72 @@ describe('collectFearGreedContext', () => {
 
     expect(context).toEqual({});
     expect((status.feargreed as { status: string }).status).toBe('disabled');
+  });
+});
+
+describe('collectMacroCalendarContext', () => {
+  const config = buildConfig({});
+
+  function event(overrides: Partial<MacroEvent> = {}): MacroEvent {
+    return {
+      title: 'CPI m/m',
+      country: 'USD',
+      impact: 'High',
+      time_utc: '2026-07-14T16:30:00.000Z',
+      forecast: '-0.1%',
+      previous: '0.5%',
+      ...overrides,
+    };
+  }
+
+  it('sets market_context.macro_events to the USD+High events on success', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new StubForexFactoryClient([
+      event(),
+      event({ title: 'FOMC Member Bowman Speaks', impact: 'Low' }),
+      event({ title: 'BusinessNZ Services Index', country: 'NZD' }),
+    ]);
+
+    const context = await collectMacroCalendarContext(config, status, client);
+
+    expect(context).toEqual({ macro_events: [event()] });
+    expect((status.forexfactory as { status: string }).status).toBe('ok');
+  });
+
+  it('caps macro_events at 30 entries', async () => {
+    const status: Record<string, unknown> = {};
+    const events = Array.from({ length: 35 }, (_, i) => event({ title: `Event ${i}` }));
+    const client = new StubForexFactoryClient(events);
+
+    const context = await collectMacroCalendarContext(config, status, client);
+
+    expect((context.macro_events as MacroEvent[]).length).toBe(30);
+  });
+
+  it('leaves fields absent and records a status.forexfactory error note on failure, without throwing', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new StubForexFactoryClient(null);
+
+    const context = await collectMacroCalendarContext(config, status, client);
+
+    expect(context).toEqual({});
+    const forexfactoryStatus = status.forexfactory as { status: string; errors: string[] };
+    expect(forexfactoryStatus.status).toBe('error');
+    expect(forexfactoryStatus.errors).toHaveLength(1);
+    expect(forexfactoryStatus.errors[0]).toContain('simulated forexfactory outage');
+  });
+
+  it('marks status.forexfactory as disabled and returns no fields when the provider is disabled', async () => {
+    const disabledConfig = buildConfig({ providers: { forexfactory: { enabled: false } } });
+    const status: Record<string, unknown> = {};
+
+    const context = await collectMacroCalendarContext(
+      disabledConfig,
+      status,
+      new StubForexFactoryClient([event()]),
+    );
+
+    expect(context).toEqual({});
+    expect((status.forexfactory as { status: string }).status).toBe('disabled');
   });
 });

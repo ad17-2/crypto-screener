@@ -1,6 +1,7 @@
 import type { Quality, Watchlist } from '@crypto-screener/contracts';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { lookupBias, lookupMetric, lookupRegimeState } from '@/lib/copy';
+import { parseMacroEvents, selectMacroBanner } from '@/lib/macro-events';
 import { num, pct, signedPct, str } from '@/lib/payload';
 import { marketVerdict, sieveStages } from '@/lib/verdict';
 import { Sieve } from './Sieve';
@@ -35,6 +36,7 @@ export function MarketStage({
 }: MarketStageProps) {
   const verdict = marketVerdict({ regime, market_context: marketContext, validation, quality });
   const stages = sieveStages({ provider_status: providerStatus, run, quality, watchlists });
+  const macroBanner = selectMacroBanner(parseMacroEvents(marketContext), new Date());
 
   // Mirrors verdict.ts's own headlineFor() precedence (regime_state, falling back to the legacy
   // label field) so the Regime tile always reads the same state the headline above was built from.
@@ -54,6 +56,16 @@ export function MarketStage({
         />
       </h3>
       <p className="verdict-sub">{verdict.summary}</p>
+      {macroBanner.upcoming ? (
+        <div role="status" className="staleness-banner mt-4">
+          {macroBanner.upcoming}
+        </div>
+      ) : null}
+      {macroBanner.recent ? (
+        <div role="status" className="staleness-banner mt-4">
+          {macroBanner.recent}
+        </div>
+      ) : null}
       {verdict.facts.length > 0 ? (
         <ul className="mt-4 grid max-w-[62ch] list-none gap-1.5 p-0 text-[13px] text-muted">
           {verdict.facts.map((fact) => (

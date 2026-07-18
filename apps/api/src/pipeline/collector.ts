@@ -6,6 +6,8 @@ import { CoinGlassHttpClient } from '../providers/coinglass.js';
 import { collectProviderError, ProviderError } from '../providers/errors.js';
 import type { FearGreedClient } from '../providers/feargreed.js';
 import { FearGreedHttpClient } from '../providers/feargreed.js';
+import type { ForexFactoryClient } from '../providers/forexfactory.js';
+import { ForexFactoryHttpClient } from '../providers/forexfactory.js';
 import { sleep } from '../providers/http.js';
 import {
   baseFromPair,
@@ -36,6 +38,7 @@ export interface CollectDeps {
   coinglassClient?: CoinGlassClient;
   coingeckoClient?: CoinGeckoClient;
   feargreedClient?: FearGreedClient;
+  forexfactoryClient?: ForexFactoryClient;
 }
 
 export async function collectMarket(
@@ -46,6 +49,10 @@ export async function collectMarket(
   const rows = await collectCoinglassFutures(config, status, deps.coinglassClient);
   const marketContext = await collectCoingeckoContext(config, status, deps.coingeckoClient);
   Object.assign(marketContext, await collectFearGreedContext(config, status, deps.feargreedClient));
+  Object.assign(
+    marketContext,
+    await collectMacroCalendarContext(config, status, deps.forexfactoryClient),
+  );
   status.data_quality = applyDataQuality(rows, config);
   return { rows, market_context: marketContext, provider_status: status };
 }
@@ -231,6 +238,45 @@ export async function collectFearGreedContext(
     status: Object.keys(context).length ? 'ok' : 'error',
     errors: errors.slice(0, 5),
     note: 'alternative.me Fear & Greed Index',
+  };
+  return context;
+}
+
+const MAX_MACRO_EVENTS = 30;
+
+export async function collectMacroCalendarContext(
+  config: AppConfig,
+  status: ProviderStatus,
+  client?: ForexFactoryClient,
+): Promise<Record<string, unknown>> {
+  const providerCfg = config.providers.forexfactory;
+  if (!providerCfg.enabled) {
+    status.forexfactory = { status: 'disabled' };
+    return {};
+  }
+
+  const forexfactoryClient =
+    client ??
+    new ForexFactoryHttpClient({
+      baseUrl: providerCfg.base_url,
+      timeoutSeconds: providerCfg.request_timeout_seconds,
+    });
+
+  const context: Record<string, unknown> = {};
+  const errors: string[] = [];
+  try {
+    const events = await forexfactoryClient.weeklyEvents();
+    context.macro_events = events
+      .filter((event) => event.country === 'USD' && event.impact === 'High')
+      .slice(0, MAX_MACRO_EVENTS);
+  } catch (error) {
+    collectProviderError(errors, error);
+  }
+
+  status.forexfactory = {
+    status: Object.keys(context).length ? 'ok' : 'error',
+    errors: errors.slice(0, 5),
+    note: 'ForexFactory weekly macro calendar',
   };
   return context;
 }

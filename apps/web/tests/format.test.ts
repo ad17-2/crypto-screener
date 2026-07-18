@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ordinal } from '../lib/format';
+import { fmtPrice, ordinal } from '../lib/format';
 
 describe('ordinal', () => {
   it('uses st/nd/rd for 1, 2, 3', () => {
@@ -32,5 +32,38 @@ describe('ordinal', () => {
   it('rounds before choosing the suffix', () => {
     expect(ordinal(80.6)).toBe('81st');
     expect(ordinal(11.4)).toBe('11th');
+  });
+});
+
+describe('fmtPrice', () => {
+  it('uses 2dp for prices >= 100', () => {
+    expect(fmtPrice(67234.5)).toBe('$67234.50');
+    expect(fmtPrice(100)).toBe('$100.00');
+  });
+
+  it('uses 4dp for prices >= 1 and < 100', () => {
+    expect(fmtPrice(1)).toBe('$1.0000');
+    expect(fmtPrice(67.234567)).toBe('$67.2346');
+  });
+
+  it('uses 6dp for prices below 1', () => {
+    expect(fmtPrice(0.99)).toBe('$0.990000');
+    expect(fmtPrice(0.000123)).toBe('$0.000123');
+  });
+
+  it('scales by magnitude, not sign', () => {
+    expect(fmtPrice(-150)).toBe('$-150.00');
+    expect(fmtPrice(-0.5)).toBe('$-0.500000');
+  });
+
+  it('returns "Price unavailable" for null, undefined, and non-numeric input', () => {
+    expect(fmtPrice(null)).toBe('Price unavailable');
+    expect(fmtPrice(undefined)).toBe('Price unavailable');
+    expect(fmtPrice('not-a-number')).toBe('Price unavailable');
+    expect(fmtPrice(Number.NaN)).toBe('Price unavailable');
+  });
+
+  it('coerces a numeric string, like numeric() does for the rest of the file', () => {
+    expect(fmtPrice('42.5')).toBe('$42.5000');
   });
 });

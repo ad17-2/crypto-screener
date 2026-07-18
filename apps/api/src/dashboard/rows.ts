@@ -442,11 +442,19 @@ const TECHNICAL_STATE_KEYS = [
   'breakout_pct_20',
   'breakdown_pct_20',
   'donchian_position_20',
+  'donchian_high_20',
+  'donchian_low_20',
   'breakout_volume_ratio_20',
   'ema_cross_direction',
   'ema_cross_bars_since',
   'technical_divergence',
   'technical_divergence_strength',
+  'fib_leg_high',
+  'fib_leg_low',
+  'fib_leg_direction',
+  'golden_pocket_upper',
+  'golden_pocket_lower',
+  'distance_to_golden_pocket_pct',
 ] as const;
 
 /** The cast to DashboardRow['technical_state'] is safe because these keys are only ever written by technicals.ts as the types the schema expects. */
@@ -535,6 +543,7 @@ export function dashboardRow(
   scoreField: string | null,
   side: DashboardRowSide,
   history: HistoryPoint[] | null | undefined = null,
+  newToList = false,
 ): DashboardRow {
   const scores = asRecord(row.scores);
   const score = scoreField === null ? null : row[scoreField];
@@ -611,6 +620,9 @@ export function dashboardRow(
           ),
         }
       : {}),
+    // Same absent-unless-true convention as setup_confidence above: present only when this row
+    // just joined a directional list this run (see dashboard/runDiff.ts's watchlistDiff).
+    ...(newToList ? { new_to_list: true } : {}),
     technical_state: technicalState(row),
     data_source: stringOrNull(row.data_source),
     is_trusted: row.is_trusted ?? true,

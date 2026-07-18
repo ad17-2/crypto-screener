@@ -47,11 +47,19 @@ const TechnicalStateSchema = z.object({
   breakout_pct_20: z.number().nullable().optional(),
   breakdown_pct_20: z.number().nullable().optional(),
   donchian_position_20: z.number().nullable().optional(),
+  donchian_high_20: z.number().nullable().optional(),
+  donchian_low_20: z.number().nullable().optional(),
   breakout_volume_ratio_20: z.number().nullable().optional(),
   ema_cross_direction: z.enum(['bullish', 'bearish']).nullable().optional(),
   ema_cross_bars_since: z.number().nullable().optional(),
   technical_divergence: z.enum(['bearish', 'bullish']).nullable().optional(),
   technical_divergence_strength: z.number().nullable().optional(),
+  fib_leg_high: z.number().nullable().optional(),
+  fib_leg_low: z.number().nullable().optional(),
+  fib_leg_direction: z.enum(['up', 'down']).nullable().optional(),
+  golden_pocket_upper: z.number().nullable().optional(),
+  golden_pocket_lower: z.number().nullable().optional(),
+  distance_to_golden_pocket_pct: z.number().nullable().optional(),
 });
 
 // A cross this recent (<=1 day at 4h bars) is still tradeable news; older ones are already priced
@@ -143,6 +151,10 @@ export const DashboardRowSchema = z.object({
   open_interest_usd: z.number().nullable(),
   technical_setup: z.string().nullable(),
   setup_confidence: z.enum(['A', 'B', 'C']).optional(),
+  // Present (true) only when this row just joined the long/short watchlist this run; absent
+  // otherwise (not new, not a directional row, or the run-over-run diff was suppressed -- see
+  // apps/api/src/dashboard/runDiff.ts).
+  new_to_list: z.boolean().optional(),
   technical_state: TechnicalStateSchema,
   data_source: z.string().nullable(),
   is_trusted: z.boolean(),
@@ -215,6 +227,16 @@ export const WatchlistSchema = z.object({
   rows: z.array(DashboardRowSchema),
 });
 
+/**
+ * Run-over-run departures from the long/short watchlists, against the immediately-previous run in
+ * factor_history (see apps/api/src/dashboard/runDiff.ts). Each list is alphabetical, capped at 12.
+ */
+export const WatchlistChangesSchema = z.object({
+  baseline_run_id: z.string(),
+  departed_long: z.array(z.string()),
+  departed_short: z.array(z.string()),
+});
+
 const DashboardPayloadEmptySchema = z.object({
   status: z.literal('empty'),
   database: z.string(),
@@ -236,6 +258,10 @@ const DashboardPayloadOkSchema = z.object({
   quality: QualitySchema,
   sections: SectionsSchema,
   watchlists: z.array(WatchlistSchema),
+  // null when there's no usable baseline (no previous run, or a previous run that never recorded
+  // watchlist membership -- pre-feature runs and backfill rows). Optional/nullable so old payloads
+  // and the empty-state schema stay valid.
+  watchlist_changes: WatchlistChangesSchema.nullable().optional(),
   /** set by the route handler; optional here so this schema also validates the builder's raw return. */
   refresh_status: z.unknown().nullable().optional(),
 });
@@ -255,4 +281,5 @@ export type Quality = z.infer<typeof QualitySchema>;
 export type Sections = z.infer<typeof SectionsSchema>;
 export type WatchlistId = z.infer<typeof WatchlistIdSchema>;
 export type Watchlist = z.infer<typeof WatchlistSchema>;
+export type WatchlistChanges = z.infer<typeof WatchlistChangesSchema>;
 export type DashboardPayload = z.infer<typeof DashboardPayloadSchema>;

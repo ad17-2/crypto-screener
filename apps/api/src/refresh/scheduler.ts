@@ -75,7 +75,7 @@ function offsetMinutesAt(instant: Date, timeZone: string): number {
  * Guess-as-UTC-then-correct-by-actual-offset; inexact within a DST transition's ambiguous/skipped
  * hour (not a concern for daily refresh windows).
  */
-function zonedTimeToUtc(
+export function zonedTimeToUtc(
   year: number,
   month: number,
   day: number,

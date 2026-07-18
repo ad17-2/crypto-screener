@@ -10,6 +10,7 @@ export type {
   DataQualityConfig,
   FactorsConfig,
   FearGreedConfig,
+  ForexFactoryConfig,
   ProvidersConfig,
   RegimeConfig,
   ReportConfig,

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<!-- Trimmed slice of a live GET https://nfs.faireconomy.media/ff_calendar_thisweek.xml capture
+     taken 2026-07-18. Real bytes for every event kept below -- only the surrounding events were
+     cut. This week's live capture had no "All Day"/"Tentative" time values or CDATA-wrapped
+     titles, so forexfactory.test.ts covers those two cases with small hand-built XML snippets
+     instead of stretching this fixture; see the test file for that note. -->
+<weeklyevents>
+	<event>
+		<title>BusinessNZ Services Index</title>
+		<country>NZD</country>
+		<date><![CDATA[07-12-2026]]></date>
+		<time><![CDATA[10:30pm]]></time>
+		<impact><![CDATA[Low]]></impact>
+		<forecast />
+		<previous><![CDATA[47.5]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/852-nz-businessnz-services-index]]></url>
+	</event>
+	<event>
+		<title>FOMC Member Bowman Speaks</title>
+		<country>USD</country>
+		<date><![CDATA[07-13-2026]]></date>
+		<time><![CDATA[9:25am]]></time>
+		<impact><![CDATA[Low]]></impact>
+		<forecast />
+		<previous />
+		<url><![CDATA[https://www.forexfactory.com/calendar/812-us-fomc-member-bowman-speaks]]></url>
+	</event>
+	<event>
+		<title>Federal Budget Balance</title>
+		<country>USD</country>
+		<date><![CDATA[07-13-2026]]></date>
+		<time><![CDATA[5:59pm]]></time>
+		<impact><![CDATA[Low]]></impact>
+		<forecast><![CDATA[-135.8B]]></forecast>
+		<previous><![CDATA[-292.6B]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/322-us-federal-budget-balance]]></url>
+	</event>
+	<event>
+		<title>MPC Member Pill Speaks</title>
+		<country>GBP</country>
+		<date><![CDATA[07-13-2026]]></date>
+		<time><![CDATA[6:00pm]]></time>
+		<impact><![CDATA[Low]]></impact>
+		<forecast />
+		<previous />
+		<url><![CDATA[https://www.forexfactory.com/calendar/850-uk-mpc-member-pill-speaks]]></url>
+	</event>
+	<event>
+		<title>ADP Weekly Employment Change</title>
+		<country>USD</country>
+		<date><![CDATA[07-14-2026]]></date>
+		<time><![CDATA[12:15pm]]></time>
+		<impact><![CDATA[Low]]></impact>
+		<forecast />
+		<previous><![CDATA[21.0K]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/929-us-adp-weekly-employment-change]]></url>
+	</event>
+	<event>
+		<title>Core CPI m/m</title>
+		<country>USD</country>
+		<date><![CDATA[07-14-2026]]></date>
+		<time><![CDATA[12:30pm]]></time>
+		<impact><![CDATA[High]]></impact>
+		<forecast><![CDATA[0.2%]]></forecast>
+		<previous><![CDATA[0.2%]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/79-us-core-cpi-mm]]></url>
+	</event>
+	<event>
+		<title>Core CPI y/y</title>
+		<country>USD</country>
+		<date><![CDATA[07-14-2026]]></date>
+		<time><![CDATA[12:30pm]]></time>
+		<impact><![CDATA[High]]></impact>
+		<forecast><![CDATA[2.8%]]></forecast>
+		<previous><![CDATA[2.9%]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/933-us-core-cpi-yy]]></url>
+	</event>
+	<event>
+		<title>CPI m/m</title>
+		<country>USD</country>
+		<date><![CDATA[07-14-2026]]></date>
+		<time><![CDATA[12:30pm]]></time>
+		<impact><![CDATA[High]]></impact>
+		<forecast><![CDATA[-0.1%]]></forecast>
+		<previous><![CDATA[0.5%]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/78-us-cpi-mm]]></url>
+	</event>
+	<event>
+		<title>CPI y/y</title>
+		<country>USD</country>
+		<date><![CDATA[07-14-2026]]></date>
+		<time><![CDATA[12:30pm]]></time>
+		<impact><![CDATA[High]]></impact>
+		<forecast><![CDATA[3.8%]]></forecast>
+		<previous><![CDATA[4.2%]]></previous>
+		<url><![CDATA[https://www.forexfactory.com/calendar/884-us-cpi-yy]]></url>
+	</event>
+	<event>
+		<title>Fed Chairman Warsh Testifies</title>
+		<country>USD</country>
+		<date><![CDATA[07-14-2026]]></date>
+		<time><![CDATA[2:00pm]]></time>
+		<impact><![CDATA[High]]></impact>
+		<forecast />
+		<previous />
+		<url><![CDATA[https://www.forexfactory.com/calendar/931-us-fed-chairman-warsh-testifies]]></url>
+	</event>
+	<event>
+		<title>FOMC Member Musalem Speaks</title>
+		<country>USD</country>
+		<date><![CDATA[07-15-2026]]></date>
+		<time><![CDATA[10:30pm]]></time>
+		<impact><![CDATA[Low]]></impact>
+		<forecast />
+		<previous />
+		<url><![CDATA[https://www.forexfactory.com/calendar/911-us-fomc-member-musalem-speaks]]></url>
+	</event>
+</weeklyevents>

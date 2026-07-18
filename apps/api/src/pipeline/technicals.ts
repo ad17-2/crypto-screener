@@ -30,6 +30,15 @@ interface Donchian {
   low: number | null;
 }
 
+interface GoldenPocket {
+  legHigh: number | null;
+  legLow: number | null;
+  direction: 'up' | 'down' | null;
+  upper: number | null;
+  lower: number | null;
+  distancePct: number | null;
+}
+
 interface EmaCross {
   direction: 'bullish' | 'bearish' | null;
   barsSince: number | null;
@@ -79,6 +88,7 @@ export function technicalSnapshot(candles: RawCandle[], interval: string): Recor
   const donchian = donchianRange(highs, lows, DONCHIAN_PERIOD);
   const emaCross = emaCrossOf(ema20Series, ema50Series, EMA_CROSS_LOOKBACK_BARS);
   const divergence = divergenceOf(closes, rsiValues);
+  const goldenPocketZone = goldenPocket(closes);
 
   return {
     technical_interval: interval,
@@ -107,11 +117,19 @@ export function technicalSnapshot(candles: RawCandle[], interval: string): Recor
     breakout_pct_20: breakoutPct(close, donchian.high),
     breakdown_pct_20: breakdownPct(close, donchian.low),
     donchian_position_20: donchianPosition(close, donchian.high, donchian.low),
+    donchian_high_20: donchian.high,
+    donchian_low_20: donchian.low,
     breakout_volume_ratio_20: breakoutVolumeRatio(volumes, DONCHIAN_PERIOD),
     ema_cross_direction: emaCross.direction,
     ema_cross_bars_since: emaCross.barsSince,
     technical_divergence: divergence.direction,
     technical_divergence_strength: divergence.strength,
+    fib_leg_high: goldenPocketZone.legHigh,
+    fib_leg_low: goldenPocketZone.legLow,
+    fib_leg_direction: goldenPocketZone.direction,
+    golden_pocket_upper: goldenPocketZone.upper,
+    golden_pocket_lower: goldenPocketZone.lower,
+    distance_to_golden_pocket_pct: goldenPocketZone.distancePct,
   };
 }
 
@@ -557,4 +575,41 @@ export function divergenceOf(closes: number[], rsiValues: number[]): Divergence 
   }
 
   return { direction: null, strength: null };
+}
+
+// Display-only, no score wiring. Fib 0.5-0.618 retracement zone of the latest confirmed swing leg
+// on `closes`, for trading golden-pocket pullbacks at absolute S/R. Reuses the same swing
+// detection as divergenceOf (isSwingHigh/isSwingLow/findSwingIndices), but takes the single most
+// recent confirmed high and independently the single most recent confirmed low -- not a matched
+// pair -- since a leg needs only its two endpoints, not MIN_SWING_SEPARATION_BARS between them.
+export function goldenPocket(closes: number[]): GoldenPocket {
+  const empty: GoldenPocket = {
+    legHigh: null,
+    legLow: null,
+    direction: null,
+    upper: null,
+    lower: null,
+    distancePct: null,
+  };
+  const highIndices = findSwingIndices(closes, isSwingHigh);
+  const lowIndices = findSwingIndices(closes, isSwingLow);
+  if (highIndices.length === 0 || lowIndices.length === 0) {
+    return empty;
+  }
+  const highIndex = highIndices.at(-1) as number;
+  const lowIndex = lowIndices.at(-1) as number;
+  const legHigh = closes[highIndex] as number;
+  const legLow = closes[lowIndex] as number;
+  const range = legHigh - legLow;
+  if (range <= 0) {
+    return empty;
+  }
+  // Swing high more recent than swing low -> impulse up, pullback expected down into the zone.
+  const direction: 'up' | 'down' = highIndex > lowIndex ? 'up' : 'down';
+  const upper = direction === 'up' ? legHigh - 0.5 * range : legLow + 0.618 * range;
+  const lower = direction === 'up' ? legHigh - 0.618 * range : legLow + 0.5 * range;
+  const close = closes.at(-1) as number;
+  const distancePct =
+    close > upper ? pctDistance(close, upper) : close < lower ? pctDistance(close, lower) : 0;
+  return { legHigh, legLow, direction, upper, lower, distancePct };
 }

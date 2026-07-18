@@ -14,6 +14,7 @@ import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { freshnessSummary } from './freshness.js';
 import { dashboardRow, type HistoryPoint, numberOrNull, stringOrNull } from './rows.js';
+import { previousRunMembership, watchlistDiff } from './runDiff.js';
 import {
   CORE_SYMBOLS,
   isCrowdedLong,
@@ -192,6 +193,7 @@ export function buildSections(
   rows: Row[],
   limit: number,
   history: Record<string, HistoryPoint[]>,
+  newToList: Set<string> = new Set(),
 ): Sections {
   const coreBySymbol = new Map<string, Row>();
   for (const row of rows) {
@@ -207,10 +209,22 @@ export function buildSections(
       dashboardRow(coreBySymbol.get(symbol) as Row, null, 'core', history[symbol] ?? []),
     ),
     long: topBy(rows, 'long_score', limit, { predicate: isLongCandidate }).map((row) =>
-      dashboardRow(row, 'long_score', 'long', history[String(row.symbol)] ?? []),
+      dashboardRow(
+        row,
+        'long_score',
+        'long',
+        history[String(row.symbol)] ?? [],
+        newToList.has(String(row.symbol)),
+      ),
     ),
     short: topBy(rows, 'short_score', limit, { predicate: isShortCandidate }).map((row) =>
-      dashboardRow(row, 'short_score', 'short', history[String(row.symbol)] ?? []),
+      dashboardRow(
+        row,
+        'short_score',
+        'short',
+        history[String(row.symbol)] ?? [],
+        newToList.has(String(row.symbol)),
+      ),
     ),
     crowded_longs: topBy(rows, 'crowded_long_score', limit, { predicate: isCrowdedLong }).map(
       (row) =>
@@ -286,6 +300,19 @@ function validationSummary(sections: Sections): Record<string, unknown> {
   };
 }
 
+/** `row.watchlist_side` is stamped pre-save by dashboard/watchlists.ts's annotateWatchlistMembership -- present only on rows that made the long/short list for this run. */
+function currentWatchlistMembership(rows: Row[]): Map<string, 'long' | 'short'> {
+  const bySymbol = new Map<string, 'long' | 'short'>();
+  for (const row of rows) {
+    const symbol = typeof row.symbol === 'string' ? row.symbol : null;
+    const side = row.watchlist_side;
+    if (symbol !== null && (side === 'long' || side === 'short')) {
+      bySymbol.set(symbol, side);
+    }
+  }
+  return bySymbol;
+}
+
 /** `config` is passed alongside `db` so `database` reports the CONFIGURED storage_path, not whatever file `db` is physically backed by (e.g. a test's temp copy). */
 export function buildDashboardPayload(
   db: Database.Database,
@@ -311,7 +338,11 @@ export function buildDashboardPayload(
   const context = loadsJson<Record<string, unknown>>(selected.context_json, {});
   const providerStatus = loadsJson<Record<string, unknown>>(selected.provider_status_json, {});
   const regime = loadsJson<Record<string, unknown>>(selected.regime_json, {});
-  const sections = buildSections(rows, options.limit, history);
+
+  const previousMembership = previousRunMembership(db, selected.run_id, selected.generated_at);
+  const diff = watchlistDiff(previousMembership, currentWatchlistMembership(rows));
+
+  const sections = buildSections(rows, options.limit, history, diff.newToList);
   const freshness = freshnessSummary(selected.generated_at);
 
   return {
@@ -327,5 +358,6 @@ export function buildDashboardPayload(
     quality: qualitySummary(rows),
     sections,
     watchlists: buildWatchlists(sections, options.limit),
+    watchlist_changes: diff.changes,
   };
 }

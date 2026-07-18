@@ -1,5 +1,7 @@
 import type { Freshness, RunSummary } from '@crypto-screener/contracts';
 import { lookupFreshness } from '@/lib/copy';
+import type { RefreshStatusChip } from '@/lib/refresh-status';
+import { parseRefreshStatus, refreshStatusChip } from '@/lib/refresh-status';
 import { GuideDrawer } from './GuideDrawer';
 import { ReloadButton } from './ReloadButton';
 import { RunSelector } from './RunSelector';
@@ -9,18 +11,21 @@ export interface HeaderProps {
   freshness: Freshness;
   runs: RunSummary[];
   selectedRunId?: string | undefined;
+  refreshStatus?: unknown;
 }
 
 /**
  * The page order (Market -> Breadth & Rotation -> The Majors -> Screened coins) IS the
  * workflow.
  */
-export function Header({ freshness, runs, selectedRunId }: HeaderProps) {
+export function Header({ freshness, runs, selectedRunId, refreshStatus }: HeaderProps) {
+  const chip = refreshStatusChip(parseRefreshStatus(refreshStatus));
   return (
     <div className="flex items-start justify-between gap-4 mb-10 max-[680px]:flex-col max-[680px]:items-start max-[680px]:gap-3">
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="m-0 text-lg font-bold text-ink">Crypto Screener</h1>
         <FreshnessPill freshness={freshness} />
+        <RefreshChip chip={chip} />
       </div>
       {/* Wraps rather than stretches: full-width stacked controls ate the whole fold on mobile. */}
       <div className="flex gap-2 items-center flex-wrap justify-end text-[13px] max-[680px]:justify-start">
@@ -39,6 +44,16 @@ export function Header({ freshness, runs, selectedRunId }: HeaderProps) {
         <ReloadButton />
       </div>
     </div>
+  );
+}
+
+function RefreshChip({ chip }: { chip: RefreshStatusChip | null }) {
+  if (chip === null) return null;
+  const className = chip.tone === 'warn' ? 'setup-badge warn' : 'text-ash text-xs font-mono';
+  return (
+    <span className={className} title={chip.title ?? undefined}>
+      {chip.text}
+    </span>
   );
 }
 

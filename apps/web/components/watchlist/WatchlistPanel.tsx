@@ -1,6 +1,12 @@
-import type { DashboardRow, Watchlist, WatchlistId } from '@crypto-screener/contracts';
+import type {
+  DashboardRow,
+  Watchlist,
+  WatchlistChanges,
+  WatchlistId,
+} from '@crypto-screener/contracts';
 import { Panel } from '@/components/layout/Panel';
 import { lookupMetric, lookupWatchlist } from '@/lib/copy';
+import { departureLineText } from '@/lib/watchlist-changes';
 import type { WatchlistFilterState } from '@/lib/watchlist-filters';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 import { WatchlistTable } from './WatchlistTable';
@@ -26,6 +32,8 @@ export interface WatchlistPanelProps {
   btcPulseChip: string | null;
   /** Set only while viewing the list a BTC move since this run threatens (Longs on a dump, Shorts on a pump). */
   btcStalenessBanner: string | null;
+  /** Run-over-run watchlist diff; null when the API has no usable baseline. See lib/watchlist-changes.ts. */
+  watchlistChanges?: WatchlistChanges | null | undefined;
 }
 
 // Ranked setups vs "crowding risk" fade/squeeze candidates -- two intents, not one flat list.
@@ -65,9 +73,11 @@ export function WatchlistPanel({
   onSelectRow,
   btcPulseChip,
   btcStalenessBanner,
+  watchlistChanges,
 }: WatchlistPanelProps) {
   const shortlist = watchlists.filter((list) => SHORTLIST_IDS.includes(list.id));
   const crowdingRisk = watchlists.filter((list) => CROWDING_RISK_IDS.includes(list.id));
+  const departureLine = departureLineText(watchlistChanges, activeTab);
 
   return (
     <Panel
@@ -117,6 +127,11 @@ export function WatchlistPanel({
       {btcStalenessBanner ? (
         <div role="status" className="staleness-banner mt-2.5">
           {btcStalenessBanner}
+        </div>
+      ) : null}
+      {departureLine ? (
+        <div role="status" className="driver-line">
+          {departureLine}
         </div>
       ) : null}
       <WatchlistTable

@@ -12,15 +12,18 @@ export function ReloadButton() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [queued, setQueued] = useState(false);
 
   const handleClick = () => {
     setError(null);
+    setQueued(false);
     startTransition(async () => {
       const result = await triggerRefresh();
       if (!result.ok) {
         setError(result.error);
         return;
       }
+      setQueued(true);
       router.refresh();
     });
   };
@@ -35,7 +38,11 @@ export function ReloadButton() {
       >
         {isPending ? 'Reloading…' : 'Reload'}
       </button>
-      {error ? <span className="text-down text-xs">{error}</span> : null}
+      {error ? (
+        <span className="text-down text-xs">{error}</span>
+      ) : queued ? (
+        <span className="text-ash text-xs">Queued — new data in ~25 min</span>
+      ) : null}
     </span>
   );
 }

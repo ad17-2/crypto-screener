@@ -20,7 +20,7 @@ import {
   positioningDivergence,
   tradingViewUrl,
 } from '@/lib/dashboard-row';
-import { fmtNum, fmtPct, fmtUsd, numeric, ordinal, qualityTone } from '@/lib/format';
+import { fmtNum, fmtPct, fmtPrice, fmtUsd, numeric, ordinal, qualityTone } from '@/lib/format';
 import { FightsBtcChip, SetupConfidenceBadge, sideMeta } from './WatchlistTable';
 
 export interface SelectedCoinRailProps {
@@ -57,7 +57,7 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
                 (row.symbol ?? '-')
               )}
             </div>
-            <div className="driver-line">{formatPrice(row.price_usd)}</div>
+            <div className="driver-line">{fmtPrice(row.price_usd)}</div>
           </div>
           <div className="detail-actions flex gap-1.5 flex-wrap justify-end">
             <a
@@ -82,6 +82,9 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
         <DetailSection title="Chart detail (4h)">
           <ChartDetailBlock row={row} />
         </DetailSection>
+        <DetailSection title="Levels (4h)">
+          <LevelsBlock row={row} />
+        </DetailSection>
         <DetailSection title="History">
           <HistoryBlock row={row} />
         </DetailSection>
@@ -96,14 +99,6 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
       </div>
     </Panel>
   );
-}
-
-/** fmtUsd's K/M/B/T compaction is wrong for a per-coin price (e.g. "$67.23K" for a $67,234 coin) -- this scales decimals instead. */
-function formatPrice(value: number | null): string {
-  if (value === null) return 'Price unavailable';
-  const abs = Math.abs(value);
-  const digits = abs >= 100 ? 2 : abs >= 1 ? 4 : 6;
-  return `$${value.toFixed(digits)}`;
 }
 
 function signTone(value: unknown): 'pos' | 'neg' | undefined {
@@ -630,6 +625,63 @@ function ChartDetailBlock({ row }: { row: DashboardRow }) {
           <StatTile label="RSI divergence" value={divergence} tone="warn" />
         ) : null;
       })()}
+    </div>
+  );
+}
+
+const GOLDEN_POCKET_DEFINITION =
+  'Fib 0.5–0.618 retracement of the latest confirmed 4h swing leg. Computed on 4h closes — refine the exact leg on your own 1H/15M chart.';
+
+function LevelsBlock({ row }: { row: DashboardRow }) {
+  const state = row.technical_state;
+  const gpUpper = state.golden_pocket_upper;
+  const gpLower = state.golden_pocket_lower;
+  const hasGoldenPocket = gpUpper != null && gpLower != null;
+  const hasLevels =
+    state.ema_20 != null ||
+    state.ema_50 != null ||
+    state.ema_200 != null ||
+    state.donchian_high_20 != null ||
+    state.donchian_low_20 != null ||
+    hasGoldenPocket;
+  if (!hasLevels) {
+    return <div className="driver-line">No CoinGlass OHLC technical snapshot for this row.</div>;
+  }
+  const distance = state.distance_to_golden_pocket_pct;
+  const inZone = distance != null && Math.abs(distance) === 0;
+  // fmtPrice's null fallback ("Price unavailable") is copy written for the live price line up top
+  // -- wrong for a computed level that's merely absent for this candle count. '-' matches how
+  // every other level/metric tile already renders a missing value (fmtNum/fmtPct convention).
+  const fmtLevel = (v: number | null | undefined) =>
+    v === null || v === undefined ? '-' : fmtPrice(v);
+  return (
+    <div className="grid grid-cols-2 max-[680px]:grid-cols-1 gap-x-6 gap-y-4 -mt-1">
+      <StatTile label="EMA 20" value={fmtLevel(state.ema_20)} />
+      <StatTile label="EMA 50" value={fmtLevel(state.ema_50)} />
+      <StatTile label="EMA 200" value={fmtLevel(state.ema_200)} />
+      <StatTile label="Donchian 20 high" value={fmtLevel(state.donchian_high_20)} />
+      <StatTile label="Donchian 20 low" value={fmtLevel(state.donchian_low_20)} />
+      {hasGoldenPocket ? (
+        <StatTile
+          label="Golden pocket"
+          definition={GOLDEN_POCKET_DEFINITION}
+          value={
+            <>
+              <span>{`${fmtLevel(gpLower)} – ${fmtLevel(gpUpper)}`}</span>
+              {state.fib_leg_direction ? (
+                <div className="driver-line mt-1">
+                  {state.fib_leg_direction === 'up'
+                    ? 'pullback zone of the last up-leg'
+                    : 'bounce zone of the last down-leg'}
+                  {' · '}
+                  {fmtPct(distance)}
+                </div>
+              ) : null}
+            </>
+          }
+          tone={inZone ? 'pos' : undefined}
+        />
+      ) : null}
     </div>
   );
 }

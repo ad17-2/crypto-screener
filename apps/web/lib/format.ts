@@ -26,6 +26,21 @@ export function fmtRate(value: unknown, digits = 1): string {
   return `${Number(value).toFixed(digits)}%`;
 }
 
+/**
+ * fmtUsd's K/M/B/T compaction is wrong for a per-coin price (e.g. "$67.23K" for a $67,234 coin) --
+ * this scales decimals instead. Guards null/undefined explicitly before calling numeric(), same as
+ * the other fmt* functions above -- numeric(null) is 0, not null (see the file-top doc comment),
+ * so skipping the guard would render a missing price as "$0.000000".
+ */
+export function fmtPrice(value: unknown): string {
+  if (value === null || value === undefined) return 'Price unavailable';
+  const n = numeric(value);
+  if (n === null) return 'Price unavailable';
+  const abs = Math.abs(n);
+  const digits = abs >= 100 ? 2 : abs >= 1 ? 4 : 6;
+  return `$${n.toFixed(digits)}`;
+}
+
 export function fmtUsd(value: unknown): string {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
   const n = Number(value);

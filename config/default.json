@@ -94,6 +94,11 @@
       "enabled": true,
       "base_url": "https://api.alternative.me",
       "request_timeout_seconds": 10
+    },
+    "forexfactory": {
+      "enabled": true,
+      "base_url": "https://nfs.faireconomy.media",
+      "request_timeout_seconds": 10
     }
   },
   "data_quality": {
