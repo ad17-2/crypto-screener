@@ -1,5 +1,11 @@
 import { arr, num, pct, rec, signedPct, str } from './payload';
 
+// apps/api/src/pipeline/regime.ts `inferRegime()` -- bias is exactly 'risk-on' | 'risk-off' |
+// 'mixed'. 'mixed' and any unrecognized value belong to neither family below, so no divergence
+// callout fires for them.
+const RISK_ON_BIAS = new Set(['risk-on']);
+const RISK_OFF_BIAS = new Set(['risk-off']);
+
 /**
  * The plain-English market read at the top of the dashboard. Pure function, no React -- every
  * input is one of the API's `unknown`-typed payload blobs (regime, market_context, validation,
@@ -93,6 +99,23 @@ function factsFor(marketContext: unknown, regime: unknown, validation: unknown):
   const dominance = num(marketContext, 'btc_dominance_pct');
   if (btcChange !== null && dominance !== null) {
     facts.push(`BTC ${signedPct(btcChange, 1)} · dominance ${pct(dominance, 1)}.`);
+  }
+
+  const fearGreedValue = num(marketContext, 'fear_greed_value');
+  const fearGreedClassification = str(marketContext, 'fear_greed_classification');
+  if (fearGreedValue !== null && fearGreedClassification !== null) {
+    facts.push(`Sentiment: ${fearGreedClassification} (${fearGreedValue}).`);
+
+    const bias = str(regime, 'bias');
+    if (fearGreedClassification === 'Extreme Greed' && bias !== null && RISK_OFF_BIAS.has(bias)) {
+      facts.push('Crowd is still greedy into a weak tape — contrarian caution.');
+    } else if (
+      fearGreedClassification === 'Extreme Fear' &&
+      bias !== null &&
+      RISK_ON_BIAS.has(bias)
+    ) {
+      facts.push('Extreme fear while the tape holds up — contrarian context for longs.');
+    }
   }
 
   return facts;

@@ -16,8 +16,8 @@ export function recordRegimeHistory(db: Database.Database, payload: SnapshotPayl
   const marketContext = payload.market_context ?? {};
   db.prepare(`
     INSERT INTO market_regime_history
-        (run_id, generated_at, btc_dominance_pct, eth_btc_performance_pct, regime_state, regime_json)
-    VALUES (?, ?, ?, ?, ?, ?)
+        (run_id, generated_at, btc_dominance_pct, eth_btc_performance_pct, regime_state, regime_json, fear_greed_value)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     payload.run_id,
     payload.generated_at,
@@ -25,6 +25,7 @@ export function recordRegimeHistory(db: Database.Database, payload: SnapshotPayl
     toFloat(marketContext.eth_btc_performance_pct || regime.eth_btc_performance_pct),
     (regime.regime_state as string | undefined) || (regime.label as string | undefined) || null,
     stableStringify(regime),
+    toFloat(marketContext.fear_greed_value),
   );
 }
 

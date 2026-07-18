@@ -572,6 +572,12 @@ export const METRIC: Record<string, CopyEntry> = {
     definition:
       "A near-live BTC price, polled about once a minute and compared against BTC's price when this run was computed. A large move since the run means the ranked lists below may already be stale.",
   },
+  // apps/api/src/providers/feargreed.ts -- alternative.me's daily Fear & Greed Index.
+  fear_greed: {
+    label: 'Sentiment',
+    definition:
+      'The Fear & Greed Index from alternative.me: a 0-100 daily read on crypto sentiment blending volatility, momentum, social activity, and market dominance. Low readings mean fear (potential capitulation), high readings mean greed (potential froth). Descriptive context, not a scoring input.',
+  },
 };
 
 export const lookupMetric = makeLookup(METRIC, NOT_REPORTED);

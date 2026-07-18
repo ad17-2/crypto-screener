@@ -89,6 +89,11 @@
       "enabled": false,
       "api_key_env": "SOSOVALUE_API_KEY",
       "note": "reserved for ETF flows and sector indexes if official API access exposes them"
+    },
+    "feargreed": {
+      "enabled": true,
+      "base_url": "https://api.alternative.me",
+      "request_timeout_seconds": 10
     }
   },
   "data_quality": {

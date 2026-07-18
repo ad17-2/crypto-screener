@@ -93,11 +93,22 @@ const SoSoValueConfigSchema = z
   })
   .strict();
 
+// alternative.me Fear & Greed Index -- keyless and free, so unlike CoinGlass/CoinGecko there is no
+// api_key_env or retry_429 knobs here.
+const FearGreedConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    base_url: z.string().default('https://api.alternative.me'),
+    request_timeout_seconds: z.number().default(10),
+  })
+  .strict();
+
 const ProvidersConfigSchema = z
   .object({
     coinglass: CoinGlassConfigSchema.default(() => CoinGlassConfigSchema.parse({})),
     coingecko: CoinGeckoConfigSchema.default(() => CoinGeckoConfigSchema.parse({})),
     sosovalue: SoSoValueConfigSchema.default(() => SoSoValueConfigSchema.parse({})),
+    feargreed: FearGreedConfigSchema.default(() => FearGreedConfigSchema.parse({})),
   })
   .strict();
 
@@ -185,6 +196,7 @@ export type ProvidersConfig = z.infer<typeof ProvidersConfigSchema>;
 export type CoinGlassConfig = z.infer<typeof CoinGlassConfigSchema>;
 export type CoinGeckoConfig = z.infer<typeof CoinGeckoConfigSchema>;
 export type SoSoValueConfig = z.infer<typeof SoSoValueConfigSchema>;
+export type FearGreedConfig = z.infer<typeof FearGreedConfigSchema>;
 export type DataQualityConfig = z.infer<typeof DataQualityConfigSchema>;
 export type FactorsConfig = z.infer<typeof FactorsConfigSchema>;
 export type RegimeConfig = z.infer<typeof RegimeConfigSchema>;

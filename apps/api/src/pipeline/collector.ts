@@ -4,6 +4,8 @@ import { CoinGeckoHttpClient } from '../providers/coingecko.js';
 import type { CoinGlassClient, CoinGlassPair } from '../providers/coinglass.js';
 import { CoinGlassHttpClient } from '../providers/coinglass.js';
 import { collectProviderError, ProviderError } from '../providers/errors.js';
+import type { FearGreedClient } from '../providers/feargreed.js';
+import { FearGreedHttpClient } from '../providers/feargreed.js';
 import { sleep } from '../providers/http.js';
 import {
   baseFromPair,
@@ -33,6 +35,7 @@ export interface CollectResult {
 export interface CollectDeps {
   coinglassClient?: CoinGlassClient;
   coingeckoClient?: CoinGeckoClient;
+  feargreedClient?: FearGreedClient;
 }
 
 export async function collectMarket(
@@ -42,6 +45,7 @@ export async function collectMarket(
   const status: ProviderStatus = {};
   const rows = await collectCoinglassFutures(config, status, deps.coinglassClient);
   const marketContext = await collectCoingeckoContext(config, status, deps.coingeckoClient);
+  Object.assign(marketContext, await collectFearGreedContext(config, status, deps.feargreedClient));
   status.data_quality = applyDataQuality(rows, config);
   return { rows, market_context: marketContext, provider_status: status };
 }
@@ -186,6 +190,47 @@ export async function collectCoingeckoContext(
     status: Object.keys(context).length ? 'ok' : 'error',
     errors: errors.slice(0, 5),
     note: 'global market and category context',
+  };
+  return context;
+}
+
+export async function collectFearGreedContext(
+  config: AppConfig,
+  status: ProviderStatus,
+  client?: FearGreedClient,
+): Promise<Record<string, unknown>> {
+  const providerCfg = config.providers.feargreed;
+  if (!providerCfg.enabled) {
+    status.feargreed = { status: 'disabled' };
+    return {};
+  }
+
+  const feargreedClient =
+    client ??
+    new FearGreedHttpClient({
+      baseUrl: providerCfg.base_url,
+      timeoutSeconds: providerCfg.request_timeout_seconds,
+    });
+
+  const context: Record<string, unknown> = {};
+  const errors: string[] = [];
+  try {
+    const snapshot = await feargreedClient.latest();
+    context.fear_greed_value = snapshot.value;
+    if (snapshot.classification !== null) {
+      context.fear_greed_classification = snapshot.classification;
+    }
+    if (snapshot.yesterdayValue !== null) {
+      context.fear_greed_value_yesterday = snapshot.yesterdayValue;
+    }
+  } catch (error) {
+    collectProviderError(errors, error);
+  }
+
+  status.feargreed = {
+    status: Object.keys(context).length ? 'ok' : 'error',
+    errors: errors.slice(0, 5),
+    note: 'alternative.me Fear & Greed Index',
   };
   return context;
 }

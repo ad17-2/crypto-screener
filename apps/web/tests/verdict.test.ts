@@ -170,6 +170,100 @@ describe('marketVerdict facts', () => {
     const joined = `${result.headline}\n${result.summary}\n${result.facts.join('\n')}`;
     expect(joined).not.toMatch(NO_LEAKED_VALUES);
   });
+
+  it('renders the sentiment fact when both fear_greed fields are present and valid', () => {
+    const result = marketVerdict(
+      verdictInput({
+        market_context: { fear_greed_value: 25, fear_greed_classification: 'Extreme Fear' },
+      }),
+    );
+    expect(result.facts).toContain('Sentiment: Extreme Fear (25).');
+  });
+
+  it('omits the sentiment fact when either fear_greed field is missing', () => {
+    const onlyValue = marketVerdict(verdictInput({ market_context: { fear_greed_value: 25 } }));
+    expect(onlyValue.facts.some((fact) => fact.startsWith('Sentiment:'))).toBe(false);
+
+    const onlyClassification = marketVerdict(
+      verdictInput({ market_context: { fear_greed_classification: 'Extreme Fear' } }),
+    );
+    expect(onlyClassification.facts.some((fact) => fact.startsWith('Sentiment:'))).toBe(false);
+
+    const neither = marketVerdict(verdictInput());
+    expect(neither.facts.some((fact) => fact.startsWith('Sentiment:'))).toBe(false);
+  });
+
+  it('never leaks a raw string value when fear_greed_value is malformed (a string, not a number)', () => {
+    const result = marketVerdict(
+      verdictInput({
+        market_context: {
+          fear_greed_value: 'not-a-number',
+          fear_greed_classification: 'Extreme Fear',
+        },
+      }),
+    );
+    expect(result.facts.some((fact) => fact.startsWith('Sentiment:'))).toBe(false);
+    const joined = `${result.headline}\n${result.summary}\n${result.facts.join('\n')}`;
+    expect(joined).not.toMatch(NO_LEAKED_VALUES);
+    expect(joined).not.toContain('not-a-number');
+  });
+
+  it('fires the Extreme Greed + risk-off divergence callout with the pinned copy', () => {
+    const result = marketVerdict(
+      verdictInput({
+        regime: { bias: 'risk-off' },
+        market_context: { fear_greed_value: 90, fear_greed_classification: 'Extreme Greed' },
+      }),
+    );
+    expect(result.facts).toContain('Crowd is still greedy into a weak tape — contrarian caution.');
+  });
+
+  it('fires the Extreme Fear + risk-on divergence callout with the pinned copy', () => {
+    const result = marketVerdict(
+      verdictInput({
+        regime: { bias: 'risk-on' },
+        market_context: { fear_greed_value: 10, fear_greed_classification: 'Extreme Fear' },
+      }),
+    );
+    expect(result.facts).toContain(
+      'Extreme fear while the tape holds up — contrarian context for longs.',
+    );
+  });
+
+  it('does not fire a divergence callout for a mid-range classification, even with a disagreeing bias', () => {
+    const greedRiskOff = marketVerdict(
+      verdictInput({
+        regime: { bias: 'risk-off' },
+        market_context: { fear_greed_value: 65, fear_greed_classification: 'Greed' },
+      }),
+    );
+    expect(greedRiskOff.facts.some((fact) => fact.includes('contrarian'))).toBe(false);
+
+    const fearRiskOn = marketVerdict(
+      verdictInput({
+        regime: { bias: 'risk-on' },
+        market_context: { fear_greed_value: 35, fear_greed_classification: 'Fear' },
+      }),
+    );
+    expect(fearRiskOn.facts.some((fact) => fact.includes('contrarian'))).toBe(false);
+  });
+
+  it('does not fire a divergence callout for an extreme classification when bias is mixed/unknown', () => {
+    const mixedBias = marketVerdict(
+      verdictInput({
+        regime: { bias: 'mixed' },
+        market_context: { fear_greed_value: 90, fear_greed_classification: 'Extreme Greed' },
+      }),
+    );
+    expect(mixedBias.facts.some((fact) => fact.includes('contrarian'))).toBe(false);
+
+    const noBias = marketVerdict(
+      verdictInput({
+        market_context: { fear_greed_value: 10, fear_greed_classification: 'Extreme Fear' },
+      }),
+    );
+    expect(noBias.facts.some((fact) => fact.includes('contrarian'))).toBe(false);
+  });
 });
 
 describe('marketVerdict against the real frozen fixture', () => {

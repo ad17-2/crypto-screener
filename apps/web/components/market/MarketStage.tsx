@@ -40,6 +40,8 @@ export function MarketStage({
   // label field) so the Regime tile always reads the same state the headline above was built from.
   const regimeState = str(regime, 'regime_state') ?? str(regime, 'label');
   const marketCapChange = num(marketContext, 'market_cap_change_24h_pct');
+  const fearGreedValue = num(marketContext, 'fear_greed_value');
+  const fearGreedClassification = str(marketContext, 'fear_greed_classification');
 
   return (
     <section className="stage" aria-label="The market">
@@ -95,6 +97,23 @@ export function MarketStage({
           label="Volatility"
           value={pct(num(marketContext, 'median_atr_pct'), 2)}
           metricKey="volatility"
+        />
+        <StatTile
+          label="Sentiment"
+          value={
+            fearGreedValue !== null
+              ? fearGreedClassification
+                ? `${fearGreedValue} · ${fearGreedClassification}`
+                : `${fearGreedValue}`
+              : pct(fearGreedValue)
+          }
+          metricKey="fear_greed"
+          tone={
+            fearGreedClassification === 'Extreme Fear' ||
+            fearGreedClassification === 'Extreme Greed'
+              ? 'warn'
+              : undefined
+          }
         />
       </div>
 

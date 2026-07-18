@@ -74,6 +74,32 @@ describe('recordRegimeHistory', () => {
     };
     expect(row.btc_dominance_pct).toBeNull();
   });
+
+  it('lifts fear_greed_value from market_context when present', () => {
+    recordRegimeHistory(db, {
+      run_id: 'run-1',
+      generated_at: '2026-07-01T00:00:00+07:00',
+      market_context: { fear_greed_value: 25 },
+      regime: {},
+    });
+    const row = db
+      .prepare('SELECT fear_greed_value FROM market_regime_history WHERE run_id = ?')
+      .get('run-1') as { fear_greed_value: number | null };
+    expect(row.fear_greed_value).toBe(25);
+  });
+
+  it('stores null for fear_greed_value when market_context omits it', () => {
+    recordRegimeHistory(db, {
+      run_id: 'run-1',
+      generated_at: '2026-07-01T00:00:00+07:00',
+      market_context: {},
+      regime: {},
+    });
+    const row = db
+      .prepare('SELECT fear_greed_value FROM market_regime_history WHERE run_id = ?')
+      .get('run-1') as { fear_greed_value: number | null };
+    expect(row.fear_greed_value).toBeNull();
+  });
 });
 
 describe('loadRegimeStates', () => {

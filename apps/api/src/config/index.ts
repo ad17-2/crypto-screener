@@ -9,6 +9,7 @@ export type {
   CostsConfig,
   DataQualityConfig,
   FactorsConfig,
+  FearGreedConfig,
   ProvidersConfig,
   RegimeConfig,
   ReportConfig,

@@ -108,6 +108,9 @@ export function ensureSchema(db: Database.Database): void {
   ensureColumn(db, 'recommendations', 'score_field', 'TEXT');
   ensureColumn(db, 'recommendations', 'signal_value', 'REAL');
   ensureColumn(db, 'recommendations', 'size_multiplier', 'REAL');
+  // Fear & Greed Index (alternative.me), lifted from market_context.fear_greed_value -- see
+  // db/regimeHistory.ts recordRegimeHistory(). Old rows keep NULL.
+  ensureColumn(db, 'market_regime_history', 'fear_greed_value', 'REAL');
 }
 
 interface TableInfoRow {

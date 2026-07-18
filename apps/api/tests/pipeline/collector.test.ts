@@ -5,6 +5,7 @@ import {
   aggregateCoinglassPairs,
   coinglassCandidateStats,
   collectCoinglassFutures,
+  collectFearGreedContext,
   collectMarket,
   rankCoinglassCandidates,
 } from '../../src/pipeline/collector';
@@ -15,6 +16,7 @@ import type {
   CoinGlassPair,
 } from '../../src/providers/coinglass';
 import { ProviderError } from '../../src/providers/errors';
+import type { FearGreedClient, FearGreedSnapshot } from '../../src/providers/feargreed';
 import fixture from '../fixtures/parity-run.json';
 
 function buildConfig(overrides: Record<string, unknown> = {}): AppConfig {
@@ -460,6 +462,17 @@ class StubCoinGeckoClient implements CoinGeckoClient {
   }
 }
 
+class StubFearGreedClient implements FearGreedClient {
+  constructor(private readonly snapshot: FearGreedSnapshot | null = null) {}
+
+  async latest(): Promise<FearGreedSnapshot> {
+    if (!this.snapshot) {
+      throw new ProviderError('simulated feargreed outage');
+    }
+    return this.snapshot;
+  }
+}
+
 describe('collectMarket', () => {
   it('assembles rows, market_context, and provider_status from both providers, and quality-flags rows', async () => {
     const config = buildConfig({
@@ -482,15 +495,105 @@ describe('collectMarket', () => {
       BTC: [btcOkxPair(), btcOkxPair({ exchange_name: 'Bybit', instrument_id: 'BTCUSDT' })],
     });
     const coingeckoClient = new StubCoinGeckoClient();
+    const feargreedClient = new StubFearGreedClient({
+      value: 25,
+      classification: 'Extreme Fear',
+      yesterdayValue: 27,
+    });
 
-    const result = await collectMarket(config, { coinglassClient, coingeckoClient });
+    const result = await collectMarket(config, {
+      coinglassClient,
+      coingeckoClient,
+      feargreedClient,
+    });
 
     expect(result.rows.map((row) => row.symbol)).toEqual(['BTC']);
     expect(result.rows[0]?.is_trusted).toBe(true); // clean row, no quality flags
     expect(result.market_context.btc_dominance_pct).toBeCloseTo(54.2);
     expect(result.market_context).toHaveProperty('categories');
+    expect(result.market_context.fear_greed_value).toBe(25);
+    expect(result.market_context.fear_greed_classification).toBe('Extreme Fear');
+    expect(result.market_context.fear_greed_value_yesterday).toBe(27);
     expect((result.provider_status.coinglass as { status: string }).status).toBe('ok');
     expect((result.provider_status.coingecko as { status: string }).status).toBe('ok');
+    expect((result.provider_status.feargreed as { status: string }).status).toBe('ok');
     expect((result.provider_status.data_quality as { excluded: number }).excluded).toBe(0);
+  });
+});
+
+describe('collectFearGreedContext', () => {
+  const config = buildConfig({});
+
+  it('merges fear_greed fields into market_context on success', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new StubFearGreedClient({
+      value: 72,
+      classification: 'Greed',
+      yesterdayValue: 68,
+    });
+
+    const context = await collectFearGreedContext(config, status, client);
+
+    expect(context).toEqual({
+      fear_greed_value: 72,
+      fear_greed_classification: 'Greed',
+      fear_greed_value_yesterday: 68,
+    });
+    expect((status.feargreed as { status: string }).status).toBe('ok');
+  });
+
+  it('omits fear_greed_value_yesterday when the yesterday value is absent', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new StubFearGreedClient({
+      value: 72,
+      classification: 'Greed',
+      yesterdayValue: null,
+    });
+
+    const context = await collectFearGreedContext(config, status, client);
+
+    expect(context).toEqual({ fear_greed_value: 72, fear_greed_classification: 'Greed' });
+    expect(context).not.toHaveProperty('fear_greed_value_yesterday');
+  });
+
+  it('omits fear_greed_classification when the classification is absent', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new StubFearGreedClient({
+      value: 72,
+      classification: null,
+      yesterdayValue: 68,
+    });
+
+    const context = await collectFearGreedContext(config, status, client);
+
+    expect(context).toEqual({ fear_greed_value: 72, fear_greed_value_yesterday: 68 });
+    expect(context).not.toHaveProperty('fear_greed_classification');
+  });
+
+  it('leaves fields absent and records a status.feargreed error note on failure, without throwing', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new StubFearGreedClient(null);
+
+    const context = await collectFearGreedContext(config, status, client);
+
+    expect(context).toEqual({});
+    const feargreedStatus = status.feargreed as { status: string; errors: string[] };
+    expect(feargreedStatus.status).toBe('error');
+    expect(feargreedStatus.errors).toHaveLength(1);
+    expect(feargreedStatus.errors[0]).toContain('simulated feargreed outage');
+  });
+
+  it('marks status.feargreed as disabled and returns no fields when the provider is disabled', async () => {
+    const disabledConfig = buildConfig({ providers: { feargreed: { enabled: false } } });
+    const status: Record<string, unknown> = {};
+
+    const context = await collectFearGreedContext(
+      disabledConfig,
+      status,
+      new StubFearGreedClient({ value: 1, classification: 'x', yesterdayValue: null }),
+    );
+
+    expect(context).toEqual({});
+    expect((status.feargreed as { status: string }).status).toBe('disabled');
   });
 });
