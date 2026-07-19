@@ -18,7 +18,13 @@ export interface HttpResponse {
 // via fetchWithRetry429 (below).
 export async function fetchWithTimeout(
   url: string,
-  options: { headers?: Record<string, string>; timeoutSeconds: number },
+  options: {
+    headers?: Record<string, string>;
+    timeoutSeconds: number;
+    // Only DeepSeek (providers/deepseek.ts) currently sets these -- every other provider is GET-only.
+    method?: string;
+    body?: string;
+  },
 ): Promise<HttpResponse> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutSeconds * 1000);
@@ -26,6 +32,12 @@ export async function fetchWithTimeout(
     const init: RequestInit = { signal: controller.signal };
     if (options.headers) {
       init.headers = options.headers;
+    }
+    if (options.method) {
+      init.method = options.method;
+    }
+    if (options.body !== undefined) {
+      init.body = options.body;
     }
     const response = await fetch(url, init);
     const text = await response.text();

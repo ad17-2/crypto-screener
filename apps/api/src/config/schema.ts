@@ -114,6 +114,24 @@ const ForexFactoryConfigSchema = z
   })
   .strict();
 
+// DeepSeek chat-completions -- powers the display-only "Tonight's read" briefing (see
+// pipeline/briefing.ts). Ships dark: provider_status.deepseek reports 'disabled' until
+// DEEPSEEK_API_KEY is set (runPipeline.ts's activation switch), and a briefing failure is caught
+// there and reported as provider_status.deepseek = 'error' -- it never fails the refresh.
+const DeepSeekConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    base_url: z.string().default('https://api.deepseek.com'),
+    api_key_env: z.string().default('DEEPSEEK_API_KEY'),
+    model: z.string().default('deepseek-v4-pro'),
+    reasoning_effort: z.enum(['high', 'max']).default('max'),
+    // Max-effort reasoning is slow; see providers/deepseek.ts.
+    request_timeout_seconds: z.number().default(180),
+    // Bounds cost. Reasoning tokens count inside completion_tokens, so this must stay generous.
+    max_output_tokens: z.number().int().default(8192),
+  })
+  .strict();
+
 const ProvidersConfigSchema = z
   .object({
     coinglass: CoinGlassConfigSchema.default(() => CoinGlassConfigSchema.parse({})),
@@ -121,6 +139,7 @@ const ProvidersConfigSchema = z
     sosovalue: SoSoValueConfigSchema.default(() => SoSoValueConfigSchema.parse({})),
     feargreed: FearGreedConfigSchema.default(() => FearGreedConfigSchema.parse({})),
     forexfactory: ForexFactoryConfigSchema.default(() => ForexFactoryConfigSchema.parse({})),
+    deepseek: DeepSeekConfigSchema.default(() => DeepSeekConfigSchema.parse({})),
   })
   .strict();
 
@@ -210,6 +229,7 @@ export type CoinGeckoConfig = z.infer<typeof CoinGeckoConfigSchema>;
 export type SoSoValueConfig = z.infer<typeof SoSoValueConfigSchema>;
 export type FearGreedConfig = z.infer<typeof FearGreedConfigSchema>;
 export type ForexFactoryConfig = z.infer<typeof ForexFactoryConfigSchema>;
+export type DeepSeekConfig = z.infer<typeof DeepSeekConfigSchema>;
 export type DataQualityConfig = z.infer<typeof DataQualityConfigSchema>;
 export type FactorsConfig = z.infer<typeof FactorsConfigSchema>;
 export type RegimeConfig = z.infer<typeof RegimeConfigSchema>;

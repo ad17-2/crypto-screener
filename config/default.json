@@ -99,6 +99,15 @@
       "enabled": true,
       "base_url": "https://nfs.faireconomy.media",
       "request_timeout_seconds": 10
+    },
+    "deepseek": {
+      "enabled": true,
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "model": "deepseek-v4-pro",
+      "reasoning_effort": "max",
+      "request_timeout_seconds": 180,
+      "max_output_tokens": 8192
     }
   },
   "data_quality": {

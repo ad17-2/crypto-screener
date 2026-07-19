@@ -8,6 +8,7 @@ export type {
   CoinGlassConfig,
   CostsConfig,
   DataQualityConfig,
+  DeepSeekConfig,
   FactorsConfig,
   FearGreedConfig,
   ForexFactoryConfig,
