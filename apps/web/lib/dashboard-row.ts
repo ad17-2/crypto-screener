@@ -124,10 +124,10 @@ export function oiPriceQuadrant(
   const price = row.price_change_24h_pct;
   const oi = row.oi_change_24h_pct;
   if (price == null || oi == null) return null;
-  if (price >= 0 && oi >= 0) return { label: 'New longs', tone: 'pos' }; // fresh money
-  if (price >= 0 && oi < 0) return { label: 'Short covering', tone: 'warn' }; // weak rally
-  if (price < 0 && oi >= 0) return { label: 'New shorts', tone: 'neg' }; // fresh downside
-  return { label: 'Long liquidation', tone: 'warn' }; // washout
+  if (price >= 0 && oi >= 0) return OI_PRICE_QUADRANT.new_longs;
+  if (price >= 0 && oi < 0) return OI_PRICE_QUADRANT.short_covering;
+  if (price < 0 && oi >= 0) return OI_PRICE_QUADRANT.new_shorts;
+  return OI_PRICE_QUADRANT.long_liquidation;
 }
 
 export interface EmaCrossLine {

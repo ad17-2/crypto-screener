@@ -97,7 +97,7 @@ describe('classifyRegime', () => {
 });
 
 describe('inferRegime', () => {
-  it('is independent of factor weights (test_infer_regime_independent_of_weights)', () => {
+  it('is stable across repeated calls (test_infer_regime_independent_of_weights)', () => {
     const rows = btcEthRows(2.0, 1.0);
     const context = {
       market_cap_change_24h_pct: 1.0,
@@ -107,24 +107,8 @@ describe('inferRegime', () => {
       breadth: { score: -0.1, label: 'mixed' },
       sector_rotation: { label: 'mixed' },
     };
-    const momentumWeights = {
-      directional: {
-        momentum_24h: 0.5,
-        reversal_3d: 0.01,
-        funding_rate_contrarian: 0.01,
-        ls_ratio_contrarian: 0.01,
-      },
-    };
-    const reversalWeights = {
-      directional: {
-        momentum_24h: 0.01,
-        reversal_3d: 0.5,
-        funding_rate_contrarian: 0.5,
-        ls_ratio_contrarian: 0.5,
-      },
-    };
-    const first = inferRegime(momentumWeights, rows, context, null, config);
-    const second = inferRegime(reversalWeights, rows, context, null, config);
+    const first = inferRegime(rows, context, null, config);
+    const second = inferRegime(rows, context, null, config);
     expect(first.label).toBe(second.label);
     expect(first.regime_state).toBe(second.regime_state);
   });
@@ -153,7 +137,7 @@ describe('marketSensingSummary', () => {
 describe('scoreSnapshot regime integration', () => {
   it('merges sensing fields into market_context (test_score_snapshot_merges_sensing_fields)', () => {
     const rows = btcEthRows(1.0, 2.0);
-    const scored = scoreSnapshot(rows, { btc_dominance_pct: 56.0 }, [], config, {
+    const scored = scoreSnapshot(rows, { btc_dominance_pct: 56.0 }, config, {
       btc_dominance_pct: 55.0,
       regime_state: 'neutral',
     });

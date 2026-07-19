@@ -51,6 +51,7 @@ artifact of the deleted Python implementation) and must never be edited, deleted
 regardless of what the model does:
 
 - `parity-run.json`'s `_meta`, `config`, `input_rows`, `market_context`, and `factor_history`
+  (`factor_history` is legacy frozen shape only — `scoreSnapshot` no longer consumes it)
 - `parity.sqlite3` in its entirety (`dashboardPayload.test.ts` copies it to a temp path before
   opening -- it must never be opened read-write)
 

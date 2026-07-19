@@ -4,7 +4,6 @@ import { clsFor } from '@/lib/format';
 import { arr, num, pct, rec, signedPct, str } from '@/lib/payload';
 
 export interface BreadthRotationStageProps {
-  /** untyped on the wire — read defensively. */
   marketContext: unknown;
 }
 

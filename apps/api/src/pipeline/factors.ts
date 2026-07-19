@@ -10,7 +10,7 @@ import {
   safeLog10,
   toFloat,
 } from './scoring.js';
-import type { FactorRecord, MarketContext, PipelineConfig, Row } from './types.js';
+import type { MarketContext, PipelineConfig, Row } from './types.js';
 import { asRecord } from './types.js';
 
 export interface ScoreSnapshotResult {
@@ -19,17 +19,10 @@ export interface ScoreSnapshotResult {
   regime: InferredRegime;
 }
 
-/**
- * Mutates every row in `rows` in place. `historyRecords` is accepted but unused: the factor
- * weighting/IC engine that used to consume it was deleted (no factor forward-validated -- see
- * CLAUDE.md's purge/simplify-screener notes). Kept in the signature for call-site parity with the
- * golden parity fixture (tests/parity.test.ts, scripts/regen-golden.ts), which still ships a
- * frozen `factor_history` array.
- */
+/** Mutates every row in `rows` in place. */
 export function scoreSnapshot(
   rows: Row[],
   marketContext: MarketContext,
-  _historyRecords: FactorRecord[],
   config: PipelineConfig,
   priorMarketState?: Record<string, unknown> | null,
 ): ScoreSnapshotResult {
@@ -54,7 +47,7 @@ export function scoreSnapshot(
     : toFloat(marketContext.btc_price_change_24h_pct);
   enrichedContext.btc_momentum_score = btcRow ? toFloat(btcRow.technical_momentum_score) : null;
 
-  const rawFactorsList = trustedRows.map((row) => rawFactors(row, trustedRows, enrichedContext));
+  const rawFactorsList = trustedRows.map((row) => rawFactors(row, enrichedContext));
   const factorCfg = config.factors ?? {};
   if (factorCfg.residualise_collinear_factors ?? true) {
     // Must run on raw values before normalizeFactors' robust Z-score, so the OLS fit sees actual
@@ -63,7 +56,7 @@ export function scoreSnapshot(
   }
   const normalized = normalizeFactors(rawFactorsList);
   const priorState = (asRecord(priorMarketState).regime_state as string | undefined) ?? null;
-  const regime = inferRegime(undefined, trustedRows, enrichedContext, priorState, config);
+  const regime = inferRegime(trustedRows, enrichedContext, priorState, config);
 
   trustedRows.forEach((row, index) => {
     const raw = rawFactorsList[index] as Record<string, number | null>;
@@ -89,12 +82,7 @@ export function scoreSnapshot(
   };
 }
 
-/** `rows` is accepted but currently unused; kept in the signature for call-site stability. */
-export function rawFactors(
-  row: Row,
-  _rows: Row[],
-  marketContext: MarketContext,
-): Record<string, number | null> {
+export function rawFactors(row: Row, marketContext: MarketContext): Record<string, number | null> {
   const priceChange = toFloat(row.price_change_24h_pct);
   const oiChange = toFloat(row.oi_change_24h_pct);
   const funding = toFloat(row.funding_rate_pct);

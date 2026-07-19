@@ -148,12 +148,9 @@ export async function runPipeline(
     const latestRegimeState = loadLatestRegimeState(db);
     // Fresh literal (same exemption as `regime` below): RegimeStateSummary has no index signature.
     const priorMarketState = latestRegimeState ? { ...latestRegimeState } : null;
-    // `[]`: the factor-history engine that used to consume this argument was deleted; see
-    // scoreSnapshot's doc comment in factors.ts.
     const scored = scoreSnapshot(
       collected.rows,
       collected.market_context,
-      [],
       config,
       priorMarketState,
     );

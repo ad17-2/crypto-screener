@@ -122,9 +122,7 @@ export interface InferredRegime {
   sector_rotation_label: string;
 }
 
-// `_weights` is unused on purpose, kept for call-site parity with scoreSnapshot's inferRegime(weights, rows, marketContext, priorState, config).
 export function inferRegime(
-  _weights: unknown,
   rows: Row[],
   marketContext: MarketContext,
   priorState: string | null | undefined,
@@ -179,7 +177,8 @@ export function inferRegime(
     avg_funding_rate_pct: avgFunding,
     market_cap_change_24h_pct: marketCapChange,
     breadth_score: breadthScore,
-    breadth_label: (breadth.label as string | undefined) ?? 'unknown',
-    sector_rotation_label: (sectorRotation.label as string | undefined) ?? 'unknown',
+    breadth_label: typeof breadth.label === 'string' ? breadth.label : 'unknown',
+    sector_rotation_label:
+      typeof sectorRotation.label === 'string' ? sectorRotation.label : 'unknown',
   };
 }

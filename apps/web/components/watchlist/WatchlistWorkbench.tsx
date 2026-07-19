@@ -1,6 +1,7 @@
 'use client';
 
 import type { Watchlist, WatchlistChanges, WatchlistId } from '@crypto-screener/contracts';
+import { BtcPulseSchema } from '@crypto-screener/contracts';
 import { useEffect, useMemo, useState } from 'react';
 import {
   BTC_PULSE_POLL_MS,
@@ -82,13 +83,9 @@ export function WatchlistWorkbench({
         const response = await fetch('/api/btc-pulse', { cache: 'no-store' });
         if (!response.ok) return;
         const body: unknown = await response.json();
-        const price =
-          body &&
-          typeof body === 'object' &&
-          typeof (body as { price_usd?: unknown }).price_usd === 'number'
-            ? (body as { price_usd: number }).price_usd
-            : null;
-        if (price === null) return;
+        const parsed = BtcPulseSchema.safeParse(body);
+        if (!parsed.success) return;
+        const price = parsed.data.price_usd;
         const deltaPct = btcDeltaPct(price, runBtcPrice);
         if (!cancelled && deltaPct !== null) setBtcPulse({ livePrice: price, deltaPct });
       } catch {

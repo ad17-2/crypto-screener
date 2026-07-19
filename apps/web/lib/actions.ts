@@ -1,5 +1,6 @@
 'use server';
 
+import { API_BASE_URL } from './config';
 import { errorMessage } from './errors';
 
 /**
@@ -7,9 +8,6 @@ import { errorMessage } from './errors';
  * an inline directive in a module that also ends up in a client bundle (ReloadButton.tsx pulls
  * lib/api.ts into the client graph, which is why triggerRefresh() can't live there).
  */
-
-/** Must match lib/api.ts's API_BASE_URL — same Express origin, keep the two in sync. */
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:4000';
 
 export type RefreshResult =
   | { ok: true; status: number; body: unknown }

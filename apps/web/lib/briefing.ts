@@ -1,3 +1,4 @@
+import { capNarrative } from './text';
 import { asRecord } from './wire';
 
 /**
@@ -5,8 +6,6 @@ import { asRecord } from './wire';
  * pipeline/briefing.ts) written by one DeepSeek call per refresh. Display-only: absent whenever
  * DEEPSEEK_API_KEY isn't set or the call failed, so every field here is read defensively.
  */
-
-const MAX_RENDER_LENGTH = 1800;
 
 export interface ParsedBriefing {
   text: string;
@@ -27,7 +26,7 @@ export function parseBriefing(marketContext: unknown): ParsedBriefing | null {
   const generatedAt = typeof briefing.generated_at === 'string' ? briefing.generated_at : null;
 
   return {
-    text: text.length > MAX_RENDER_LENGTH ? `${text.slice(0, MAX_RENDER_LENGTH)}…` : text,
+    text: capNarrative(text),
     model,
     generatedAt,
   };

@@ -8,21 +8,15 @@ const RISK_OFF_BIAS = new Set(['risk-off']);
 
 /**
  * The plain-English market read at the top of the dashboard. Pure function, no React -- every
- * input is one of the API's `unknown`-typed payload blobs (regime, market_context, validation,
- * quality), read defensively via lib/payload.ts accessors so a missing field never renders as
- * "null"/"NaN" text.
+ * input is one of the API's `unknown`-typed payload blobs (regime, market_context, validation),
+ * read defensively via lib/payload.ts accessors so a missing field never renders as "null"/"NaN"
+ * text.
  */
 
 export interface MarketVerdictInput {
   regime: unknown;
   market_context: unknown;
   validation: unknown;
-  /**
-   * Not currently used by any headline/summary/fact rule below -- included because the brief
-   * that specified this function listed it as an available input. Flagging rather than inventing
-   * an unspecified use for it.
-   */
-  quality: unknown;
 }
 
 /** There is no model any more (see CLAUDE.md's purge/simplify-screener notes) -- the summary line is a fixed, honest disclaimer, not a calibration-dependent verdict. */
@@ -34,8 +28,13 @@ export interface MarketVerdict {
   facts: string[];
 }
 
+/** Same precedence as headlineFor: regime_state, falling back to the legacy label field. */
+export function regimeState(regime: unknown): string | null {
+  return str(regime, 'regime_state') ?? str(regime, 'label');
+}
+
 function headlineFor(regime: unknown, marketContext: unknown): string {
-  const state = str(regime, 'regime_state') ?? str(regime, 'label');
+  const state = regimeState(regime);
   if (state === 'chaos') return 'Conditions are chaotic.';
 
   const bias = str(regime, 'bias');

@@ -132,7 +132,7 @@ describe('backfill: buildSymbolRows + scoreBackfillRows write only compact facto
       // taker_buy_sell_ratio_24h is real (derivativesSnapshot sets it) -- the bug was aliasing
       // it onto long_short_ratio, making ls_ratio_contrarian a copy of taker_flow_24h.
       expect(row.taker_buy_sell_ratio_24h).not.toBeUndefined();
-      expect(rawFactors(row, rows, {}).ls_ratio_contrarian).toBeNull();
+      expect(rawFactors(row, {}).ls_ratio_contrarian).toBeNull();
     }
   });
 });

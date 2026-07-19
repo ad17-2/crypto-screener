@@ -1,12 +1,7 @@
 import type { DashboardPayload } from '@crypto-screener/contracts';
 import { DashboardPayloadSchema } from '@crypto-screener/contracts';
+import { API_BASE_URL } from './config';
 import { errorMessage } from './errors';
-
-/**
- * Must match next.config.ts's rewrite target — this module fetches the API directly (server-side
- * render); the rewrite is only for external clients hitting the public origin.
- */
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:4000';
 
 export type DashboardResult =
   | { ok: true; payload: DashboardPayload }

@@ -4,18 +4,14 @@ import { parseBriefing } from '@/lib/briefing';
 import { lookupBias, lookupMetric, lookupRegimeState } from '@/lib/copy';
 import { parseMacroEvents, selectMacroBanner } from '@/lib/macro-events';
 import { num, pct, signedPct, str } from '@/lib/payload';
-import { marketVerdict, sieveStages } from '@/lib/verdict';
+import { marketVerdict, regimeState, sieveStages } from '@/lib/verdict';
 import { Sieve } from './Sieve';
 
 export interface MarketStageProps {
-  /** untyped on the wire — read defensively. */
   regime: unknown;
-  /** untyped on the wire — read defensively. */
   marketContext: unknown;
-  /** untyped on the wire — read defensively. */
   validation: unknown;
   quality: Quality;
-  /** untyped on the wire — read defensively. */
   providerStatus: unknown;
   run: { row_count: number };
   watchlists: Watchlist[];
@@ -35,14 +31,12 @@ export function MarketStage({
   run,
   watchlists,
 }: MarketStageProps) {
-  const verdict = marketVerdict({ regime, market_context: marketContext, validation, quality });
+  const verdict = marketVerdict({ regime, market_context: marketContext, validation });
   const stages = sieveStages({ provider_status: providerStatus, run, quality, watchlists });
   const macroBanner = selectMacroBanner(parseMacroEvents(marketContext), new Date());
   const briefing = parseBriefing(marketContext);
 
-  // Mirrors verdict.ts's own headlineFor() precedence (regime_state, falling back to the legacy
-  // label field) so the Regime tile always reads the same state the headline above was built from.
-  const regimeState = str(regime, 'regime_state') ?? str(regime, 'label');
+  const state = regimeState(regime);
   const marketCapChange = num(marketContext, 'market_cap_change_24h_pct');
   const fearGreedValue = num(marketContext, 'fear_greed_value');
   const fearGreedClassification = str(marketContext, 'fear_greed_classification');
@@ -88,7 +82,7 @@ export function MarketStage({
       </div>
 
       <div className="mt-8 flex flex-wrap gap-x-10 gap-y-4">
-        <StatTile label="Regime" value={lookupRegimeState(regimeState).label} metricKey="regime" />
+        <StatTile label="Regime" value={lookupRegimeState(state).label} metricKey="regime" />
         <StatTile label="Bias" value={lookupBias(str(regime, 'bias')).label} metricKey="bias" />
         <StatTile
           label="Market cap 24h"

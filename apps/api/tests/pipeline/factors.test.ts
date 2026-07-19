@@ -21,8 +21,8 @@ describe('rawFactors', () => {
       },
     ];
     const context = { median_atr_pct: 3.5 };
-    const low = rawFactors(rows[0] as Row, rows, context);
-    const high = rawFactors(rows[1] as Row, rows, context);
+    const low = rawFactors(rows[0] as Row, context);
+    const high = rawFactors(rows[1] as Row, context);
     expect(low.reversal_3d).not.toBeCloseTo(high.reversal_3d as number, 5);
     expect(low.reversal_3d).toBeCloseTo(-5.0, 9);
     expect(high.reversal_3d).toBeCloseTo(-2.0, 9);
@@ -34,7 +34,7 @@ describe('rawFactors', () => {
       long_short_ratio: 1.1,
       quote_volume_usd: 1_000_000,
     };
-    const raw = rawFactors(row, [row], {});
+    const raw = rawFactors(row, {});
     expect(raw.ls_ratio_contrarian).toBeCloseTo(-Math.log(2.0), 9);
   });
 });
@@ -145,7 +145,7 @@ describe('scoreSnapshot', () => {
   }
 
   it('ranks long and short setups correctly (test_score_snapshot_ranks_long_and_short)', () => {
-    const scored = scoreSnapshot(longShortRows(), {}, [], { factors: {} }).rows;
+    const scored = scoreSnapshot(longShortRows(), {}, { factors: {} }).rows;
     const longRow = scored.find((row) => row.symbol === 'LONG') as Row;
     const shortRow = scored.find((row) => row.symbol === 'SHORT') as Row;
     expect(longRow.long_score as number).toBeGreaterThan(longRow.short_score as number);
@@ -153,7 +153,7 @@ describe('scoreSnapshot', () => {
     expect(longRow.factors).toHaveProperty('technical_trend_4h');
     expect(longRow.factors).toHaveProperty('oi_acceleration_signal');
     expect(longRow.factors).toHaveProperty('taker_flow_24h');
-    expect(scoreSnapshot(longShortRows(), {}, [], { factors: {} }).market_context).toHaveProperty(
+    expect(scoreSnapshot(longShortRows(), {}, { factors: {} }).market_context).toHaveProperty(
       'breadth',
     );
   });
@@ -204,7 +204,7 @@ describe('scoreSnapshot', () => {
       },
     };
 
-    const scored = scoreSnapshot(rows, context, [], { factors: {} });
+    const scored = scoreSnapshot(rows, context, { factors: {} });
 
     expect((scored.market_context.breadth as Record<string, unknown>).status).toBe('ok');
     expect(['selective-risk-on', 'broad-risk-on', 'mixed']).toContain(scored.regime.breadth_label);
@@ -221,12 +221,20 @@ describe('scoreSnapshot', () => {
         quote_volume_usd: 100_000_000,
       }));
     }
-    const off = scoreSnapshot(fiveRows(), {}, [], {
-      factors: { residualise_collinear_factors: false },
-    });
-    const on = scoreSnapshot(fiveRows(), {}, [], {
-      factors: { residualise_collinear_factors: true },
-    });
+    const off = scoreSnapshot(
+      fiveRows(),
+      {},
+      {
+        factors: { residualise_collinear_factors: false },
+      },
+    );
+    const on = scoreSnapshot(
+      fiveRows(),
+      {},
+      {
+        factors: { residualise_collinear_factors: true },
+      },
+    );
     const offRow = off.rows.find((row) => row.symbol === 'S2') as Row;
     const onRow = on.rows.find((row) => row.symbol === 'S2') as Row;
     // priceChange=3, oiChange=6 -> copysign(6, 3) = 6, unresidualised.
@@ -246,10 +254,14 @@ describe('scoreSnapshot', () => {
       funding_rate_pct: 0.01,
       quote_volume_usd: 100_000_000,
     }));
-    const scored = scoreSnapshot(rows, {}, [], {
-      factors: { forward_return_hours: 24 },
-      costs: { taker_fee_bps: 0, slippage_bps: 0, assumed_spread_bps: 0 },
-    });
+    const scored = scoreSnapshot(
+      rows,
+      {},
+      {
+        factors: { forward_return_hours: 24 },
+        costs: { taker_fee_bps: 0, slippage_bps: 0, assumed_spread_bps: 0 },
+      },
+    );
     const top = scored.rows.find((row) => row.symbol === 'S4') as Row;
     // Highest momentum in the cross-section -> long side (the SCREEN's own observable score).
     // With fee/slippage/spread zeroed out, only funding remains: 0.01 * 3 settlements/day * (24/24) = 0.03.
@@ -283,7 +295,7 @@ describe('BTC context extraction', () => {
       },
     ];
     // marketContext carries an unrelated fallback value: the BTC row must win over it.
-    const scored = scoreSnapshot(rows, { btc_price_change_24h_pct: 999 }, [], { factors: {} });
+    const scored = scoreSnapshot(rows, { btc_price_change_24h_pct: 999 }, { factors: {} });
     expect(scored.market_context.btc_change_24h_pct).toBeCloseTo(2.5, 9);
     expect(scored.market_context.btc_momentum_score).toBeCloseTo(0.42, 9);
   });
@@ -299,13 +311,17 @@ describe('BTC context extraction', () => {
         quote_volume_usd: 100_000_000,
       },
     ];
-    const withFallback = scoreSnapshot(rows, { btc_price_change_24h_pct: -1.5 }, [], {
-      factors: {},
-    });
+    const withFallback = scoreSnapshot(
+      rows,
+      { btc_price_change_24h_pct: -1.5 },
+      {
+        factors: {},
+      },
+    );
     expect(withFallback.market_context.btc_change_24h_pct).toBeCloseTo(-1.5, 9);
     expect(withFallback.market_context.btc_momentum_score).toBeNull();
 
-    const withoutFallback = scoreSnapshot(rows, {}, [], { factors: {} });
+    const withoutFallback = scoreSnapshot(rows, {}, { factors: {} });
     expect(withoutFallback.market_context.btc_change_24h_pct).toBeNull();
     expect(withoutFallback.market_context.btc_momentum_score).toBeNull();
   });

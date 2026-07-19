@@ -100,12 +100,12 @@ export function applyScores(
     btcChange24h <= -1.0 &&
     (btcMomentumScore === null || btcMomentumScore <= 0);
   const vetoShort =
-    btcCorrelation !== null && btcCorrelation >= 0.5 && btcUp
-      ? clamp((btcCorrelation - 0.5) / 0.4) * clamp((btcChange24h as number) / 3.0) * 18.0
+    btcCorrelation !== null && btcCorrelation >= 0.5 && btcUp && btcChange24h !== null
+      ? clamp((btcCorrelation - 0.5) / 0.4) * clamp(btcChange24h / 3.0) * 18.0
       : 0;
   const vetoLong =
-    btcCorrelation !== null && btcCorrelation >= 0.5 && btcDown
-      ? clamp((btcCorrelation - 0.5) / 0.4) * clamp(-(btcChange24h as number) / 3.0) * 18.0
+    btcCorrelation !== null && btcCorrelation >= 0.5 && btcDown && btcChange24h !== null
+      ? clamp((btcCorrelation - 0.5) / 0.4) * clamp(-btcChange24h / 3.0) * 18.0
       : 0;
   row.fights_btc = vetoShort > 0 ? 'short' : vetoLong > 0 ? 'long' : null;
 

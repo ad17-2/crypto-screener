@@ -22,9 +22,8 @@ import { assertMatches } from './support/goldenDiff.js';
  * scoreSnapshot is called with prior_market_state=undefined: the regime lookup against the
  * fixture's own timestamp returns nothing, matching what produced this fixture.
  *
- * There is no more factor-weighting engine (see CLAUDE.md's purge/simplify-screener notes) --
- * `factor_history` is still shipped in the fixture (and passed through) only because
- * scoreSnapshot's historyRecords parameter is kept for call-site parity; it is otherwise unused.
+ * `factor_history` remains in the fixture JSON for historical shape only; it is no longer passed
+ * to scoreSnapshot (the factor-weighting engine that consumed it was deleted).
  */
 
 const FIXTURE_PATH = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/parity-run.json');
@@ -50,13 +49,7 @@ describe('factor engine vs. golden regression fixture', () => {
   // input_rows are deep-cloned per test since scoreSnapshot mutates rows in place.
   const rows: Row[] = JSON.parse(JSON.stringify(fixture.input_rows));
 
-  const result = scoreSnapshot(
-    rows,
-    fixture.market_context,
-    fixture.factor_history,
-    config,
-    undefined,
-  );
+  const result = scoreSnapshot(rows, fixture.market_context, config, undefined);
 
   it('classifies the same regime as the golden baseline', () => {
     assertMatches(result.regime, fixture.expected.regime, 'regime');

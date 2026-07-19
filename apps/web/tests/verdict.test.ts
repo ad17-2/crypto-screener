@@ -29,7 +29,6 @@ function verdictInput(overrides: Partial<MarketVerdictInput> = {}): MarketVerdic
     regime: {},
     market_context: {},
     validation: {},
-    quality: {},
     ...overrides,
   };
 }
@@ -274,7 +273,6 @@ describe('marketVerdict against the real frozen fixture', () => {
       regime: fixture.regime,
       market_context: fixture.market_context,
       validation: fixture.validation,
-      quality: fixture.quality,
     });
     expect(result.headline).toBe("Risk-off, and it's broad.");
     expect(result.summary).toBe('These are names to review, not signals.');

@@ -1,11 +1,5 @@
 import type { NextConfig } from 'next';
-
-/**
- * Express API origin. apps/web fetches the dashboard payload server-side from this origin, and
- * also rewrites incoming /api/* and /health requests here so the public URL contract existing
- * clients depend on (curl /api/dashboard, curl /health against the public origin) keeps working.
- */
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:4000';
+import { API_BASE_URL } from './lib/config';
 
 const nextConfig: NextConfig = {
   async rewrites() {

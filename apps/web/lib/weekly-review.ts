@@ -1,5 +1,6 @@
 import type { WeeklyReview } from '@crypto-screener/contracts';
 import { arr, num, str } from './payload';
+import { capNarrative } from './text';
 
 /**
  * payload.weekly_review is already zod-typed end to end (packages/contracts/src/dashboard.ts), so
@@ -8,8 +9,6 @@ import { arr, num, str } from './payload';
  * see apps/api's db/weeklyReview.ts's WeeklyReviewMetrics -- so digging into it stays defensive,
  * same num/str/arr accessors as lib/payload.ts.
  */
-
-const MAX_NARRATIVE_LENGTH = 1800; // mirrors lib/briefing.ts's own cap
 
 export interface WeeklyReviewFact {
   label: string;
@@ -52,12 +51,7 @@ export function parseWeeklyReview(
   if (!weeklyReview) return null;
 
   const trimmed = typeof weeklyReview.narrative === 'string' ? weeklyReview.narrative.trim() : '';
-  const narrative =
-    trimmed.length === 0
-      ? null
-      : trimmed.length > MAX_NARRATIVE_LENGTH
-        ? `${trimmed.slice(0, MAX_NARRATIVE_LENGTH)}…`
-        : trimmed;
+  const narrative = trimmed.length === 0 ? null : capNarrative(trimmed);
 
   const facts = sideHitRateFacts(weeklyReview.metrics);
   if (narrative === null && facts.length === 0) return null;

@@ -275,7 +275,7 @@ export function scoreBackfillRows(
       continue;
     }
     const marketContext = backfillMarketContext(rows);
-    const scored = scoreSnapshot(rows, marketContext, [], config).rows;
+    const scored = scoreSnapshot(rows, marketContext, config).rows;
     for (const row of scored) {
       delete row._time;
       records.push(row);

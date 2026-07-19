@@ -77,13 +77,7 @@ export function regenParity(): void {
   // Deep-cloned, same as parity.test.ts: scoreSnapshot mutates rows in place.
   const rows: Row[] = JSON.parse(JSON.stringify(fixture.input_rows));
 
-  const result = scoreSnapshot(
-    rows,
-    fixture.market_context,
-    fixture.factor_history,
-    config,
-    undefined,
-  );
+  const result = scoreSnapshot(rows, fixture.market_context, config, undefined);
 
   const trustedRows = result.rows
     .filter((row) => row.is_trusted !== false)
