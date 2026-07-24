@@ -108,6 +108,11 @@ export const OiPriceTrendStateSchema = z.enum([
   'confirmed_short',
 ]);
 
+// apps/api/src/dashboard/runDiff.ts `runTrend()` -- a directional row's run-over-run score
+// trajectory against the previous version-matched run. See DashboardRowSchema.run_trend below for
+// when it's present at all.
+export const RunTrendSchema = z.enum(['new', 'strengthening', 'weakening', 'holding']);
+
 export const DashboardRowSchema = z.object({
   symbol: z.string().nullable(),
   side: DashboardRowSideSchema,
@@ -155,6 +160,10 @@ export const DashboardRowSchema = z.object({
   // otherwise (not new, not a directional row, or the run-over-run diff was suppressed -- see
   // apps/api/src/dashboard/runDiff.ts).
   new_to_list: z.boolean().optional(),
+  // Present only for a directional (long/short) row when a version-matched previous run's
+  // same-side score was available to compare against; absent otherwise (no baseline, a
+  // pipeline_version mismatch, or a non-directional row) -- see apps/api/src/dashboard/runDiff.ts.
+  run_trend: RunTrendSchema.optional(),
   technical_state: TechnicalStateSchema,
   data_source: z.string().nullable(),
   is_trusted: z.boolean(),
@@ -292,6 +301,7 @@ export type DashboardRow = z.infer<typeof DashboardRowSchema>;
 export type DashboardRowSide = z.infer<typeof DashboardRowSideSchema>;
 export type CvdAbsorptionState = z.infer<typeof CvdAbsorptionStateSchema>;
 export type OiPriceTrendState = z.infer<typeof OiPriceTrendStateSchema>;
+export type RunTrend = z.infer<typeof RunTrendSchema>;
 export type RunSummary = z.infer<typeof RunSummarySchema>;
 export type Freshness = z.infer<typeof FreshnessSchema>;
 export type Quality = z.infer<typeof QualitySchema>;

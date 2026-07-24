@@ -170,3 +170,63 @@ export function divergenceLine(
   const strength = state.technical_divergence_strength;
   return strength == null ? direction : `${direction} (${strength.toFixed(2)})`;
 }
+
+/**
+ * apps/api's `run_trend` (packages/contracts/src/dashboard.ts) is a raw server enum; its label and
+ * definition come from lib/copy.ts's lookupRunTrend, same as setup_confidence/cvd_absorption_state.
+ * This only decides whether/how to color a badge for it. 'new' deliberately maps to null (no chip):
+ * it's the identical condition new_to_list's own NEW chip already flags (see
+ * apps/api/src/dashboard/runDiff.ts runTrend()) -- a second badge would just repeat it.
+ */
+export function runTrendTone(
+  runTrend: DashboardRow['run_trend'],
+): 'pos' | 'neg' | 'neutral' | null {
+  if (runTrend === 'strengthening') return 'pos';
+  if (runTrend === 'weakening') return 'neg';
+  if (runTrend === 'holding') return 'neutral';
+  return null;
+}
+
+// pipeline/rowScoring.ts size_multiplier = clamp(median_atr_pct / row_atr_pct, 0.25, 2.0), neutral
+// at 1.0 -- a suggested position-size hint from the coin's OWN volatility, never a conviction or
+// strength read. These bucket that continuous value into a scan-view chip; the common near-neutral
+// case renders no chip at all (same absent-unless-notable convention as run_trend's 'new' above).
+const SIZE_CHIP_CALM_FLOOR = 1.5;
+// The multiplicative mirror of the floor (1 / 1.5 ≈ 0.667) -- keeps the dead zone symmetric in log
+// space around neutral: a coin has to be at least 50% calmer or choppier than the cross-section's
+// median-ATR coin, not just barely off 1.0, before either chip fires.
+const SIZE_CHIP_CHOPPY_CEILING = 0.667;
+
+export interface SizeMultiplierChip {
+  tone: 'neutral' | 'warn';
+  label: string;
+  title: string;
+}
+
+/**
+ * Excluded rows carry size_multiplier === 0.0 (not a real ATR ratio -- see
+ * apps/api/src/pipeline/rowScoring.ts applyExcludedScores), which would otherwise misread as the
+ * choppiest possible coin; is_trusted screens that out here rather than at every call site.
+ */
+export function sizeMultiplierChip(
+  row: Pick<DashboardRow, 'scores' | 'is_trusted'>,
+): SizeMultiplierChip | null {
+  if (row.is_trusted === false) return null;
+  const multiplier = row.scores.size_multiplier;
+  if (multiplier == null) return null;
+  if (multiplier >= SIZE_CHIP_CALM_FLOOR) {
+    return {
+      tone: 'neutral',
+      label: 'Low vol',
+      title: `Calmer than typical (${multiplier.toFixed(2)}x size) -- a volatility-derived sizing hint, not a conviction rating.`,
+    };
+  }
+  if (multiplier <= SIZE_CHIP_CHOPPY_CEILING) {
+    return {
+      tone: 'warn',
+      label: 'High vol',
+      title: `Choppier than typical (${multiplier.toFixed(2)}x size) -- a volatility-derived sizing hint, not a conviction rating.`,
+    };
+  }
+  return null;
+}

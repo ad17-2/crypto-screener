@@ -97,6 +97,63 @@ export async function appendCoinglassTechnicals(
     }
   }
 
+  // Correlation-structure scalars: a rival screener renders a full correlation minimum-spanning
+  // tree over the coin universe and reads its topology -- a "star" (every coin hangs directly off
+  // BTC) means no genuine diversification is available even across many names. mean_btc_correlation
+  // vs. alt_alt_mean_correlation carries the same information without a graph. Display-only: see
+  // market.ts's marketSensingSummary, which is the only consumer, for the scoring-isolation note.
+  //
+  // Only alt_alt_mean_correlation/alt_alt_correlation_pairs are computed here -- they genuinely
+  // cannot move to market.ts because they need the raw price series (seriesBySymbol/target,
+  // already in scope from the fetch loop above), which no later stage retains per-row.
+  // mean_btc_correlation and correlation_spread live in market.ts instead: they're derived from
+  // each row's own btc_correlation field (set in the loop above, which IS retained), averaged over
+  // the same is_trusted-filtered set as the sibling market-context fields -- something this
+  // function can't do, since quality.ts's applyDataQuality runs AFTER this one.
+  //
+  // seriesBySymbol/target are already in scope from the fetch loop above, so this costs zero new
+  // HTTP calls -- the only new cost is the O(altSymbols^2) pairwise pass below, measured and
+  // reported via pairwise_correlation_ms so a slow universe doesn't hide silently.
+  const altSymbols = target
+    .map((row) => String(row.symbol ?? ''))
+    .filter((symbol) => symbol !== 'BTC' && seriesBySymbol.has(symbol));
+  let altAltCorrelationSum = 0;
+  let altAltCorrelationPairs = 0;
+  const pairwiseStartMs = Date.now();
+  for (let i = 0; i < altSymbols.length; i += 1) {
+    const barsA = seriesBySymbol.get(altSymbols[i] as string) as PriceBar[];
+    for (let j = i + 1; j < altSymbols.length; j += 1) {
+      const barsB = seriesBySymbol.get(altSymbols[j] as string) as PriceBar[];
+      const stats = returnStats(barsA, barsB, MIN_CORR_PAIRS, interval);
+      // is_trusted is the wrong gate for a correlation statistic -- it flags exchange-coverage and
+      // extreme-move conditions on a single row, not the series-alignment integrity a pairwise
+      // correlation actually depends on. A dropped/missing candle that would mislabel a
+      // multi-period move as a single-period return is what corrupts a correlation, and that's
+      // already handled here by MIN_CORR_PAIRS (thin overlap) plus `gapped` (misaligned pairing,
+      // see correlation.ts's resolveStep). Skipping `gapped` pairs is therefore a deliberate,
+      // documented divergence from the sibling market-context fields (which key off is_trusted
+      // instead) -- not an oversight.
+      if (stats.correlation !== null && !stats.gapped) {
+        altAltCorrelationSum += stats.correlation;
+        altAltCorrelationPairs += 1;
+      }
+    }
+  }
+  const pairwiseCorrelationMs = Date.now() - pairwiseStartMs;
+
+  const altAltMeanCorrelation =
+    altAltCorrelationPairs > 0 ? altAltCorrelationSum / altAltCorrelationPairs : null;
+
+  // rows is the only channel that survives unmodified from here through collector.ts/
+  // runPipeline.ts into scoreSnapshot -- these market-wide (not BTC-specific) scalars ride on the
+  // BTC row the same way price_history_bars does above. market.ts's marketSensingSummary reads
+  // and deletes them before returning, so they never leak into a persisted row_json.
+  const btcRow = target.find((row) => String(row.symbol ?? '') === 'BTC');
+  if (btcRow) {
+    btcRow.alt_alt_mean_correlation = altAltMeanCorrelation;
+    btcRow.alt_alt_correlation_pairs = altAltCorrelationPairs;
+  }
+
   if (status) {
     status.technicals = {
       status: enriched ? 'ok' : 'error',
@@ -106,6 +163,9 @@ export async function appendCoinglassTechnicals(
       errors: errors.slice(0, 5),
       note: 'CoinGlass futures price OHLC technical indicators',
       btc_correlation_rows: btcCorrelationRows,
+      alt_alt_mean_correlation: altAltMeanCorrelation,
+      alt_alt_correlation_pairs: altAltCorrelationPairs,
+      pairwise_correlation_ms: pairwiseCorrelationMs,
     };
   }
 }

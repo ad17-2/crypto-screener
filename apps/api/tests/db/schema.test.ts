@@ -135,4 +135,43 @@ describe('openDatabase / ensureSchema', () => {
 
     db.close();
   });
+
+  it('adds the missing pipeline_version column to an old-schema runs table, leaving old rows NULL', () => {
+    mkdirSync(join(dir, 'nested'), { recursive: true });
+    const db = new Database(dbPath);
+    db.exec(`
+      CREATE TABLE runs (
+          run_id TEXT PRIMARY KEY,
+          generated_at TEXT NOT NULL,
+          config_json TEXT NOT NULL,
+          context_json TEXT NOT NULL,
+          provider_status_json TEXT NOT NULL
+      );
+    `);
+    db.prepare(
+      `INSERT INTO runs (run_id, generated_at, config_json, context_json, provider_status_json)
+       VALUES ('legacy-run', '2026-01-01T00:00:00+07:00', '{}', '{}', '{}')`,
+    ).run();
+
+    const columnsBefore = db
+      .prepare('PRAGMA table_info(runs)')
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(columnsBefore).not.toContain('pipeline_version');
+
+    ensureSchema(db);
+
+    const columnsAfter = db
+      .prepare('PRAGMA table_info(runs)')
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(columnsAfter).toContain('pipeline_version');
+
+    const legacyRow = db
+      .prepare('SELECT pipeline_version FROM runs WHERE run_id = ?')
+      .get('legacy-run') as { pipeline_version: string | null };
+    expect(legacyRow.pipeline_version).toBeNull();
+
+    db.close();
+  });
 });

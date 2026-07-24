@@ -68,6 +68,9 @@ const HISTORY_METRIC_KEYS = [
   'watchlist_side',
   'watchlist_rank',
   'setup_confidence',
+  // Scoring-formula provenance (pipeline/rowScoring.ts SCORING_PIPELINE_VERSION), injected by
+  // db/runs.ts saveSnapshot -- never present on the pipeline row itself.
+  'pipeline_version',
 ] as const;
 
 export function historyMetrics(row: Record<string, unknown>): Record<string, unknown> {

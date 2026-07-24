@@ -132,6 +132,75 @@ describe('marketSensingSummary', () => {
     expect(summary.return_dispersion_pct).toBeNull();
     expect(summary.btc_dominance_delta_pct).toBeCloseTo(1.0, 9);
   });
+
+  it('reads the alt-alt correlation scalars enrichment.ts stashed on the BTC row, and strips them off it; derives mean_btc_correlation/correlation_spread itself', () => {
+    const rows: Row[] = [
+      {
+        symbol: 'BTC',
+        is_trusted: true,
+        alt_alt_mean_correlation: 0.1,
+        alt_alt_correlation_pairs: 120,
+      },
+      { symbol: 'ETH', price_change_24h_pct: 1.0, is_trusted: true, btc_correlation: 0.5 },
+      { symbol: 'SOL', price_change_24h_pct: 2.0, is_trusted: true, btc_correlation: 0.3 },
+    ];
+
+    const summary = marketSensingSummary(rows, {}, null);
+
+    expect(summary.mean_btc_correlation).toBeCloseTo(0.4, 9); // mean(0.5, 0.3)
+    expect(summary.alt_alt_mean_correlation).toBeCloseTo(0.1, 9);
+    expect(summary.correlation_spread).toBeCloseTo(0.3, 9); // 0.4 - 0.1
+    expect(summary.alt_alt_correlation_pairs).toBe(120);
+
+    // Must never leak into a persisted row_json -- these are market-wide, not a BTC fact.
+    const btcRow = rows.find((row) => row.symbol === 'BTC');
+    expect(btcRow).not.toHaveProperty('alt_alt_mean_correlation');
+    expect(btcRow).not.toHaveProperty('alt_alt_correlation_pairs');
+  });
+
+  it('returns null correlation-structure scalars when the BTC row carries none (test isolation, no crash)', () => {
+    const rows = btcEthRows(1.0, 2.0);
+    const summary = marketSensingSummary(rows, {}, null);
+    expect(summary.mean_btc_correlation).toBeNull();
+    expect(summary.alt_alt_mean_correlation).toBeNull();
+    expect(summary.correlation_spread).toBeNull();
+    expect(summary.alt_alt_correlation_pairs).toBeNull();
+  });
+
+  it('still delivers the alt-alt correlation scalars, and clears them off the row, when BTC itself is untrusted for the cycle (quality.ts applyDataQuality runs AFTER enrichment, so BTC can fail quality without enrichment ever knowing)', () => {
+    const rows: Row[] = [
+      {
+        symbol: 'BTC',
+        is_trusted: false,
+        alt_alt_mean_correlation: 0.08,
+        alt_alt_correlation_pairs: 45,
+      },
+      { symbol: 'ETH', price_change_24h_pct: 1.0, is_trusted: true, btc_correlation: 0.6 },
+    ];
+
+    const summary = marketSensingSummary(rows, {}, null);
+
+    expect(summary.alt_alt_mean_correlation).toBeCloseTo(0.08, 9);
+    expect(summary.alt_alt_correlation_pairs).toBe(45);
+
+    // Finding against the trusted-filtered set (BTC excluded) would leave these on the real row
+    // object instead of deleting them -- they'd ship inside BTC's persisted row_json.
+    const btcRow = rows.find((row) => row.symbol === 'BTC');
+    expect(btcRow).not.toHaveProperty('alt_alt_mean_correlation');
+    expect(btcRow).not.toHaveProperty('alt_alt_correlation_pairs');
+  });
+
+  it("excludes an untrusted row's btc_correlation from mean_btc_correlation", () => {
+    const rows: Row[] = [
+      { symbol: 'BTC', is_trusted: true },
+      { symbol: 'ETH', is_trusted: true, btc_correlation: 0.8 },
+      { symbol: 'SOL', is_trusted: false, btc_correlation: -0.9 }, // must not pull the mean down
+    ];
+
+    const summary = marketSensingSummary(rows, {}, null);
+
+    expect(summary.mean_btc_correlation).toBeCloseTo(0.8, 9);
+  });
 });
 
 describe('scoreSnapshot regime integration', () => {
@@ -145,5 +214,40 @@ describe('scoreSnapshot regime integration', () => {
     expect(context.btc_dominance_delta_pct as number).toBeCloseTo(1.0, 9);
     expect(context.eth_btc_performance_pct).not.toBeNull();
     expect(['btc-led', 'alts-strong', 'neutral', 'chaos']).toContain(scored.regime.regime_state);
+  });
+
+  // Regression for scoreSnapshot passing marketSensingSummary the UNFILTERED `rows`, not
+  // `trustedRows`: an untrusted BTC row is exactly where enrichment.ts's appendCoinglassTechnicals
+  // stashes alt_alt_mean_correlation/alt_alt_correlation_pairs (see enrichment.ts + market.ts's
+  // correlationStructureSummary). Pre-filtering trusted rows before the call would hide that BTC
+  // row from the find-and-delete step, which both nulls these market_context fields AND leaves the
+  // stashed keys on the row object to be persisted into market_rows.row_json (db/runs.ts
+  // stringifies whole rows with no allowlist) -- unlike the marketSensingSummary-direct tests above,
+  // which call marketSensingSummary with the already-unfiltered `rows` themselves and so pass
+  // regardless of how scoreSnapshot happens to call it.
+  it('threads the alt-alt correlation stash through scoreSnapshot and strips it off the untrusted BTC row (test_score_snapshot_strips_alt_alt_correlation_stash)', () => {
+    const rows: Row[] = [
+      {
+        symbol: 'BTC',
+        is_trusted: false,
+        alt_alt_mean_correlation: 0.1,
+        alt_alt_correlation_pairs: 120,
+      },
+      { symbol: 'ETH', price_change_24h_pct: 1.0, is_trusted: true, btc_correlation: 0.5 },
+      { symbol: 'SOL', price_change_24h_pct: 2.0, is_trusted: true, btc_correlation: 0.3 },
+    ];
+
+    const scored = scoreSnapshot(rows, {}, config);
+    const context = scored.market_context;
+
+    expect(context.alt_alt_mean_correlation).toBeCloseTo(0.1, 9);
+    expect(context.alt_alt_correlation_pairs).toBe(120);
+    expect(context.correlation_spread).toBeCloseTo(0.3, 9); // mean_btc_correlation(0.4) - alt_alt_mean(0.1)
+
+    // The leak assertion: these market-wide scalars must not survive on the BTC row object, or
+    // they'd be persisted into market_rows.row_json alongside it.
+    const btcRow = scored.rows.find((row) => row.symbol === 'BTC');
+    expect(btcRow).not.toHaveProperty('alt_alt_mean_correlation');
+    expect(btcRow).not.toHaveProperty('alt_alt_correlation_pairs');
   });
 });

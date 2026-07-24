@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { SCORING_PIPELINE_VERSION } from '../pipeline/rowScoring.js';
 import { sqlPlaceholders } from './client.js';
 import { historyMetrics, prepareFactorHistoryInsert } from './factorHistory.js';
 import { stableStringify } from './json.js';
@@ -12,8 +13,8 @@ export function saveSnapshot(
 ): void {
   const insertRun = db.prepare(`
     INSERT OR REPLACE INTO runs
-        (run_id, generated_at, config_json, context_json, provider_status_json, regime_json)
-    VALUES (?, ?, ?, ?, ?, ?)
+        (run_id, generated_at, config_json, context_json, provider_status_json, regime_json, pipeline_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   const insertMarketRow = db.prepare(`
     INSERT OR REPLACE INTO market_rows
@@ -30,6 +31,7 @@ export function saveSnapshot(
       stableStringify(payload.market_context ?? {}),
       stableStringify(payload.provider_status ?? {}),
       stableStringify(payload.regime ?? {}),
+      SCORING_PIPELINE_VERSION,
     );
 
     for (const row of payload.rows ?? []) {
@@ -52,7 +54,11 @@ export function saveSnapshot(
         row.price_usd ?? null,
         factorsJson,
         scoresJson,
-        stableStringify(historyMetrics(row)),
+        // factor_history is never pruned (unlike `runs`, capped at CRYPTO_DASHBOARD_RETAIN_RUNS)
+        // so it's the only place a consumer diffing against a prior run can see that run's
+        // scoring version -- stamp it here, not on `row` itself (row comes from the pipeline and
+        // isn't ours to mutate for a persistence-only concern).
+        stableStringify(historyMetrics({ ...row, pipeline_version: SCORING_PIPELINE_VERSION })),
       );
     }
 

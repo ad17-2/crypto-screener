@@ -1,4 +1,13 @@
-import { clamp, mean, numericValues, pyRound, stdev, toFloat, weightedAverage } from './scoring.js';
+import {
+  clamp,
+  mean,
+  meanOrNull,
+  numericValues,
+  pyRound,
+  stdev,
+  toFloat,
+  weightedAverage,
+} from './scoring.js';
 import { asArray, asRecord, type MarketContext, type Row } from './types.js';
 
 function trustedRows(rows: Row[]): Row[] {
@@ -13,6 +22,10 @@ export function marketSensingSummary(
   btc_dominance_delta_pct: number | null;
   eth_btc_performance_pct: number | null;
   return_dispersion_pct: number | null;
+  mean_btc_correlation: number | null;
+  alt_alt_mean_correlation: number | null;
+  correlation_spread: number | null;
+  alt_alt_correlation_pairs: number | null;
 } {
   const trusted = trustedRows(rows);
   const currentBtcDom = toFloat(marketContext.btc_dominance_pct);
@@ -23,11 +36,64 @@ export function marketSensingSummary(
   const priceChanges = numericValues(trusted.map((row) => row.price_change_24h_pct));
   const returnDispersionPct = priceChanges.length >= 2 ? stdev(priceChanges) : null;
 
+  // Averaged over `trusted`, same as return_dispersion_pct/eth_btc_performance_pct above --
+  // btc_correlation is a legitimate per-coin observable already on each row (set by
+  // enrichment.ts's appendCoinglassTechnicals), so unlike alt_alt_mean_correlation below it needs
+  // no stashed carrier off the BTC row.
+  const meanBtcCorrelation = meanOrNull(trusted.map((row) => row.btc_correlation));
+  const correlationStructure = correlationStructureSummary(rows);
+  const correlationSpread =
+    meanBtcCorrelation !== null && correlationStructure.alt_alt_mean_correlation !== null
+      ? meanBtcCorrelation - correlationStructure.alt_alt_mean_correlation
+      : null;
+
   return {
     btc_dominance_delta_pct: btcDominanceDeltaPct,
     eth_btc_performance_pct: ethBtcPerformancePct(trusted),
     return_dispersion_pct: returnDispersionPct,
+    mean_btc_correlation: meanBtcCorrelation,
+    alt_alt_mean_correlation: correlationStructure.alt_alt_mean_correlation,
+    correlation_spread: correlationSpread,
+    alt_alt_correlation_pairs: correlationStructure.alt_alt_correlation_pairs,
   };
+}
+
+/**
+ * Reads (and clears) the alt-alt correlation scalars enrichment.ts's appendCoinglassTechnicals
+ * stashed on the BTC row -- rows is the only channel that carries them here unmodified through
+ * collector.ts/runPipeline.ts, since the raw price series they're derived from aren't retained
+ * per-row (see enrichment.ts's own comment on this). Deleting them off the row here keeps the BTC
+ * row's persisted row_json free of market-wide fields that aren't actually a BTC fact -- they
+ * surface only through this market_context object.
+ *
+ * Takes the FULL `rows`, not the trusted-filtered set: quality.ts's applyDataQuality runs AFTER
+ * enrichment, so by the time this runs BTC's own row can be flagged untrusted for the cycle.
+ * Finding against a trusted-filtered array would then miss the real BTC row object, so the delete
+ * would never run -- these market-wide fields would ship inside BTC's persisted row_json instead
+ * (db/runs.ts stringifies the whole row with no allowlist) and market_context would render null.
+ * The find-and-delete happens unconditionally on whatever BTC row exists, independent of its trust
+ * status for this cycle.
+ *
+ * Display-only, like the rest of this file's return object: a rival screener renders a correlation
+ * minimum-spanning-tree over the coin universe and reads its topology (a "star" -- every coin hangs
+ * directly off BTC -- means no genuine diversification is available); these scalars carry the same
+ * information without a graph. Nothing here feeds scoring or watchlist membership -- it joins
+ * regime/fear-greed/macro as an honest, unvalidated observable.
+ */
+function correlationStructureSummary(rows: Row[]): {
+  alt_alt_mean_correlation: number | null;
+  alt_alt_correlation_pairs: number | null;
+} {
+  const btcRow = rows.find((row) => row.symbol === 'BTC');
+  const summary = {
+    alt_alt_mean_correlation: toFloat(btcRow?.alt_alt_mean_correlation),
+    alt_alt_correlation_pairs: toFloat(btcRow?.alt_alt_correlation_pairs),
+  };
+  if (btcRow) {
+    delete btcRow.alt_alt_mean_correlation;
+    delete btcRow.alt_alt_correlation_pairs;
+  }
+  return summary;
 }
 
 function ethBtcPerformancePct(rows: Row[]): number | null {

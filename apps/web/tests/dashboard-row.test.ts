@@ -4,6 +4,8 @@ import {
   emaCrossLine,
   oiPriceQuadrant,
   positioningDivergence,
+  runTrendTone,
+  sizeMultiplierChip,
 } from '../lib/dashboard-row';
 
 describe('oiPriceQuadrant', () => {
@@ -204,5 +206,70 @@ describe('divergenceLine', () => {
     expect(
       divergenceLine({ technical_divergence: null, technical_divergence_strength: null }),
     ).toBeNull();
+  });
+});
+
+describe('runTrendTone', () => {
+  it('maps strengthening/weakening/holding to pos/neg/neutral', () => {
+    expect(runTrendTone('strengthening')).toBe('pos');
+    expect(runTrendTone('weakening')).toBe('neg');
+    expect(runTrendTone('holding')).toBe('neutral');
+  });
+
+  it("returns null for 'new' -- new_to_list's own NEW chip already covers that condition", () => {
+    expect(runTrendTone('new')).toBeNull();
+  });
+
+  it('returns null when run_trend is absent (old payload, non-directional row, or suppressed)', () => {
+    expect(runTrendTone(undefined)).toBeNull();
+  });
+});
+
+describe('sizeMultiplierChip', () => {
+  function withSizeMultiplier(sizeMultiplier: number | null, isTrusted = true) {
+    return {
+      scores: {
+        long_score: null,
+        short_score: null,
+        crowded_long_score: null,
+        squeeze_risk_score: null,
+        round_trip_cost_pct: null,
+        size_multiplier: sizeMultiplier,
+      },
+      is_trusted: isTrusted,
+    };
+  }
+
+  it('reads a calm coin (>= 1.5x) as the Low vol chip', () => {
+    const chip = sizeMultiplierChip(withSizeMultiplier(1.5));
+    expect(chip).toMatchObject({ tone: 'neutral', label: 'Low vol' });
+  });
+
+  it('reads a choppy coin (<= 0.667x) as the High vol chip', () => {
+    const chip = sizeMultiplierChip(withSizeMultiplier(0.5));
+    expect(chip).toMatchObject({ tone: 'warn', label: 'High vol' });
+  });
+
+  it('renders no chip for the typical/near-neutral case', () => {
+    expect(sizeMultiplierChip(withSizeMultiplier(1.0))).toBeNull();
+  });
+
+  it('renders no chip just inside neutral (0.7, above the 0.667 ceiling)', () => {
+    expect(sizeMultiplierChip(withSizeMultiplier(0.7))).toBeNull();
+  });
+
+  it('renders no chip when size_multiplier is null (no cross-sectional ATR read this run)', () => {
+    expect(sizeMultiplierChip(withSizeMultiplier(null))).toBeNull();
+  });
+
+  it('never flags an excluded row as High vol even though its size_multiplier is forced to 0.0', () => {
+    // Without the is_trusted guard, 0.0 <= 0.667 would misread every excluded/untrusted row as
+    // the choppiest possible coin, which is a data-quality artifact, not a real ATR read.
+    expect(sizeMultiplierChip(withSizeMultiplier(0.0, false))).toBeNull();
+  });
+
+  it('never claims to be a strength or conviction rating in its tooltip text', () => {
+    const chip = sizeMultiplierChip(withSizeMultiplier(1.8));
+    expect(chip?.title.toLowerCase()).toContain('not a conviction rating');
   });
 });

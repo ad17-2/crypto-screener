@@ -9,6 +9,7 @@ import { DIRECTIONAL_FACTORS } from '../pipeline/factorDefinitions.js';
 import { formatSigned, pyRound, toFloat } from '../pipeline/scoring.js';
 import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
+import type { RunTrend } from './runDiff.js';
 import { factorLabel } from './taxonomy.js';
 
 const MIN_HISTORY_POINTS = 6;
@@ -544,6 +545,7 @@ export function dashboardRow(
   side: DashboardRowSide,
   history: HistoryPoint[] | null | undefined = null,
   newToList = false,
+  runTrend: RunTrend | undefined = undefined,
 ): DashboardRow {
   const scores = asRecord(row.scores);
   const score = scoreField === null ? null : row[scoreField];
@@ -623,6 +625,12 @@ export function dashboardRow(
     // Same absent-unless-true convention as setup_confidence above: present only when this row
     // just joined a directional list this run (see dashboard/runDiff.ts's watchlistDiff).
     ...(newToList ? { new_to_list: true } : {}),
+    // Present only for a directional (long/short) row with a resolved value -- mirrors
+    // setup_confidence's own side gate above, since 'strengthening'/'weakening'/'holding'/'new'
+    // only make sense for a row with a side-specific score to compare (dashboard/runDiff.ts runTrend()).
+    ...((side === 'long' || side === 'short') && runTrend !== undefined
+      ? { run_trend: runTrend }
+      : {}),
     technical_state: technicalState(row),
     data_source: stringOrNull(row.data_source),
     is_trusted: row.is_trusted ?? true,

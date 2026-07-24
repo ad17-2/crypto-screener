@@ -1,8 +1,20 @@
 import type { DashboardRow, DashboardRowSide } from '@crypto-screener/contracts';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { Term } from '@/components/ui/Tooltip';
-import { lookupMetric, lookupQualityFlag, lookupSetup, lookupSetupConfidence } from '@/lib/copy';
-import { positioningDivergence, rowKey, tradingViewUrl } from '@/lib/dashboard-row';
+import {
+  lookupMetric,
+  lookupQualityFlag,
+  lookupRunTrend,
+  lookupSetup,
+  lookupSetupConfidence,
+} from '@/lib/copy';
+import {
+  positioningDivergence,
+  rowKey,
+  runTrendTone,
+  sizeMultiplierChip,
+  tradingViewUrl,
+} from '@/lib/dashboard-row';
 import { arrowPct, clsFor, fmtNum, fmtPct, fmtUsd } from '@/lib/format';
 import type { SortColumnKey, SortDirection } from '@/lib/watchlist-sort';
 
@@ -319,8 +331,28 @@ function SymbolCell({ row }: { row: DashboardRow }) {
             NEW
           </span>
         ) : null}
+        <RunTrendBadge row={row} />
       </span>
     </td>
+  );
+}
+
+const RUN_TREND_CLASS: Record<'pos' | 'neg' | 'neutral', string> = {
+  pos: 'setup-badge pos',
+  neg: 'setup-badge neg',
+  neutral: 'setup-badge neutral',
+};
+
+/** Shared with SelectedCoinRail -- same reuse pattern as sideMeta/FightsBtcChip below. Renders
+ *  nothing for 'new' (see runTrendTone's own doc) or when run_trend is absent. */
+export function RunTrendBadge({ row }: { row: DashboardRow }) {
+  const tone = runTrendTone(row.run_trend);
+  if (tone === null) return null;
+  const meta = lookupRunTrend(row.run_trend);
+  return (
+    <span className={RUN_TREND_CLASS[tone]} title={meta.definition}>
+      {meta.label}
+    </span>
   );
 }
 
@@ -350,7 +382,21 @@ function SetupCell({ row }: { row: DashboardRow }) {
       <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
       {row.setup_confidence ? <SetupConfidenceBadge confidence={row.setup_confidence} /> : null}
       {row.fights_btc ? <FightsBtcChip /> : null}
+      <SizeChip row={row} />
     </td>
+  );
+}
+
+/** size_multiplier is volatility-derived SIZING, never conviction -- 'Low vol'/'High vol' describe
+ *  how calm the coin's own ATR is, not how much the screen likes the setup. Renders nothing for the
+ *  common near-neutral case (see sizeMultiplierChip's own doc). */
+function SizeChip({ row }: { row: DashboardRow }) {
+  const chip = sizeMultiplierChip(row);
+  if (chip === null) return null;
+  return (
+    <span className={`setup-badge ${chip.tone}`} title={chip.title}>
+      {chip.label}
+    </span>
   );
 }
 

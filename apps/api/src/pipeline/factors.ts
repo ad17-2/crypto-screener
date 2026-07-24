@@ -29,10 +29,12 @@ export function scoreSnapshot(
   const trustedRows = rows.filter((row) => row.is_trusted !== false);
   const enrichedContext: MarketContext = { ...(marketContext ?? {}) };
   Object.assign(enrichedContext, marketStructureSummary(trustedRows, enrichedContext));
-  Object.assign(
-    enrichedContext,
-    marketSensingSummary(trustedRows, enrichedContext, priorMarketState),
-  );
+  // Unfiltered `rows`, not `trustedRows`: marketSensingSummary re-filters internally for every
+  // trusted-derived field, but it also has to find BTC's own row to collect (and clear) the
+  // correlation-structure scalars enrichment.ts stashes there. Pre-filtering here would hide an
+  // untrusted BTC row from that step, which both nulls the market-wide reads and leaves the
+  // stashed fields on the row to be persisted into its row_json.
+  Object.assign(enrichedContext, marketSensingSummary(rows, enrichedContext, priorMarketState));
   const validAtr = trustedRows
     .map((row) => toFloat(row.atr_14_pct))
     .filter((value): value is number => value !== null);

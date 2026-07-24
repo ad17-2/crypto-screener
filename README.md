@@ -21,7 +21,7 @@ This screener keeps those questions separate. It ranks symbols into watchlists, 
 The dashboard is a top-down read. You do not pick a tab and start hunting; you scroll, and the page narrows the market for you:
 
 1. **The market** — a plain-English verdict ("No clear direction."), the regime and bias, and a funnel showing the run's real counts: symbols scanned, priced, trusted, shortlisted.
-2. **Breadth and rotation** — how many coins are up vs down, and which sectors lead and lag.
+2. **Breadth and rotation** — how many coins are up vs down, which sectors lead and lag, plus three correlation reads (**BTC correlation (mkt)**, **Alt-alt correlation**, **Correlation spread**). A wide spread means every coin is hanging off BTC — little genuine diversification even across many names. All three are display-only and feed nothing.
 3. **The majors** — BTC, ETH, SOL. They are context, not candidates.
 4. **Screened coins** — what actually cleared the screen, split into what's worth trading and what's a crowding risk. Click a row for the observable drivers, the chart read, and the derivatives detail.
 
@@ -39,6 +39,9 @@ The **table** shows, per coin: the setup label, 24h price change, quote volume, 
 - **Smart $** (positioning divergence) — top-trader ÷ crowd long/short account ratio. Above 1, professional accounts lean more long than retail; below 1, the crowd is more long than the pros.
 
 A row whose direction is opposed by a live BTC impulse it's correlated to also carries a **Fights BTC** chip next to its setup label — the same guard the ranking formula subtracts for, not a prediction.
+
+- **Run trend** — a **Strengthening** / **Weakening** / **Holding** badge next to the setup label, showing whether the row's score moved more than typical run-over-run noise since the last run; suppressed whenever the last run used a different scoring version, and a brand-new row shows the existing **NEW** chip instead.
+- **Size** — a **Low vol** / **High vol** chip next to the setup label: a volatility-derived sizing hint, not a conviction rating. Only renders outside the near-neutral band.
 
 Click a row to open the **detail rail**, which adds:
 

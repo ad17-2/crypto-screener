@@ -2,6 +2,7 @@ import type { Quality, Watchlist } from '@crypto-screener/contracts';
 import { InfoTip } from '@/components/ui/Tooltip';
 import { parseBriefing } from '@/lib/briefing';
 import { lookupBias, lookupMetric, lookupRegimeState } from '@/lib/copy';
+import { fmtNum } from '@/lib/format';
 import { parseMacroEvents, selectMacroBanner } from '@/lib/macro-events';
 import { num, pct, signedPct, str } from '@/lib/payload';
 import { marketVerdict, regimeState, sieveStages } from '@/lib/verdict';
@@ -40,6 +41,10 @@ export function MarketStage({
   const marketCapChange = num(marketContext, 'market_cap_change_24h_pct');
   const fearGreedValue = num(marketContext, 'fear_greed_value');
   const fearGreedClassification = str(marketContext, 'fear_greed_classification');
+  const meanBtcCorrelation = num(marketContext, 'mean_btc_correlation');
+  const altAltMeanCorrelation = num(marketContext, 'alt_alt_mean_correlation');
+  const altAltCorrelationPairs = num(marketContext, 'alt_alt_correlation_pairs');
+  const correlationSpread = num(marketContext, 'correlation_spread');
 
   return (
     <section className="stage" aria-label="The market">
@@ -129,6 +134,29 @@ export function MarketStage({
               ? 'warn'
               : undefined
           }
+        />
+        <StatTile
+          label="BTC correlation (mkt)"
+          value={fmtNum(meanBtcCorrelation, 2)}
+          metricKey="mean_btc_correlation"
+        />
+        <StatTile
+          label="Alt-alt correlation"
+          value={
+            altAltMeanCorrelation === null
+              ? '-'
+              : `${fmtNum(altAltMeanCorrelation, 2)}${altAltCorrelationPairs !== null ? ` (n=${altAltCorrelationPairs})` : ''}`
+          }
+          metricKey="alt_alt_mean_correlation"
+        />
+        <StatTile
+          label="Correlation spread"
+          value={
+            correlationSpread === null
+              ? '-'
+              : `${fmtNum(correlationSpread, 2)}${altAltCorrelationPairs !== null ? ` (n=${altAltCorrelationPairs})` : ''}`
+          }
+          metricKey="correlation_spread"
         />
       </div>
 

@@ -124,6 +124,10 @@ export function ensureSchema(db: Database.Database): void {
   // Fear & Greed Index (alternative.me), lifted from market_context.fear_greed_value -- see
   // db/regimeHistory.ts recordRegimeHistory(). Old rows keep NULL.
   ensureColumn(db, 'market_regime_history', 'fear_greed_value', 'REAL');
+  // Provenance stamp (pipeline/rowScoring.ts SCORING_PIPELINE_VERSION) so a run-over-run delta or
+  // weekly review can tell a rebalanced scoring formula apart from real market movement. Old rows
+  // keep NULL, meaning "written before this column existed" (pre-dates version '1').
+  ensureColumn(db, 'runs', 'pipeline_version', 'TEXT');
 }
 
 interface TableInfoRow {

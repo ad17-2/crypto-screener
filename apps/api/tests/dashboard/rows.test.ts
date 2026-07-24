@@ -342,3 +342,32 @@ describe('dashboardRow new_to_list wire emission', () => {
     expect('new_to_list' in row).toBe(false);
   });
 });
+
+describe('dashboardRow run_trend wire emission', () => {
+  const baseRow: Row = {
+    symbol: 'BTC',
+    price_change_24h_pct: null,
+    oi_change_24h_pct: null,
+    funding_rate_pct: null,
+  };
+
+  it('emits run_trend when the caller supplies a resolved value for a long row', () => {
+    const row = dashboardRow(baseRow, null, 'long', null, false, 'strengthening');
+    expect(row.run_trend).toBe('strengthening');
+  });
+
+  it('emits run_trend for a short row too', () => {
+    const row = dashboardRow(baseRow, null, 'short', null, false, 'weakening');
+    expect(row.run_trend).toBe('weakening');
+  });
+
+  it('omits run_trend entirely (not null/undefined-as-a-key) when the caller does not supply one', () => {
+    const row = dashboardRow(baseRow, null, 'long');
+    expect('run_trend' in row).toBe(false);
+  });
+
+  it('omits run_trend for a non-directional side even if the caller supplies a value -- core/fade-long/squeeze-risk have no side-specific score to trend', () => {
+    const row = dashboardRow(baseRow, null, 'core', null, false, 'holding');
+    expect('run_trend' in row).toBe(false);
+  });
+});

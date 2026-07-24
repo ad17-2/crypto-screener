@@ -1,5 +1,12 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { applyExcludedScores, applyScores } from '../../src/pipeline/rowScoring.js';
+import {
+  applyExcludedScores,
+  applyScores,
+  SCORING_PIPELINE_VERSION,
+} from '../../src/pipeline/rowScoring.js';
 import type { MarketContext, PipelineConfig, Row } from '../../src/pipeline/types.js';
 
 // factors.liquidity_30d = 0 -> qualityPercentile(0) = 50, a fixed +12.5 contribution to both
@@ -346,5 +353,31 @@ describe('applyExcludedScores', () => {
     expect(row.short_score).toBe(0);
     expect(row.cvd_absorption_state).toBeUndefined();
     expect(row.oi_price_trend_state).toBeUndefined();
+  });
+});
+
+// Pinned hash of rowScoring.ts's own source text, re-pinned by hand whenever
+// SCORING_PIPELINE_VERSION is bumped. This is the forcing function: nobody remembers to bump a
+// version constant on their own, so instead the test goes red on ANY edit to this file -- deliberately
+// including pure comment/formatting churn that changes no scoring behaviour at all. That
+// over-triggering is intentional and correct: a false-positive red test just costs someone a
+// one-line hash re-pin, while a false-negative (missing a real formula change) would let a
+// rebalance masquerade as market movement in every run-over-run delta and weekly review that
+// reads pipeline_version. Over-suppressing a comparison is safe; under-suppressing produces a
+// number that looks like evidence and isn't.
+const PINNED_SOURCE_SHA256 = 'bc7cd8cd114cb806f1e6bbb92b5fb7232a7dae72d494c5a6ae7f850b9d065c62';
+
+describe('SCORING_PIPELINE_VERSION forcing function', () => {
+  it('pins a hash of rowScoring.ts so any edit forces a version bump + re-pin', () => {
+    const sourcePath = fileURLToPath(new URL('../../src/pipeline/rowScoring.ts', import.meta.url));
+    const source = readFileSync(sourcePath, 'utf8');
+    const actualHash = createHash('sha256').update(source).digest('hex');
+
+    expect(
+      actualHash,
+      `rowScoring.ts changed (hash mismatch). If this edit changes scoring behaviour, bump ` +
+        `SCORING_PIPELINE_VERSION (currently '${SCORING_PIPELINE_VERSION}') in rowScoring.ts and ` +
+        `re-pin PINNED_SOURCE_SHA256 in this test to the new hash: ${actualHash}`,
+    ).toBe(PINNED_SOURCE_SHA256);
   });
 });

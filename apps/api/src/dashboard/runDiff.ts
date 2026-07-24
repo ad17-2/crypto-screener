@@ -106,6 +106,130 @@ export interface WatchlistDiff {
   changes: WatchlistChanges | null;
 }
 
+export type RunTrend = 'new' | 'strengthening' | 'weakening' | 'holding';
+
+export interface PreviousRunScoreEntry {
+  longScore: number | null;
+  shortScore: number | null;
+  // The previous run's own stamped pipeline/rowScoring.ts SCORING_PIPELINE_VERSION (persisted into
+  // factor_history.metrics_json by db/runs.ts saveSnapshot). null when the row predates that column,
+  // or wrote through the backfill path (db/factorHistory.ts saveFactorHistoryRecords), which doesn't
+  // stamp it -- both cases are treated as "can't prove the scoring formula agrees" by runTrend below.
+  pipelineVersion: string | null;
+}
+
+interface ScoreDbRow {
+  symbol: string;
+  scores_json: string;
+  metrics_json: string;
+}
+
+/**
+ * Sibling to previousRunMembership/membershipForRun above, but for scores: reads every symbol's
+ * long_score/short_score plus its own row's stamped pipeline_version, for a SINGLE run -- always
+ * the SAME baseline run previousRunMembership already resolved (`previous.runId`), not a fresh
+ * walk-back. Sharing that baseline is what keeps run_trend and new_to_list in agreement on what
+ * "the previous run" means (see runTrend's doc comment on the "absent -> returning -> 'new', never
+ * 'weakening'" case). One bulk query per baseline run, not one per row.
+ */
+export function previousRunScores(
+  db: Database.Database,
+  previous: PreviousRunMembership | null,
+): Map<string, PreviousRunScoreEntry> {
+  const bySymbol = new Map<string, PreviousRunScoreEntry>();
+  if (previous === null) {
+    return bySymbol;
+  }
+
+  const rows = db
+    .prepare('SELECT symbol, scores_json, metrics_json FROM factor_history WHERE run_id = ?')
+    .all(previous.runId) as ScoreDbRow[];
+
+  for (const row of rows) {
+    let scores: Record<string, unknown>;
+    try {
+      scores = JSON.parse(row.scores_json) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+    let metrics: Record<string, unknown>;
+    try {
+      metrics = JSON.parse(row.metrics_json) as Record<string, unknown>;
+    } catch {
+      metrics = {};
+    }
+    bySymbol.set(row.symbol, {
+      longScore: typeof scores.long_score === 'number' ? scores.long_score : null,
+      shortScore: typeof scores.short_score === 'number' ? scores.short_score : null,
+      pipelineVersion:
+        typeof metrics.pipeline_version === 'string' ? metrics.pipeline_version : null,
+    });
+  }
+  return bySymbol;
+}
+
+// Below this magnitude, a run-over-run long_score/short_score delta is noise, not a real momentum
+// shift. Derived from data/prod_snapshot_20260719.sqlite3's factor_history (232,684 consecutive
+// same-symbol, trusted-row score deltas, long_score and short_score compared separately, ordered by
+// generated_at): median |delta| ~1.15 (long) / ~1.21 (short), p75 ~5.72 / ~5.12. 2.0 sits at the
+// ~57th percentile of BOTH distributions -- past the noisy bottom half (most run-over-run wiggle is
+// smaller than this), while a real >2-point move (the top ~43%) still flips the badge.
+const RUN_TREND_SCORE_DEADZONE = 2.0;
+
+/**
+ * Per-row run_trend for a directional (long/short) row. 'new' when the symbol wasn't a member of
+ * this SAME side in the previous baseline run -- never seen before, or seen on the other side --
+ * the identical condition watchlistDiff's newToList uses, so a coin absent last run and returning
+ * always reads 'new', never 'weakening' against a stale/missing score, and a side switch reads
+ * 'new' rather than comparing two different sides' scores. Otherwise compares the score that
+ * actually drove this side (long_score for a long row, short_score for a short row) against the
+ * previous run's same-side score, floored by RUN_TREND_SCORE_DEADZONE.
+ *
+ * The guard: returns undefined (no trend at all, not even 'holding') whenever the previous run's
+ * pipeline_version is missing, OR currentPipelineVersion is missing, OR they don't match -- a
+ * scoring-formula rebalance (pipeline/rowScoring.ts SCORING_PIPELINE_VERSION) must never render as
+ * a held coin's market movement. Also undefined with no baseline at all (mirrors watchlistDiff's
+ * own suppression), or when either score is unreadable.
+ */
+export function runTrend(
+  previous: PreviousRunMembership | null,
+  previousScores: Map<string, PreviousRunScoreEntry>,
+  symbol: string,
+  side: 'long' | 'short',
+  currentScore: number | null,
+  currentPipelineVersion: string | null,
+): RunTrend | undefined {
+  if (previous === null || previous.bySymbol.size === 0) {
+    return undefined;
+  }
+
+  const previousSide = previous.bySymbol.get(symbol);
+  if (previousSide === undefined || previousSide !== side) {
+    return 'new';
+  }
+
+  const entry = previousScores.get(symbol);
+  if (
+    entry === undefined ||
+    entry.pipelineVersion === null ||
+    currentPipelineVersion === null ||
+    entry.pipelineVersion !== currentPipelineVersion
+  ) {
+    return undefined;
+  }
+
+  const previousScore = side === 'long' ? entry.longScore : entry.shortScore;
+  if (previousScore === null || currentScore === null) {
+    return undefined;
+  }
+
+  const delta = currentScore - previousScore;
+  if (Math.abs(delta) < RUN_TREND_SCORE_DEADZONE) {
+    return 'holding';
+  }
+  return delta > 0 ? 'strengthening' : 'weakening';
+}
+
 /**
  * Baseline guard lives here: no previous run, or a previous run with zero recorded watchlist_side
  * keys, is indistinguishable from "both lists were genuinely empty that run" -- pre-feature runs

@@ -21,7 +21,7 @@ import {
   tradingViewUrl,
 } from '@/lib/dashboard-row';
 import { fmtNum, fmtPct, fmtPrice, fmtUsd, numeric, ordinal, qualityTone } from '@/lib/format';
-import { FightsBtcChip, SetupConfidenceBadge, sideMeta } from './WatchlistTable';
+import { FightsBtcChip, RunTrendBadge, SetupConfidenceBadge, sideMeta } from './WatchlistTable';
 
 export interface SelectedCoinRailProps {
   row: DashboardRow | null;
@@ -117,6 +117,7 @@ function VerdictBlock({ row }: { row: DashboardRow }) {
         <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
         {row.setup_confidence ? <SetupConfidenceBadge confidence={row.setup_confidence} /> : null}
         {row.fights_btc ? <FightsBtcChip /> : null}
+        <RunTrendBadge row={row} />
       </div>
       <p className="text-sm text-ink m-0 leading-snug">
         {side.label} setup: {setup.label}.

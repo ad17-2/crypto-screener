@@ -1,6 +1,11 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { previousRunMembership, watchlistDiff } from '../../src/dashboard/runDiff.js';
+import {
+  previousRunMembership,
+  previousRunScores,
+  runTrend,
+  watchlistDiff,
+} from '../../src/dashboard/runDiff.js';
 import { saveFactorHistoryRecords } from '../../src/db/factorHistory.js';
 import type { FactorHistoryRecordInput } from '../../src/db/types.js';
 import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
@@ -228,5 +233,144 @@ describe('previousRunMembership + watchlistDiff end to end', () => {
 
     const result = watchlistDiff(previous, new Map([['BTC', 'long']]));
     expect(result).toEqual({ newToList: new Set(), changes: null });
+  });
+});
+
+describe('previousRunScores', () => {
+  it('returns an empty map when there is no previous run', () => {
+    expect(previousRunScores(db, null)).toEqual(new Map());
+  });
+
+  it('reads long_score/short_score/pipeline_version off the resolved baseline run only, ignoring other runs', () => {
+    saveFactorHistoryRecords(db, [
+      record('run-1', '2026-07-09T06:00:00+07:00', 'BTC', {
+        watchlist_side: 'long',
+        scores: { long_score: 10, short_score: 0 },
+        pipeline_version: '1',
+      }),
+      // A different (older) run for the same symbol -- must not leak into the result.
+      record('run-0', '2026-07-08T06:00:00+07:00', 'BTC', {
+        scores: { long_score: 999 },
+        pipeline_version: '1',
+      }),
+    ]);
+
+    const previous = { runId: 'run-1', bySymbol: new Map([['BTC', 'long' as const]]) };
+    const result = previousRunScores(db, previous);
+    expect(result).toEqual(
+      new Map([['BTC', { longScore: 10, shortScore: 0, pipelineVersion: '1' }]]),
+    );
+  });
+
+  it('reports a null pipelineVersion for a row that never had one stamped (pre-provenance/backfill row)', () => {
+    saveFactorHistoryRecords(db, [
+      record('run-1', '2026-07-09T06:00:00+07:00', 'BTC', { scores: { long_score: 10 } }),
+    ]);
+    const previous = { runId: 'run-1', bySymbol: new Map([['BTC', 'long' as const]]) };
+    const result = previousRunScores(db, previous);
+    expect(result.get('BTC')).toEqual({ longScore: 10, shortScore: null, pipelineVersion: null });
+  });
+});
+
+describe('runTrend', () => {
+  const membership = (bySymbol: Array<[string, 'long' | 'short']>) => ({
+    runId: 'run-1',
+    bySymbol: new Map(bySymbol),
+  });
+  const scores = (
+    entries: Array<
+      [
+        string,
+        { longScore: number | null; shortScore: number | null; pipelineVersion: string | null },
+      ]
+    >,
+  ) => new Map(entries);
+
+  it('returns undefined when there is no baseline at all', () => {
+    expect(runTrend(null, new Map(), 'BTC', 'long', 10, '1')).toBeUndefined();
+  });
+
+  it('returns undefined when the baseline recorded zero memberships (same suppression as watchlistDiff)', () => {
+    const previous = membership([]);
+    expect(runTrend(previous, new Map(), 'BTC', 'long', 10, '1')).toBeUndefined();
+  });
+
+  it("reads 'new' when the symbol wasn't a member of this side last run (never seen)", () => {
+    const previous = membership([['ETH', 'long']]);
+    expect(runTrend(previous, new Map(), 'BTC', 'long', 10, '1')).toBe('new');
+  });
+
+  it("reads 'new', never 'weakening', for a coin absent last run then returning -- even against a huge stale score that would otherwise read as a big drop", () => {
+    // BTC has no entry in previous membership (absent last run), but DOES have a leftover scores
+    // entry with a huge longScore -- if the side-membership check weren't checked first, comparing
+    // against it would read as a massive 'weakening' instead of 'new'.
+    const previous = membership([['ETH', 'long']]);
+    const prevScores = scores([
+      ['BTC', { longScore: 500, shortScore: null, pipelineVersion: '1' }],
+    ]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 10, '1')).toBe('new');
+  });
+
+  it("reads 'new' when the symbol switched sides (was short, now long) rather than comparing across sides", () => {
+    const previous = membership([['BTC', 'short']]);
+    const prevScores = scores([['BTC', { longScore: null, shortScore: 5, pipelineVersion: '1' }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 10, '1')).toBe('new');
+  });
+
+  it('The guard: returns undefined when the previous run has no pipeline_version at all', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 5, shortScore: null, pipelineVersion: null }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 10, '1')).toBeUndefined();
+  });
+
+  it('The guard: returns undefined when the previous run pipeline_version differs from the current one', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 5, shortScore: null, pipelineVersion: '1' }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 10, '2')).toBeUndefined();
+  });
+
+  it('The guard: returns undefined when the current pipeline_version is itself unknown, even if it happens to equal the previous one (null !== "provably matching")', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 5, shortScore: null, pipelineVersion: null }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 10, null)).toBeUndefined();
+  });
+
+  it('returns undefined when the previous run has no scores entry at all for this symbol', () => {
+    const previous = membership([['BTC', 'long']]);
+    expect(runTrend(previous, new Map(), 'BTC', 'long', 10, '1')).toBeUndefined();
+  });
+
+  it('returns undefined when the current score is unreadable', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 5, shortScore: null, pipelineVersion: '1' }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', null, '1')).toBeUndefined();
+  });
+
+  it('compares long_score for a long row and short_score for a short row -- never across sides', () => {
+    const previous = membership([['BTC', 'short']]);
+    // longScore is a huge delta from currentScore, shortScore isn't -- if the wrong field were
+    // read, this would come back 'strengthening' instead of 'holding'.
+    const prevScores = scores([
+      ['BTC', { longScore: 500, shortScore: 10.5, pipelineVersion: '1' }],
+    ]);
+    expect(runTrend(previous, prevScores, 'BTC', 'short', 11, '1')).toBe('holding');
+  });
+
+  it('reads holding for a delta strictly inside the RUN_TREND_SCORE_DEADZONE (2.0)', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 10, shortScore: null, pipelineVersion: '1' }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 11.9, '1')).toBe('holding');
+  });
+
+  it('reads strengthening right at the deadzone boundary (delta === 2.0 is NOT holding)', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 10, shortScore: null, pipelineVersion: '1' }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 12, '1')).toBe('strengthening');
+  });
+
+  it('reads weakening for a negative delta past the deadzone', () => {
+    const previous = membership([['BTC', 'long']]);
+    const prevScores = scores([['BTC', { longScore: 10, shortScore: null, pipelineVersion: '1' }]]);
+    expect(runTrend(previous, prevScores, 'BTC', 'long', 7, '1')).toBe('weakening');
   });
 });

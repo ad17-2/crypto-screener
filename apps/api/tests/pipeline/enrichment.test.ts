@@ -499,3 +499,181 @@ describe('appendCoinglassTechnicals BTC correlation', () => {
     expect((status.technicals as { btc_correlation_rows: number }).btc_correlation_rows).toBe(0);
   });
 });
+
+interface CorrelationStructureStatus {
+  alt_alt_mean_correlation: number | null;
+  alt_alt_correlation_pairs: number;
+  pairwise_correlation_ms: number;
+}
+
+describe('appendCoinglassTechnicals correlation-structure scalars', () => {
+  // Same fixtures as the BTC-correlation describe block above: btcCloses varies (non-zero
+  // variance, so Pearson r is defined), inverseCloses is its exact per-bar negation (r = -1
+  // against anything that IS btcCloses), shortCloses is too short to clear MIN_CORR_PAIRS (60).
+  const btcCloses = Array.from({ length: 64 }, (_, index) => 100 + (index % 6) * 3 + (index % 4));
+  const inverseCloses = [100];
+  for (const ret of returnsOf(btcCloses)) {
+    inverseCloses.push((inverseCloses.at(-1) as number) * (1 - ret));
+  }
+  const shortCloses = btcCloses.slice(0, 30);
+
+  const technicalCfg = {
+    technical_indicators: {
+      enabled: true,
+      interval: '4h',
+      limit: 220,
+      max_symbols: 0,
+      request_delay_seconds: 0,
+    },
+  };
+
+  const rowFor = (symbol: string): Row => ({
+    symbol,
+    primary_exchange: 'OKX',
+    contract_symbol: `${symbol}-USDT-SWAP`,
+  });
+
+  it('averages all-pairs alt-alt correlation without materializing a matrix', async () => {
+    // Two clones of BTC (CLONE, CLONE2, r=+1 to BTC and to each other) plus one exact inverse
+    // (INV, r=-1 to BTC and to both clones). Alt-alt pairs are (CLONE,INV)=-1, (CLONE,CLONE2)=+1,
+    // (INV,CLONE2)=-1 -> mean = -1/3. mean_btc_correlation/correlation_spread are no longer
+    // computed here -- market.ts's marketSensingSummary derives them itself from each row's own
+    // btc_correlation field instead (see this file's comment above the pairwise pass for why).
+    const rows = [rowFor('BTC'), rowFor('CLONE'), rowFor('INV'), rowFor('CLONE2')];
+    const client = new VariedSeriesClient({
+      'BTC-USDT-SWAP': btcCloses,
+      'CLONE-USDT-SWAP': btcCloses,
+      'INV-USDT-SWAP': inverseCloses,
+      'CLONE2-USDT-SWAP': btcCloses,
+    });
+    const status: ProviderStatus = {};
+
+    await appendCoinglassTechnicals(rows, client, coinglassConfig(technicalCfg), status);
+
+    const technicals = status.technicals as CorrelationStructureStatus;
+    expect(technicals.alt_alt_mean_correlation).toBeCloseTo(-1 / 3, 6);
+    expect(technicals.alt_alt_correlation_pairs).toBe(3);
+    expect(technicals.pairwise_correlation_ms).toBeGreaterThanOrEqual(0);
+
+    // Transient carrier onto the BTC row (rows[0]) -- market.ts's marketSensingSummary reads and
+    // strips these before returning; this function's own boundary is where they're still present.
+    expect(rows[0]?.alt_alt_mean_correlation).toBeCloseTo(-1 / 3, 6);
+    expect(rows[0]?.alt_alt_correlation_pairs).toBe(3);
+    // mean_btc_correlation/correlation_spread must NOT be stashed here -- they're computed
+    // entirely in market.ts now, from each row's own btc_correlation field.
+    expect(rows[0]).not.toHaveProperty('mean_btc_correlation');
+    expect(rows[0]).not.toHaveProperty('correlation_spread');
+  });
+
+  it('skips an alt-alt pair below MIN_CORR_PAIRS instead of silently averaging it in', async () => {
+    // CLONE has full overlap with BTC (r=+1); TINY's overlap with both BTC and CLONE is only 29
+    // shared return-pairs < MIN_CORR_PAIRS (60), so its one alt-alt pair (CLONE, TINY) must be
+    // skipped -- leaving alt_alt_correlation_pairs at 0, not 1.
+    const rows = [rowFor('BTC'), rowFor('CLONE'), rowFor('TINY')];
+    const client = new VariedSeriesClient({
+      'BTC-USDT-SWAP': btcCloses,
+      'CLONE-USDT-SWAP': btcCloses,
+      'TINY-USDT-SWAP': shortCloses,
+    });
+    const status: ProviderStatus = {};
+
+    await appendCoinglassTechnicals(rows, client, coinglassConfig(technicalCfg), status);
+
+    const technicals = status.technicals as CorrelationStructureStatus;
+    expect(technicals.alt_alt_correlation_pairs).toBe(0);
+    expect(technicals.alt_alt_mean_correlation).toBeNull();
+  });
+});
+
+// Returns caller-supplied {time, close} bars verbatim, unlike VariedSeriesClient/FakeCoinGlassClient
+// above which both use small synthetic indices (0,1,2,...) as `time`. correlation.ts's resolveStep
+// only evaluates real-epoch drift when the first bar's time is >= 1e8, so a real-epoch fixture is
+// required to exercise it at all.
+class EpochTimeSeriesClient extends FakeCoinGlassClient {
+  constructor(
+    private readonly barsByContract: Record<string, Array<{ time: number; close: number }>>,
+  ) {
+    super();
+  }
+
+  override async priceHistory(
+    exchange: string,
+    contractSymbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.priceHistoryCalls.push([exchange, contractSymbol, interval, limit]);
+    const bars = this.barsByContract[contractSymbol];
+    if (!bars) {
+      return super.priceHistory(exchange, contractSymbol, interval, limit);
+    }
+    return bars.map(({ time, close }) => ({ time, open: close, high: close, low: close, close }));
+  }
+}
+
+describe('appendCoinglassTechnicals correlation-structure scalars: gapped pairs', () => {
+  // 4h bars anchored to a real epoch-ms timestamp (BASE_MS >= 1e11), so resolveStep (correlation.ts)
+  // takes its anchored-drift branch instead of the small-synthetic-timestamp bypass every other
+  // fixture in this file relies on.
+  const STEP_MS = 4 * 60 * 60 * 1000;
+  const BASE_MS = 1_700_000_000_000;
+  const BAR_COUNT = 90;
+  // Mid-series index whose bar is nudged to sit only 60s after its predecessor instead of a full
+  // 4h -- one anomalously tiny gap. baseInterval() (correlation.ts) takes the MIN delta across the
+  // whole series, so this single glitch drags the inferred step down to ~60s, which drifts >5% from
+  // the configured 4h and flips `gapped: true` -- while the other ~86 bars stay exactly 4h apart
+  // (well above MIN_CORR_PAIRS=60), so the correlation itself still comes back non-null. That
+  // combination -- gapped AND correlation defined -- is exactly what the `!stats.gapped` guard in
+  // the pairwise loop (enrichment.ts) exists to catch; without it this pair would be averaged in.
+  const GLITCH_INDEX = 45;
+
+  function wave(index: number, offset: number): number {
+    return 100 + ((index + offset) % 6) * 3 + ((index + offset) % 4);
+  }
+
+  function evenlySpacedBars(offset: number): Array<{ time: number; close: number }> {
+    return Array.from({ length: BAR_COUNT }, (_, index) => ({
+      time: BASE_MS + index * STEP_MS,
+      close: wave(index, offset),
+    }));
+  }
+
+  function glitchedBars(offset: number): Array<{ time: number; close: number }> {
+    return evenlySpacedBars(offset).map((bar, index) =>
+      index === GLITCH_INDEX
+        ? { ...bar, time: BASE_MS + (GLITCH_INDEX - 1) * STEP_MS + 60_000 }
+        : bar,
+    );
+  }
+
+  const technicalCfg = {
+    technical_indicators: {
+      enabled: true,
+      interval: '4h',
+      limit: BAR_COUNT,
+      max_symbols: 0,
+      request_delay_seconds: 0,
+    },
+  };
+
+  const rowFor = (symbol: string): Row => ({
+    symbol,
+    primary_exchange: 'OKX',
+    contract_symbol: `${symbol}-USDT-SWAP`,
+  });
+
+  it('excludes an alt-alt pair whose returnStats came back gapped, even though its correlation is defined', async () => {
+    const rows = [rowFor('BTC'), rowFor('CLEAN'), rowFor('GLITCHY')];
+    const client = new EpochTimeSeriesClient({
+      'CLEAN-USDT-SWAP': evenlySpacedBars(0),
+      'GLITCHY-USDT-SWAP': glitchedBars(1),
+    });
+    const status: ProviderStatus = {};
+
+    await appendCoinglassTechnicals(rows, client, coinglassConfig(technicalCfg), status);
+
+    const technicals = status.technicals as CorrelationStructureStatus;
+    expect(technicals.alt_alt_correlation_pairs).toBe(0);
+    expect(technicals.alt_alt_mean_correlation).toBeNull();
+  });
+});

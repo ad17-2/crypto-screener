@@ -10,7 +10,7 @@
  * in tests/copy.test.ts fails loudly if a real payload contains a key with no mapping.
  */
 
-import type { CvdAbsorptionState } from '@crypto-screener/contracts';
+import type { CvdAbsorptionState, RunTrend } from '@crypto-screener/contracts';
 
 export interface CopyEntry {
   readonly label: string;
@@ -564,7 +564,7 @@ export const METRIC: Record<string, CopyEntry> = {
   size_multiplier: {
     label: 'Position size',
     definition:
-      "A suggested position size relative to a typical coin, based on this coin's own volatility (14-period ATR) versus the median across trusted coins this run. A calmer-than-typical coin sizes up (up to 2x); a choppier one sizes down (as low as 0.25x) — so a fixed amount of risk buys a similarly-sized bet across very different coins.",
+      "A suggested position size relative to a typical coin, based on this coin's own volatility (14-period ATR) versus the median across trusted coins this run. A calmer-than-typical coin sizes up (up to 2x); a choppier one sizes down (as low as 0.25x) — so a fixed amount of risk buys a similarly-sized bet across very different coins. This is a volatility-derived sizing hint, not a conviction or strength rating.",
   },
   // GET /api/btc-pulse, polled client-side -- see lib/btc-pulse.ts.
   btc_pulse: {
@@ -577,6 +577,24 @@ export const METRIC: Record<string, CopyEntry> = {
     label: 'Sentiment',
     definition:
       'The Fear & Greed Index from alternative.me: a 0-100 daily read on crypto sentiment blending volatility, momentum, social activity, and market dominance. Low readings mean fear (potential capitulation), high readings mean greed (potential froth). Descriptive context, not a scoring input.',
+  },
+  // apps/api/src/pipeline/market.ts's correlationStructureSummary. A rival screener renders a
+  // correlation minimum-spanning-tree over the coin universe and reads its shape; these three
+  // numbers carry the same information without a graph.
+  mean_btc_correlation: {
+    label: 'BTC correlation (mkt)',
+    definition:
+      "The average correlation between BTC and every other coin's 4h returns, across the whole scanned universe. High (near +1) means the market is trading as one BTC-driven basket; low means coins are moving more independently of BTC. Descriptive context, not a scoring input.",
+  },
+  alt_alt_mean_correlation: {
+    label: 'Alt-alt correlation',
+    definition:
+      'The average correlation between altcoins and each other (BTC excluded), across every pair in the scanned universe. High means alts are moving together as one block; low means there are genuinely distinct clusters or idiosyncratic movers to pick between. Descriptive context, not a scoring input.',
+  },
+  correlation_spread: {
+    label: 'Correlation spread',
+    definition:
+      "BTC correlation minus alt-alt correlation -- how much more coins track BTC than they track each other. High means the market has a 'star' shape: every coin hangs off BTC and there's no genuine diversification available even across many names. Near zero means alts are genuinely clustering apart from BTC. Descriptive context, not a scoring input.",
   },
 };
 
@@ -740,6 +758,35 @@ export const lookupSetupConfidence = makeLookup(SETUP_CONFIDENCE, {
   label: 'Unknown',
   definition: 'Not reported.',
 });
+
+// apps/api/src/dashboard/runDiff.ts `runTrend()` -- a directional row's run-over-run score
+// trajectory, gated by pipeline_version so a scoring-formula rebalance never renders as movement.
+// Keyed by the RunTrend enum (packages/contracts/src/dashboard.ts) so a new value fails this file
+// to compile instead of silently falling through to unknownEntry().
+export const RUN_TREND: Record<RunTrend, CopyEntry> = {
+  new: {
+    label: 'New',
+    definition:
+      "This row just joined this side's list -- there's no previous-run score to compare against yet.",
+  },
+  strengthening: {
+    label: 'Strengthening',
+    definition:
+      "This row's score moved up more than typical run-over-run noise since the last run. Descriptive context, not a scoring input.",
+  },
+  weakening: {
+    label: 'Weakening',
+    definition:
+      "This row's score moved down more than typical run-over-run noise since the last run. Descriptive context, not a scoring input.",
+  },
+  holding: {
+    label: 'Holding',
+    definition:
+      "This row's score is essentially unchanged from the last run -- inside normal run-over-run noise.",
+  },
+};
+
+export const lookupRunTrend = makeLookup(RUN_TREND, NOT_REPORTED);
 
 // apps/api/src/pipeline/rowScoring.ts `cvd_absorption_state` -- a 72h taker-flow (CVD) read on
 // whether the tape confirms or contradicts a 3-day price move. Keyed by the CvdAbsorptionState

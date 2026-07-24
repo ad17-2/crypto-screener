@@ -14,6 +14,17 @@ export interface RowScores {
 }
 
 /**
+ * Provenance marker for the hand-tuned literals below (rebalanced periodically, e.g. 384d2dd
+ * "Rebalance long/short scoring on panel-validated evidence") -- persisted alongside every run so
+ * a run-over-run delta or a weekly review window can tell "the market moved" apart from "the
+ * scoring formula changed under it". Bump this on ANY edit to a scoring constant, term, or weight
+ * below, however small. tests/pipeline/rowScoring.test.ts pins a hash of this file's source text
+ * against this string and fails deliberately (over-triggers on comment/format churn too) if the
+ * two drift apart without a matching hash re-pin -- do not silence that test without bumping.
+ */
+export const SCORING_PIPELINE_VERSION = '1';
+
+/**
  * No directional model prediction exists any more (the factor-weighting engine that used to
  * produce one was deleted -- no factor forward-validates, so every weight was 0 anyway). The
  * cost computation below used to take a sign from that deleted factor-weighted score; direction

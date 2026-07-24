@@ -15,7 +15,14 @@ import type { Row } from '../pipeline/types.js';
 import { asArray, asRecord } from '../pipeline/types.js';
 import { freshnessSummary } from './freshness.js';
 import { dashboardRow, type HistoryPoint, numberOrNull, stringOrNull } from './rows.js';
-import { previousRunMembership, watchlistDiff } from './runDiff.js';
+import {
+  type PreviousRunMembership,
+  type PreviousRunScoreEntry,
+  previousRunMembership,
+  previousRunScores,
+  runTrend,
+  watchlistDiff,
+} from './runDiff.js';
 import {
   CORE_SYMBOLS,
   isCrowdedLong,
@@ -104,10 +111,14 @@ interface SelectedRunDbRow {
   context_json: string;
   provider_status_json: string;
   regime_json: string;
+  // null on runs recorded before pipeline/rowScoring.ts SCORING_PIPELINE_VERSION started being
+  // persisted -- see db/schema.ts's ensureColumn call. run_trend's version guard (dashboard/runDiff.ts)
+  // treats that the same as a genuine mismatch: no trend without a provable formula match.
+  pipeline_version: string | null;
 }
 
 const SELECTED_RUN_COLUMNS =
-  'run_id, generated_at, context_json, provider_status_json, regime_json';
+  'run_id, generated_at, context_json, provider_status_json, regime_json, pipeline_version';
 
 function selectedRunRow(
   db: Database.Database,
@@ -189,12 +200,23 @@ function historyBySymbol(
   return result;
 }
 
-/** `CORE_SYMBOLS` is deliberately hardcoded, not read from config.report.core_symbols — they coincide today but are not the same source of truth. */
+/**
+ * `CORE_SYMBOLS` is deliberately hardcoded, not read from config.report.core_symbols — they
+ * coincide today but are not the same source of truth.
+ *
+ * `previousMembership`/`previousScores`/`currentPipelineVersion` feed run_trend (dashboard/runDiff.ts)
+ * for the long/short rows only -- core/fade-long/squeeze-risk rows have no side-specific score to
+ * trend. All three default to the "no baseline available" shape so existing callers that only
+ * cared about new_to_list (or nothing at all) keep working unchanged.
+ */
 export function buildSections(
   rows: Row[],
   limit: number,
   history: Record<string, HistoryPoint[]>,
   newToList: Set<string> = new Set(),
+  previousMembership: PreviousRunMembership | null = null,
+  previousScores: Map<string, PreviousRunScoreEntry> = new Map(),
+  currentPipelineVersion: string | null = null,
 ): Sections {
   const coreBySymbol = new Map<string, Row>();
   for (const row of rows) {
@@ -216,6 +238,14 @@ export function buildSections(
         'long',
         history[String(row.symbol)] ?? [],
         newToList.has(String(row.symbol)),
+        runTrend(
+          previousMembership,
+          previousScores,
+          String(row.symbol),
+          'long',
+          numberOrNull(row.long_score),
+          currentPipelineVersion,
+        ),
       ),
     ),
     short: topBy(rows, 'short_score', limit, { predicate: isShortCandidate }).map((row) =>
@@ -225,6 +255,14 @@ export function buildSections(
         'short',
         history[String(row.symbol)] ?? [],
         newToList.has(String(row.symbol)),
+        runTrend(
+          previousMembership,
+          previousScores,
+          String(row.symbol),
+          'short',
+          numberOrNull(row.short_score),
+          currentPipelineVersion,
+        ),
       ),
     ),
     crowded_longs: topBy(rows, 'crowded_long_score', limit, { predicate: isCrowdedLong }).map(
@@ -342,8 +380,17 @@ export function buildDashboardPayload(
 
   const previousMembership = previousRunMembership(db, selected.run_id, selected.generated_at);
   const diff = watchlistDiff(previousMembership, currentWatchlistMembership(rows));
+  const previousScores = previousRunScores(db, previousMembership);
 
-  const sections = buildSections(rows, options.limit, history, diff.newToList);
+  const sections = buildSections(
+    rows,
+    options.limit,
+    history,
+    diff.newToList,
+    previousMembership,
+    previousScores,
+    selected.pipeline_version,
+  );
   const freshness = freshnessSummary(selected.generated_at);
 
   return {

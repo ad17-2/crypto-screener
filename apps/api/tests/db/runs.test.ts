@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { pruneOldRuns, saveSnapshot } from '../../src/db/runs.js';
 import type { SnapshotPayload } from '../../src/db/types.js';
+import { SCORING_PIPELINE_VERSION } from '../../src/pipeline/rowScoring.js';
 import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 let dir: string;
@@ -60,7 +61,10 @@ describe('saveSnapshot', () => {
       .prepare('SELECT symbol, metrics_json FROM factor_history WHERE run_id = ? AND symbol = ?')
       .get('run-1', 'BTC') as { symbol: string; metrics_json: string };
     expect(factorHistoryRow.symbol).toBe('BTC');
-    expect(JSON.parse(factorHistoryRow.metrics_json)).toEqual({ rsi_14: 60 });
+    expect(JSON.parse(factorHistoryRow.metrics_json)).toEqual({
+      rsi_14: 60,
+      pipeline_version: SCORING_PIPELINE_VERSION,
+    });
 
     const regimeCount = (
       db
@@ -70,6 +74,22 @@ describe('saveSnapshot', () => {
       }
     ).count;
     expect(regimeCount).toBe(1);
+  });
+
+  it('stamps the current SCORING_PIPELINE_VERSION onto both runs.pipeline_version and every factor_history row', () => {
+    saveSnapshot(db, snapshot('run-1', '2026-07-01T06:00:00+07:00', 'BTC'), {});
+
+    const run = db.prepare('SELECT pipeline_version FROM runs WHERE run_id = ?').get('run-1') as {
+      pipeline_version: string;
+    };
+    expect(run.pipeline_version).toBe(SCORING_PIPELINE_VERSION);
+
+    const factorHistoryRow = db
+      .prepare('SELECT metrics_json FROM factor_history WHERE run_id = ? AND symbol = ?')
+      .get('run-1', 'BTC') as { metrics_json: string };
+    expect(JSON.parse(factorHistoryRow.metrics_json)).toMatchObject({
+      pipeline_version: SCORING_PIPELINE_VERSION,
+    });
   });
 
   it('upserts runs and market_rows on a repeated (run_id[, symbol]) but always appends regime_history', () => {

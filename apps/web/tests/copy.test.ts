@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CvdAbsorptionState } from '@crypto-screener/contracts';
+import type { CvdAbsorptionState, RunTrend } from '@crypto-screener/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   BIAS,
@@ -14,18 +14,22 @@ import {
   lookupCvdAbsorptionState,
   lookupFactor,
   lookupFreshness,
+  lookupMetric,
   lookupOiPriceTrendState,
   lookupProvider,
   lookupQualityFlag,
+  lookupRunTrend,
   lookupSectorRotationLabel,
   lookupSetup,
   lookupSetupConfidence,
   lookupTechnicalDivergence,
   lookupTechnicalPattern,
   lookupWatchlist,
+  METRIC,
   OI_PRICE_TREND_STATE,
   PROVIDER,
   REGIME_STATE,
+  RUN_TREND,
   SECTOR_ROTATION_LABEL,
   SETUP_CONFIDENCE,
   TECHNICAL_DIVERGENCE,
@@ -152,6 +156,9 @@ const OI_PRICE_TREND_DIVERGING_STATES = ['diverging_long', 'diverging_short'];
 // apps/api/src/pipeline/technicals.ts RSI/price swing divergence detector (Stage A4).
 const TECHNICAL_DIVERGENCE_VALUES = ['bearish', 'bullish'];
 
+// apps/api/src/dashboard/runDiff.ts `runTrend()` values (packages/contracts/src/dashboard.ts RunTrendSchema).
+const RUN_TREND_VALUES: readonly RunTrend[] = ['new', 'strengthening', 'weakening', 'holding'];
+
 // apps/api/src/pipeline/quality.ts:58-192 `dataQualityFlags()` -- 2 static codes, 11 suffixed
 // `code:value` codes. lookupQualityFlag() must key on the prefix for the suffixed ones.
 const STATIC_QUALITY_FLAGS = ['missing_symbol', 'missing_contract_symbol'];
@@ -167,6 +174,14 @@ const SUFFIXED_QUALITY_FLAGS = [
   'invalid_open_interest',
   'price_deviates_from_index',
   'thin_coinglass_exchange_coverage',
+];
+
+// components/market/MarketStage.tsx:141,150,155 -- the ⓘ metricKey props for the correlation-
+// structure stat tiles (apps/api/src/pipeline/market.ts's correlationStructureSummary).
+const CORRELATION_STRUCTURE_METRICS = [
+  'mean_btc_correlation',
+  'alt_alt_mean_correlation',
+  'correlation_spread',
 ];
 
 function assertHuman(label: string): void {
@@ -291,6 +306,21 @@ describe('copy dictionaries cover every source-derived key', () => {
     for (const value of TECHNICAL_DIVERGENCE_VALUES) {
       expect(TECHNICAL_DIVERGENCE[value], `TECHNICAL_DIVERGENCE missing "${value}"`).toBeDefined();
       assertHuman(lookupTechnicalDivergence(value).label);
+    }
+  });
+
+  it('covers every run_trend value', () => {
+    for (const value of RUN_TREND_VALUES) {
+      expect(RUN_TREND[value], `RUN_TREND missing "${value}"`).toBeDefined();
+      assertHuman(lookupRunTrend(value).label);
+    }
+  });
+
+  it('covers every correlation-structure stat tile metricKey', () => {
+    for (const key of CORRELATION_STRUCTURE_METRICS) {
+      expect(METRIC[key], `METRIC missing "${key}"`).toBeDefined();
+      assertHuman(lookupMetric(key).label);
+      expect(lookupMetric(key).definition.length).toBeGreaterThan(0);
     }
   });
 });
