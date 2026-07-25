@@ -98,6 +98,25 @@ describe('historyMetrics', () => {
     });
     expect(metrics).not.toHaveProperty('cvd_trend_72h_pct');
   });
+
+  it('passes through the golden-pocket/fibonacci keys and omits a null one among them', () => {
+    const metrics = historyMetrics({
+      fib_leg_high: 68_500,
+      fib_leg_low: 61_200,
+      fib_leg_direction: 'up',
+      golden_pocket_upper: 65_150,
+      golden_pocket_lower: 64_286,
+      distance_to_golden_pocket_pct: null,
+    });
+    expect(metrics).toEqual({
+      fib_leg_high: 68_500,
+      fib_leg_low: 61_200,
+      fib_leg_direction: 'up',
+      golden_pocket_upper: 65_150,
+      golden_pocket_lower: 64_286,
+    });
+    expect(metrics).not.toHaveProperty('distance_to_golden_pocket_pct');
+  });
 });
 
 describe('saveFactorHistoryRecords', () => {

@@ -56,6 +56,15 @@ const HISTORY_METRIC_KEYS = [
   'ema_cross_bars_since',
   'technical_divergence',
   'technical_divergence_strength',
+  // Golden-pocket / fibonacci fields (pipeline/technicals.ts goldenPocket()) -- back future base-rate
+  // analysis on the user's actual entry trigger (1H/15M pullback into the zone). History only
+  // accrues forward from the date these keys were added; nothing retroactive.
+  'fib_leg_high',
+  'fib_leg_low',
+  'fib_leg_direction',
+  'golden_pocket_upper',
+  'golden_pocket_lower',
+  'distance_to_golden_pocket_pct',
   'cvd_trend_72h_pct',
   'oi_change_72h_pct_history',
   'fights_btc',
