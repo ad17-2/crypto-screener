@@ -1,7 +1,6 @@
 import type { CoinGlassConfig } from '../config/index.js';
 import type { CoinGlassClient, CoinGlassHistoryRow } from '../providers/coinglass.js';
 import { collectProviderError } from '../providers/errors.js';
-import { sleep } from '../providers/http.js';
 import type { PriceBar } from './correlation.js';
 import { closeSeries, returnStats } from './correlation.js';
 import { derivativesSnapshot } from './derivatives.js';
@@ -15,16 +14,38 @@ export type ProviderStatus = Record<string, unknown>;
 // ~10 days of 4h bars; below this the correlation is too noisy to report.
 const MIN_CORR_PAIRS = 60;
 
+// Enrichment-cache allowlists (db/enrichmentCache.ts, via collector.ts's harvest step) for the
+// fields this module writes directly onto a row, alongside TECHNICAL_SNAPSHOT_FIELDS
+// (technicals.ts) and DERIVATIVES_SNAPSHOT_FIELDS (derivatives.ts).
+export const LONG_SHORT_FIELDS = [
+  'long_short_account_ratio',
+  'top_trader_long_short_ratio',
+  'top_trader_ratio_delta_24h',
+  'top_trader_position_ratio',
+] as const;
+
+export const CORRELATION_FIELDS = ['btc_correlation', 'btc_beta', 'price_history_gapped'] as const;
+
+// Ride only on the BTC row (see appendCoinglassTechnicals below: price_history_bars is set at the
+// BTC branch of the fetch loop, alt_alt_* are stashed onto the BTC row after the pairwise pass) --
+// harvested only for symbol === 'BTC', never for any other row.
+export const BTC_ONLY_CACHE_FIELDS = [
+  'price_history_bars',
+  'alt_alt_mean_correlation',
+  'alt_alt_correlation_pairs',
+] as const;
+
 export async function appendCoinglassTechnicals(
   rows: Row[],
   client: CoinGlassClient,
   providerCfg: CoinGlassConfig,
   status?: ProviderStatus,
 ): Promise<void> {
+  const startMs = Date.now();
   const technicalCfg = providerCfg.technical_indicators;
   if (!technicalCfg.enabled) {
     if (status) {
-      status.technicals = { status: 'disabled' };
+      status.technicals = { status: 'disabled', duration_ms: Date.now() - startMs };
     }
     return;
   }
@@ -32,7 +53,6 @@ export async function appendCoinglassTechnicals(
   const interval = technicalCfg.interval;
   const limit = technicalCfg.limit;
   const maxSymbols = technicalCfg.max_symbols;
-  const requestDelay = technicalCfg.request_delay_seconds;
   // 0 means "no cap", as in long_short_ratio below. A cap here truncates the cross-section every
   // technical factor is ranked over, so it silently shrinks their IC sample rather than the universe.
   const target = maxSymbols <= 0 ? rows : rows.slice(0, maxSymbols);
@@ -66,8 +86,6 @@ export async function appendCoinglassTechnicals(
       }
     } catch (error) {
       collectProviderError(errors, error, String(row.symbol ?? contractSymbol));
-    } finally {
-      await sleepBetweenRequests(requestDelay);
     }
   }
 
@@ -166,6 +184,7 @@ export async function appendCoinglassTechnicals(
       alt_alt_mean_correlation: altAltMeanCorrelation,
       alt_alt_correlation_pairs: altAltCorrelationPairs,
       pairwise_correlation_ms: pairwiseCorrelationMs,
+      duration_ms: Date.now() - startMs,
     };
   }
 }
@@ -176,10 +195,11 @@ export async function appendCoinglassDerivativesHistory(
   providerCfg: CoinGlassConfig,
   status?: ProviderStatus,
 ): Promise<void> {
+  const startMs = Date.now();
   const historyCfg = providerCfg.derivatives_history;
   if (!historyCfg.enabled) {
     if (status) {
-      status.derivatives_history = { status: 'disabled' };
+      status.derivatives_history = { status: 'disabled', duration_ms: Date.now() - startMs };
     }
     return;
   }
@@ -187,7 +207,6 @@ export async function appendCoinglassDerivativesHistory(
   const interval = historyCfg.interval;
   const limit = historyCfg.limit;
   const maxSymbols = historyCfg.max_symbols;
-  const requestDelay = historyCfg.request_delay_seconds;
   const exchanges = providerCfg.exchanges;
   // 0 means "no cap", as in long_short_ratio below. Four factors (oi_acceleration_signal,
   // funding_persistence_contrarian, taker_flow_24h, liquidation_pressure_24h) are ranked only over
@@ -203,16 +222,13 @@ export async function appendCoinglassDerivativesHistory(
     }
     try {
       const oiHistory = await client.openInterestAggregatedHistory(symbol, interval, limit);
-      await sleepBetweenRequests(requestDelay);
       const fundingHistory = await client.fundingOiWeightHistory(symbol, interval, limit);
-      await sleepBetweenRequests(requestDelay);
       const liquidationHistory = await client.liquidationAggregatedHistory(
         exchanges,
         symbol,
         interval,
         limit,
       );
-      await sleepBetweenRequests(requestDelay);
       const takerHistory = await client.aggregatedTakerBuySellHistory(
         exchanges,
         symbol,
@@ -233,8 +249,6 @@ export async function appendCoinglassDerivativesHistory(
       }
     } catch (error) {
       collectProviderError(errors, error, symbol);
-    } finally {
-      await sleepBetweenRequests(requestDelay);
     }
   }
 
@@ -246,6 +260,7 @@ export async function appendCoinglassDerivativesHistory(
       interval,
       errors: errors.slice(0, 5),
       note: 'CoinGlass historical OI/funding/liquidation/taker features',
+      duration_ms: Date.now() - startMs,
     };
   }
 }
@@ -256,10 +271,11 @@ export async function appendCoinglassLongShortRatio(
   providerCfg: CoinGlassConfig,
   status?: ProviderStatus,
 ): Promise<void> {
+  const startMs = Date.now();
   const cfg = providerCfg.long_short_ratio;
   if (!cfg.enabled) {
     if (status) {
-      status.long_short_ratio = { status: 'disabled' };
+      status.long_short_ratio = { status: 'disabled', duration_ms: Date.now() - startMs };
     }
     return;
   }
@@ -270,7 +286,6 @@ export async function appendCoinglassLongShortRatio(
   const ratioExchange = cfg.ratio_exchange;
   const includeTop = cfg.include_top_trader;
   const includeTopPosition = cfg.include_top_position;
-  const requestDelay = cfg.request_delay_seconds;
   const target = maxSymbols <= 0 ? rows : rows.slice(0, maxSymbols);
   let enriched = 0;
   const errors: string[] = [];
@@ -299,7 +314,6 @@ export async function appendCoinglassLongShortRatio(
         row.long_short_account_ratio = ratio;
         enriched += 1;
       }
-      await sleepBetweenRequests(requestDelay);
 
       if (includeTop) {
         const topHistory = await client.topLongShortAccountRatioHistory(
@@ -321,7 +335,6 @@ export async function appendCoinglassLongShortRatio(
         if (ratioDelta24h !== null) {
           row.top_trader_ratio_delta_24h = ratioDelta24h;
         }
-        await sleepBetweenRequests(requestDelay);
       }
 
       if (includeTopPosition) {
@@ -339,13 +352,9 @@ export async function appendCoinglassLongShortRatio(
         if (positionRatio !== null) {
           row.top_trader_position_ratio = positionRatio;
         }
-        // No sleep here: positionHistory is the last call in the loop body, so the
-        // `finally` sleep below already paces the next request (success = 3 sleeps/3 calls).
       }
     } catch (error) {
       collectProviderError(errors, error, base);
-    } finally {
-      await sleepBetweenRequests(requestDelay);
     }
   }
 
@@ -357,12 +366,9 @@ export async function appendCoinglassLongShortRatio(
       exchange: ratioExchange,
       errors: errors.slice(0, 5),
       note: 'CoinGlass global + top-trader long/short account ratio',
+      duration_ms: Date.now() - startMs,
     };
   }
-}
-
-function sleepBetweenRequests(seconds: number): Promise<void> {
-  return seconds > 0 ? sleep(seconds) : Promise.resolve();
 }
 
 function parseRatioEntry(data: CoinGlassHistoryRow[], keys: string[]): number | null {

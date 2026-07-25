@@ -1,5 +1,5 @@
 import { ProviderError } from './errors.js';
-import { buildUrl, fetchWithRetry429, parseJsonResponse } from './http.js';
+import { buildUrl, fetchWithRetry429, parseJsonResponse, RequestPacer } from './http.js';
 
 // Loosely typed on purpose: fields are read defensively via `toFloat`, not exhaustively modeled.
 export type CoinGlassPair = Record<string, unknown>;
@@ -84,6 +84,12 @@ export interface CoinGlassClientOptions {
   retry429MaxDelaySeconds?: number;
   retry429JitterSeconds?: number;
   retry429MaxAttempts?: number;
+  // Spacing between outgoing requests (RequestPacer, http.ts), applied at a single choke point in
+  // getJson() below -- not per-loop sleeps scattered through collector.ts/enrichment.ts anymore.
+  // Defaults to 0 (no pacing) so a client built without an explicit value -- e.g. most unit tests
+  // that construct this class directly -- never waits; production always passes
+  // providers.coinglass.request_delay_seconds explicitly (collector.ts).
+  requestDelaySeconds?: number;
 }
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
@@ -98,6 +104,7 @@ export class CoinGlassHttpClient implements CoinGlassClient {
   private readonly retry429MaxDelaySeconds: number;
   private readonly retry429JitterSeconds: number;
   private readonly retry429MaxAttempts: number;
+  private readonly pacer: RequestPacer;
 
   constructor(options: CoinGlassClientOptions) {
     this.apiKey = options.apiKey;
@@ -109,12 +116,19 @@ export class CoinGlassHttpClient implements CoinGlassClient {
     this.retry429MaxDelaySeconds = options.retry429MaxDelaySeconds ?? 120;
     this.retry429JitterSeconds = options.retry429JitterSeconds ?? 5;
     this.retry429MaxAttempts = options.retry429MaxAttempts ?? 3;
+    this.pacer = new RequestPacer(options.requestDelaySeconds ?? 0);
   }
 
   private async getJson(path: string, params?: QueryParams): Promise<unknown> {
     if (!this.apiKey) {
       throw new ProviderError('CoinGlass API key is not set');
     }
+
+    // Single choke point: every outgoing request -- supportedExchangePairs, futuresPairsMarkets,
+    // and every history method -- funnels through getJson, so pacing here covers all of them.
+    // Applies once per logical request, not per 429-retry attempt: fetchWithRetry429 below already
+    // spaces its own retries via backoff, and pacing each attempt too would double-wait.
+    await this.pacer.pace();
 
     const url = buildUrl(this.baseUrl, path, params);
     const headers: Record<string, string> = {

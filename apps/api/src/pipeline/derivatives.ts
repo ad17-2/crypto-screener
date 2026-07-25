@@ -42,6 +42,31 @@ interface TakerRow {
   sell: number;
 }
 
+// Exactly the keys derivativesSnapshot() below can return (before the null-value filter at its
+// return statement) -- the enrichment-cache allowlist (db/enrichmentCache.ts, via collector.ts's
+// harvest step) copies fields by this list; derivatives.test.ts's drift test pins the two in sync.
+export const DERIVATIVES_SNAPSHOT_FIELDS = [
+  'derivatives_interval',
+  'derivatives_oi_count',
+  'derivatives_funding_count',
+  'derivatives_liquidation_count',
+  'derivatives_taker_count',
+  'oi_change_4h_pct_history',
+  'oi_change_24h_pct_history',
+  'oi_change_72h_pct_history',
+  'oi_acceleration_4h_pct',
+  'oi_zscore_30',
+  'funding_avg_24h_pct',
+  'funding_persistence_24h',
+  'long_liquidation_usd_24h_history',
+  'short_liquidation_usd_24h_history',
+  'liquidation_imbalance_24h_pct',
+  'taker_buy_sell_ratio_24h',
+  'taker_imbalance_24h_pct',
+  'cvd_trend_72h_pct',
+  'derivatives_confirmation_score',
+] as const;
+
 // Keys whose value is null are dropped from the result entirely, not kept as null.
 export function derivativesSnapshot(
   oiHistory: RawHistoryRow[],

@@ -343,10 +343,14 @@ export async function runBackfill(
   const technicalCfg = providerCfg.technical_indicators;
   const interval = args.interval || historyCfg.interval || technicalCfg.interval || '4h';
   const limit = args.limit || historyCfg.limit || technicalCfg.limit || 220;
+  // derivatives_history.request_delay_seconds was retired (Part 1: pacing now lives in
+  // CoinGlassHttpClient's RequestPacer, driven by the top-level providers.coinglass field) --
+  // backfill keeps its own manual sleep-based pacing below rather than adopting the pacer, so it
+  // still falls back to the top-level provider delay.
   const requestDelay =
     args.requestDelaySeconds !== undefined
       ? args.requestDelaySeconds
-      : (historyCfg.request_delay_seconds ?? providerCfg.request_delay_seconds ?? 2.1);
+      : providerCfg.request_delay_seconds;
   const exchanges = [...providerCfg.exchanges];
   const quoteAsset = config.universe.quote_asset;
   const symbols = symbolsFromArgs(args.symbols, config);

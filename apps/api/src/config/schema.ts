@@ -13,7 +13,6 @@ const TechnicalIndicatorsConfigSchema = z
     limit: z.number().int().default(220),
     /** 0 = no cap. Any cap here shrinks the cross-section the technical factors are ranked over. */
     max_symbols: z.number().int().default(0),
-    request_delay_seconds: z.number().default(2.1),
   })
   .strict();
 
@@ -26,7 +25,6 @@ const LongShortRatioConfigSchema = z
     ratio_exchange: z.string().default('Binance'),
     include_top_trader: z.boolean().default(true),
     include_top_position: z.boolean().default(true),
-    request_delay_seconds: z.number().default(2.1),
   })
   .strict();
 
@@ -37,7 +35,6 @@ const DerivativesHistoryConfigSchema = z
     limit: z.number().int().default(220),
     /** 0 = no cap. At 25 this estimated four derivative factors' IC on 25 of ~48 names. */
     max_symbols: z.number().int().default(0),
-    request_delay_seconds: z.number().default(2.1),
   })
   .strict();
 
@@ -48,6 +45,10 @@ const CoinGlassConfigSchema = z
     api_key_env: z.string().default('COINGLASS_API_KEY'),
     candidate_symbols: z.number().int().default(80),
     min_exchange_count: z.number().int().default(2),
+    // Drives providers/http.ts's RequestPacer inside CoinGlassHttpClient (spacing measured from
+    // request START, one choke point in getJson()) -- the sibling request_delay_seconds fields
+    // that used to live under technical_indicators/derivatives_history/long_short_ratio below are
+    // retired; this single top-level value now paces every CoinGlass call the client makes.
     request_delay_seconds: z.number().default(2.1),
     request_timeout_seconds: z.number().default(12),
     // Bounded, unlike CoinGecko's unlimited retries (retry_429_max_attempts 0): a refresh issues

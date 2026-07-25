@@ -1,24 +1,34 @@
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppConfigSchema } from '../../src/config/schema.js';
+import type { EnrichmentCacheBlob } from '../../src/db/enrichmentCache.js';
+import { loadEnrichmentCache, saveEnrichmentCache } from '../../src/db/enrichmentCache.js';
+import { FOUR_H_MS, fourHourBarStartMs } from '../../src/pipeline/fourHourBar.js';
 import type { DeepSeekClient } from '../../src/providers/deepseek.js';
+import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
-const { collectMarketMock, scoreSnapshotMock, saveSnapshotMock, writeReportsMock } = vi.hoisted(
-  () => ({
-    collectMarketMock: vi.fn(),
-    scoreSnapshotMock: vi.fn(),
-    saveSnapshotMock: vi.fn(),
-    writeReportsMock: vi.fn(),
-  }),
-);
+const {
+  collectMarketMock,
+  scoreSnapshotMock,
+  saveSnapshotMock,
+  writeReportsMock,
+  updateRunContextMock,
+} = vi.hoisted(() => ({
+  collectMarketMock: vi.fn(),
+  scoreSnapshotMock: vi.fn(),
+  saveSnapshotMock: vi.fn(),
+  writeReportsMock: vi.fn(),
+  updateRunContextMock: vi.fn(),
+}));
 
-// db/index.js's read-path functions are left real, only saveSnapshot is stubbed -- with
-// storage_path=":memory:" below they run against a genuine, freshly-empty in-memory db.
+// db/index.js's read-path functions are left real, only saveSnapshot/updateRunContext are stubbed
+// -- with storage_path=":memory:" below they run against a genuine, freshly-empty in-memory db.
 vi.mock('../../src/pipeline/collector.js', () => ({ collectMarket: collectMarketMock }));
 vi.mock('../../src/pipeline/factors.js', () => ({ scoreSnapshot: scoreSnapshotMock }));
 vi.mock('../../src/reports/writeReports.js', () => ({ writeReports: writeReportsMock }));
 vi.mock('../../src/db/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/db/index.js')>();
-  return { ...actual, saveSnapshot: saveSnapshotMock };
+  return { ...actual, saveSnapshot: saveSnapshotMock, updateRunContext: updateRunContextMock };
 });
 
 const { runPipeline } = await import('../../src/pipeline/runPipeline.js');
@@ -374,5 +384,398 @@ describe('runPipeline price_history_bars stripping', () => {
     expect(savedPayload.rows[0]).not.toHaveProperty('price_history_bars');
     // The rest of the row survives the strip untouched.
     expect(savedPayload.rows[0]?.symbol).toBe('BTC');
+  });
+});
+
+describe('runPipeline commits before generating the briefing', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  function baseCollected() {
+    return {
+      rows: [{ symbol: 'BTC' }],
+      market_context: { btc_dominance_pct: 55 },
+      provider_status: { coinglass: { status: 'ok' } },
+    };
+  }
+
+  function baseScored() {
+    return { rows: [{ symbol: 'BTC', scores: {}, factors: {} }], regime: { bias: 'risk-on' } };
+  }
+
+  it('runs saveSnapshot, then the briefing client, then updateRunContext, in that order', async () => {
+    const config = AppConfigSchema.parse({ storage_path: ':memory:' });
+    saveSnapshotMock.mockClear();
+    updateRunContextMock.mockClear();
+    const order: string[] = [];
+    saveSnapshotMock.mockImplementationOnce(() => {
+      order.push('save');
+    });
+    updateRunContextMock.mockImplementationOnce(() => {
+      order.push('update');
+    });
+    collectMarketMock.mockResolvedValueOnce(baseCollected());
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+    const deepseekClient: DeepSeekClient = {
+      complete: vi.fn().mockImplementation(async () => {
+        order.push('briefing');
+        return {
+          text: 'Tonight the tape is quiet.',
+          model: 'deepseek-v4-pro',
+          output_tokens: 100,
+          reasoning_tokens: 40,
+        };
+      }),
+    };
+
+    await runPipeline(
+      config,
+      '/tmp/crypto-screener-unused-out-dir',
+      { save: true, writeReportFiles: false },
+      { deepseekClient },
+    );
+
+    expect(order).toEqual(['save', 'briefing', 'update']);
+  });
+
+  it('sets provider_status.deepseek to pending on the row saveSnapshot commits, before the briefing runs', async () => {
+    const config = AppConfigSchema.parse({ storage_path: ':memory:' });
+    saveSnapshotMock.mockClear();
+    updateRunContextMock.mockClear();
+    // payload is one mutable object shared across the whole pipeline -- inspecting
+    // saveSnapshotMock.mock.calls AFTER runPipeline resolves would see attachBriefing's later
+    // mutations too, so this snapshots provider_status (deep clone) at the moment saveSnapshot is
+    // actually called, which is the only way to observe what the commit itself saw.
+    let providerStatusAtSaveTime: Record<string, unknown> | undefined;
+    saveSnapshotMock.mockImplementationOnce((_db: unknown, payload: unknown) => {
+      providerStatusAtSaveTime = JSON.parse(
+        JSON.stringify((payload as { provider_status: Record<string, unknown> }).provider_status),
+      ) as Record<string, unknown>;
+    });
+    collectMarketMock.mockResolvedValueOnce(baseCollected());
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+    const deepseekClient: DeepSeekClient = {
+      complete: vi.fn().mockResolvedValue({
+        text: 'Tonight the tape is quiet.',
+        model: 'deepseek-v4-pro',
+        output_tokens: 100,
+        reasoning_tokens: 40,
+      }),
+    };
+
+    await runPipeline(
+      config,
+      '/tmp/crypto-screener-unused-out-dir',
+      { save: true, writeReportFiles: false },
+      { deepseekClient },
+    );
+
+    expect(saveSnapshotMock).toHaveBeenCalledOnce();
+    expect(providerStatusAtSaveTime?.deepseek).toEqual({
+      status: 'pending',
+      note: 'briefing generates after publish',
+    });
+  });
+
+  it('after resolving, updateRunContext receives the finished briefing, a non-pending status, and timings.briefing_ms', async () => {
+    const config = AppConfigSchema.parse({ storage_path: ':memory:' });
+    saveSnapshotMock.mockClear();
+    updateRunContextMock.mockClear();
+    collectMarketMock.mockResolvedValueOnce(baseCollected());
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+    const deepseekClient: DeepSeekClient = {
+      complete: vi.fn().mockResolvedValue({
+        text: 'Tonight the tape is quiet.',
+        model: 'deepseek-v4-pro',
+        output_tokens: 100,
+        reasoning_tokens: 40,
+      }),
+    };
+
+    const { payload } = await runPipeline(
+      config,
+      '/tmp/crypto-screener-unused-out-dir',
+      { save: true, writeReportFiles: false },
+      { deepseekClient },
+    );
+
+    expect(updateRunContextMock).toHaveBeenCalledOnce();
+    const [, , contextArg, providerStatusArg] = updateRunContextMock.mock.calls[0] as [
+      unknown,
+      string,
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+    expect(contextArg.briefing).toMatchObject({ text: 'Tonight the tape is quiet.' });
+    const deepseekStatus = providerStatusArg.deepseek as { status: string };
+    expect(deepseekStatus.status).not.toBe('pending');
+    expect(deepseekStatus.status).toBe('ok');
+    const timings = providerStatusArg.timings as { briefing_ms?: number };
+    expect(timings.briefing_ms).toBeGreaterThanOrEqual(0);
+    // The resolved payload (used for report files/the caller) carries the same finished state.
+    expect(payload.provider_status.deepseek).toMatchObject({ status: 'ok' });
+  });
+
+  it('when no briefing will run (no client, no API key), no pending status is ever written, and the final commit matches today', async () => {
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const config = AppConfigSchema.parse({ storage_path: ':memory:' });
+    saveSnapshotMock.mockClear();
+    updateRunContextMock.mockClear();
+    // Same snapshot-at-call-time reasoning as the 'pending' test above: attachBriefing mutates the
+    // same payload object again after saveSnapshot runs, so this must be captured synchronously
+    // inside the mock, not read back off .mock.calls after runPipeline resolves.
+    let providerStatusAtSaveTime: Record<string, unknown> | undefined;
+    saveSnapshotMock.mockImplementationOnce((_db: unknown, payload: unknown) => {
+      providerStatusAtSaveTime = JSON.parse(
+        JSON.stringify((payload as { provider_status: Record<string, unknown> }).provider_status),
+      ) as Record<string, unknown>;
+    });
+    collectMarketMock.mockResolvedValueOnce(baseCollected());
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+
+    await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save: true,
+      writeReportFiles: false,
+    });
+
+    expect(providerStatusAtSaveTime).not.toHaveProperty('deepseek');
+
+    expect(updateRunContextMock).toHaveBeenCalledOnce();
+    const providerStatusArg = updateRunContextMock.mock.calls[0]?.[3] as Record<string, unknown>;
+    expect(providerStatusArg.deepseek).toEqual({
+      status: 'disabled',
+      note: 'DEEPSEEK_API_KEY not set',
+    });
+  });
+});
+
+describe('runPipeline provider_status.timings', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('sets numeric collect_ms/score_ms/save_ms/total_ms after a run', async () => {
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const config = AppConfigSchema.parse({ storage_path: ':memory:' });
+    collectMarketMock.mockResolvedValueOnce({
+      rows: [{ symbol: 'BTC' }],
+      market_context: { btc_dominance_pct: 55 },
+      provider_status: { coinglass: { status: 'ok' } },
+    });
+    scoreSnapshotMock.mockReturnValueOnce({
+      rows: [{ symbol: 'BTC', scores: {}, factors: {} }],
+      regime: { bias: 'risk-on' },
+    });
+
+    const { payload } = await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save: false,
+      writeReportFiles: false,
+    });
+
+    const timings = payload.provider_status.timings as Record<string, unknown>;
+    expect(typeof timings.collect_ms).toBe('number');
+    expect(typeof timings.score_ms).toBe('number');
+    expect(typeof timings.save_ms).toBe('number');
+    expect(typeof timings.total_ms).toBe('number');
+  });
+});
+
+describe('runPipeline light/full mode decision', () => {
+  // File-based, not ':memory:' -- the mode decision reads back a cache written by a SEPARATE
+  // openDatabase() call than runPipeline's own, so the two need to share a real file on disk (an
+  // in-memory sqlite connection isn't visible outside the connection that created it).
+  let dir: string;
+  let dbPath: string;
+  let db: Database.Database;
+
+  beforeEach(() => {
+    ({ dir, dbPath, db } = setupTempDb('crypto-screener-runpipeline-mode-'));
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+  });
+
+  afterEach(() => {
+    teardownTempDb(dir, db);
+    vi.unstubAllEnvs();
+  });
+
+  function baseCollected() {
+    return {
+      rows: [{ symbol: 'BTC' }],
+      market_context: { btc_dominance_pct: 55 },
+      provider_status: { coinglass: { status: 'ok' } },
+    };
+  }
+
+  function baseScored() {
+    return { rows: [{ symbol: 'BTC', scores: {}, factors: {} }], regime: { bias: 'risk-on' } };
+  }
+
+  interface EnrichmentCacheDepsArg {
+    mode: 'light' | 'full';
+    barTsMs: number;
+    cachedRows: Record<string, Record<string, unknown>> | null;
+    save?: (blob: EnrichmentCacheBlob) => void;
+  }
+
+  async function runAndCaptureDeps(
+    options: { mode?: 'light' | 'full' } = {},
+  ): Promise<EnrichmentCacheDepsArg> {
+    const config = AppConfigSchema.parse({ storage_path: dbPath });
+    collectMarketMock.mockResolvedValueOnce(baseCollected());
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+
+    await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save: false,
+      writeReportFiles: false,
+      ...options,
+    });
+
+    const deps = collectMarketMock.mock.calls.at(-1)?.[1] as {
+      enrichmentCache: EnrichmentCacheDepsArg;
+    };
+    return deps.enrichmentCache;
+  }
+
+  it('decides light when a cache exists for the current 4h bar', async () => {
+    const barTsMs = fourHourBarStartMs(Date.now());
+    saveEnrichmentCache(db, barTsMs, { rows: { BTC: { rsi_14: 55 } } });
+
+    const enrichmentCache = await runAndCaptureDeps();
+
+    expect(enrichmentCache.mode).toBe('light');
+    expect(enrichmentCache.barTsMs).toBe(barTsMs);
+    expect(enrichmentCache.cachedRows).toEqual({ BTC: { rsi_14: 55 } });
+  });
+
+  it('decides full when the cache is for a stale (prior) 4h bar', async () => {
+    const staleBarTsMs = fourHourBarStartMs(Date.now()) - FOUR_H_MS;
+    saveEnrichmentCache(db, staleBarTsMs, { rows: { BTC: { rsi_14: 55 } } });
+
+    const enrichmentCache = await runAndCaptureDeps();
+
+    expect(enrichmentCache.mode).toBe('full');
+    expect(enrichmentCache.cachedRows).toBeNull();
+  });
+
+  it('decides full when no cache has ever been saved', async () => {
+    const enrichmentCache = await runAndCaptureDeps();
+
+    expect(enrichmentCache.mode).toBe('full');
+    expect(enrichmentCache.cachedRows).toBeNull();
+  });
+
+  it('an explicit mode="full" override always wins, even over a fresh cache', async () => {
+    const barTsMs = fourHourBarStartMs(Date.now());
+    saveEnrichmentCache(db, barTsMs, { rows: { BTC: { rsi_14: 55 } } });
+
+    const enrichmentCache = await runAndCaptureDeps({ mode: 'full' });
+
+    expect(enrichmentCache.mode).toBe('full');
+  });
+
+  it('an explicit mode="light" override with a fresh cache is honored', async () => {
+    const barTsMs = fourHourBarStartMs(Date.now());
+    saveEnrichmentCache(db, barTsMs, { rows: { BTC: { rsi_14: 55 } } });
+
+    const enrichmentCache = await runAndCaptureDeps({ mode: 'light' });
+
+    expect(enrichmentCache.mode).toBe('light');
+  });
+
+  it('an explicit mode="light" override with no usable cache degrades to full', async () => {
+    const enrichmentCache = await runAndCaptureDeps({ mode: 'light' });
+
+    expect(enrichmentCache.mode).toBe('full');
+    expect(enrichmentCache.cachedRows).toBeNull();
+  });
+});
+
+describe('runPipeline enrichment cache save gating', () => {
+  // File-based, same reasoning as the mode-decision describe above: loadEnrichmentCache(db) must
+  // read back whatever the pipeline's own db connection wrote.
+  let dir: string;
+  let dbPath: string;
+  let db: Database.Database;
+
+  beforeEach(() => {
+    ({ dir, dbPath, db } = setupTempDb('crypto-screener-runpipeline-cache-save-'));
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+  });
+
+  afterEach(() => {
+    teardownTempDb(dir, db);
+    vi.unstubAllEnvs();
+  });
+
+  function baseCollected() {
+    return {
+      rows: [{ symbol: 'BTC' }],
+      market_context: { btc_dominance_pct: 55 },
+      provider_status: { coinglass: { status: 'ok' } },
+    };
+  }
+
+  function baseScored() {
+    return { rows: [{ symbol: 'BTC', scores: {}, factors: {} }], regime: { bias: 'risk-on' } };
+  }
+
+  async function runAndCaptureEnrichmentCacheDeps(
+    save: boolean,
+  ): Promise<{ barTsMs: number; save?: (blob: EnrichmentCacheBlob) => void }> {
+    const config = AppConfigSchema.parse({ storage_path: dbPath });
+    collectMarketMock.mockResolvedValueOnce(baseCollected());
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+
+    await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save,
+      writeReportFiles: false,
+    });
+
+    const deps = collectMarketMock.mock.calls.at(-1)?.[1] as {
+      enrichmentCache: { barTsMs: number; save?: (blob: EnrichmentCacheBlob) => void };
+    };
+    return deps.enrichmentCache;
+  }
+
+  it('a save:false run wires enrichmentCache.save as undefined, leaving the cache table untouched', async () => {
+    const enrichmentCache = await runAndCaptureEnrichmentCacheDeps(false);
+
+    expect(enrichmentCache.save).toBeUndefined();
+
+    // Simulate what a real full-run harvest would do if the closure WERE present (it isn't, per the
+    // assertion above): this is what proves a save:false dry run can never leave a cache row behind,
+    // rather than merely observing that collectMarket (mocked in this file) never called it itself.
+    enrichmentCache.save?.({ rows: { BTC: { rsi_14: 55 } } });
+    expect(loadEnrichmentCache(db)).toBeNull();
+  });
+
+  it('a save:true run captures a working save closure, correctly bound to the run db and barTsMs', async () => {
+    // The closure must be invoked WHILE runPipeline is still running (as a real collectMarket would
+    // do, mid-harvest) rather than after runPipeline resolves: runPipeline opens its own db
+    // connection and closes it in a `finally` block once the function returns, so calling the
+    // closure afterward would hit an already-closed connection.
+    const config = AppConfigSchema.parse({ storage_path: dbPath });
+    const blob: EnrichmentCacheBlob = { rows: { ETH: { rsi_14: 42 } } };
+    let capturedBarTsMs: number | undefined;
+    collectMarketMock.mockImplementationOnce(
+      async (
+        _config: unknown,
+        deps: { enrichmentCache?: { barTsMs: number; save?: (blob: EnrichmentCacheBlob) => void } },
+      ) => {
+        capturedBarTsMs = deps.enrichmentCache?.barTsMs;
+        expect(deps.enrichmentCache?.save).toBeDefined();
+        deps.enrichmentCache?.save?.(blob);
+        return baseCollected();
+      },
+    );
+    scoreSnapshotMock.mockReturnValueOnce(baseScored());
+
+    await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save: true,
+      writeReportFiles: false,
+    });
+
+    expect(loadEnrichmentCache(db)).toEqual({ barTsMs: capturedBarTsMs, blob });
   });
 });

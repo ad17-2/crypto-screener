@@ -11,6 +11,7 @@ import {
   goldenPocket,
   type RawCandle,
   rsiSeries,
+  TECHNICAL_SNAPSHOT_FIELDS,
   technicalSnapshot,
   trendStateOf,
 } from '../../src/pipeline/technicals.js';
@@ -331,5 +332,33 @@ describe('technicalSnapshot donchian levels', () => {
     expect(expected.low).not.toBeNull();
     expect(snapshot.donchian_high_20).toBe(expected.high);
     expect(snapshot.donchian_low_20).toBe(expected.low);
+  });
+});
+
+describe('technicalSnapshot field allowlist (drift guard)', () => {
+  it('emits exactly the keys covered by TECHNICAL_SNAPSHOT_FIELDS', () => {
+    // 260 bars clears every internal window this function uses (200 for ema_200, 90 for the
+    // divergence lookback, 30 for the EMA-cross lookback) with real per-bar volume, so this
+    // exercises every branch technicalSnapshot can take -- not just the >=50-bar minimum that on
+    // its own already unconditionally emits every key (technicalSnapshot has no null-value filter,
+    // unlike derivativesSnapshot).
+    const closes = wigglyCloses(260);
+    const candles: RawCandle[] = closes.map((close, index) => ({
+      time: index,
+      open: close - 0.1,
+      high: close + 0.6,
+      low: close - 0.6,
+      close,
+      volume_usd: 1_000_000 + (index % 7) * 10_000,
+    }));
+
+    const snapshot = technicalSnapshot(candles, '4h');
+
+    for (const key of Object.keys(snapshot)) {
+      expect(TECHNICAL_SNAPSHOT_FIELDS as readonly string[]).toContain(key);
+    }
+    for (const key of TECHNICAL_SNAPSHOT_FIELDS) {
+      expect(snapshot).toHaveProperty(key);
+    }
   });
 });

@@ -130,3 +130,42 @@ describe('CoinGlassHttpClient 429 retry', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('CoinGlassHttpClient request pacing', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(fakeResponse(200, { code: '0', data: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('never waits before the first request', async () => {
+    const client = new CoinGlassHttpClient({ apiKey: 'test-key', requestDelaySeconds: 0.03 });
+    const start = Date.now();
+    await client.futuresPairsMarkets('BTC');
+    expect(Date.now() - start).toBeLessThan(15);
+  });
+
+  it('spaces two calls to different methods by requestDelaySeconds -- one pacer, every request', async () => {
+    const client = new CoinGlassHttpClient({ apiKey: 'test-key', requestDelaySeconds: 0.03 });
+    await client.supportedExchangePairs();
+    const start = Date.now();
+    await client.priceHistory('OKX', 'BTCUSDT', '4h', 10);
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeGreaterThanOrEqual(15);
+    expect(elapsed).toBeLessThan(230);
+  });
+
+  it('defaults to no pacing when requestDelaySeconds is omitted', async () => {
+    const client = new CoinGlassHttpClient({ apiKey: 'test-key' });
+    await client.futuresPairsMarkets('BTC');
+    const start = Date.now();
+    await client.futuresPairsMarkets('ETH');
+    expect(Date.now() - start).toBeLessThan(15);
+  });
+});

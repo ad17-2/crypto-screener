@@ -5,6 +5,8 @@ import {
   appendCoinglassDerivativesHistory,
   appendCoinglassLongShortRatio,
   appendCoinglassTechnicals,
+  CORRELATION_FIELDS,
+  LONG_SHORT_FIELDS,
 } from '../../src/pipeline/enrichment';
 import type { Row } from '../../src/pipeline/types';
 import type {
@@ -122,7 +124,6 @@ describe('appendCoinglassTechnicals', () => {
         interval: '4h',
         limit: 80,
         max_symbols: 1,
-        request_delay_seconds: 0,
       },
     });
 
@@ -139,7 +140,7 @@ describe('appendCoinglassTechnicals', () => {
     const status: ProviderStatus = {};
     const client = new FakeCoinGlassClient();
     const providerCfg = coinglassConfig({
-      technical_indicators: { max_symbols: 1, request_delay_seconds: 0 },
+      technical_indicators: { max_symbols: 1 },
     });
 
     await appendCoinglassTechnicals(rows, client, providerCfg, status);
@@ -156,7 +157,7 @@ describe('appendCoinglassTechnicals', () => {
     const status: ProviderStatus = {};
     const client = new FakeCoinGlassClient({ method: 'priceHistory', symbol: 'BTC-USDT-SWAP' });
     const providerCfg = coinglassConfig({
-      technical_indicators: { max_symbols: 1, request_delay_seconds: 0 },
+      technical_indicators: { max_symbols: 1 },
     });
 
     await appendCoinglassTechnicals(rows, client, providerCfg, status);
@@ -178,7 +179,7 @@ describe('appendCoinglassTechnicals', () => {
     const fetchCount = async (maxSymbols: number): Promise<number> => {
       const client = new FakeCoinGlassClient();
       const providerCfg = coinglassConfig({
-        technical_indicators: { max_symbols: maxSymbols, request_delay_seconds: 0 },
+        technical_indicators: { max_symbols: maxSymbols },
       });
       await appendCoinglassTechnicals(build(), client, providerCfg, {});
       return client.priceHistoryCalls.length;
@@ -201,7 +202,6 @@ describe('appendCoinglassDerivativesHistory', () => {
         interval: '4h',
         limit: 40,
         max_symbols: 1,
-        request_delay_seconds: 0,
       },
     });
 
@@ -218,7 +218,7 @@ describe('appendCoinglassDerivativesHistory', () => {
     const enrichedCount = async (maxSymbols: number): Promise<number> => {
       const rows = build();
       const providerCfg = coinglassConfig({
-        derivatives_history: { max_symbols: maxSymbols, request_delay_seconds: 0 },
+        derivatives_history: { max_symbols: maxSymbols },
       });
       await appendCoinglassDerivativesHistory(rows, new FakeCoinGlassClient(), providerCfg, {});
       return rows.filter((row) => row.derivatives_interval !== undefined).length;
@@ -284,7 +284,6 @@ describe('appendCoinglassLongShortRatio', () => {
         max_symbols: 0,
         ratio_exchange: 'Binance',
         include_top_trader: true,
-        request_delay_seconds: 0,
       },
     });
 
@@ -301,7 +300,7 @@ describe('appendCoinglassLongShortRatio', () => {
     const client = new FakeCoinGlassClient();
     const status: ProviderStatus = {};
     const providerCfg = coinglassConfig({
-      long_short_ratio: { request_delay_seconds: 0, include_top_position: true },
+      long_short_ratio: { include_top_position: true },
     });
 
     await appendCoinglassLongShortRatio(buildRow(), client, providerCfg, status);
@@ -312,7 +311,7 @@ describe('appendCoinglassLongShortRatio', () => {
   it('leaves top_trader_position_ratio unset when the endpoint returns no entries', async () => {
     const client = new PositionRatioHistoryClient([]);
     const providerCfg = coinglassConfig({
-      long_short_ratio: { request_delay_seconds: 0, include_top_position: true },
+      long_short_ratio: { include_top_position: true },
     });
     const rows = buildRow();
 
@@ -324,7 +323,7 @@ describe('appendCoinglassLongShortRatio', () => {
   it('does not call the top-long-short-position-ratio endpoint when include_top_position is false', async () => {
     const client = new FakeCoinGlassClient();
     const providerCfg = coinglassConfig({
-      long_short_ratio: { request_delay_seconds: 0, include_top_position: false },
+      long_short_ratio: { include_top_position: false },
     });
     const rows = buildRow();
 
@@ -341,7 +340,7 @@ describe('appendCoinglassLongShortRatio', () => {
     }));
     const client = new AccountRatioHistoryClient(accountHistory);
     const providerCfg = coinglassConfig({
-      long_short_ratio: { request_delay_seconds: 0, include_top_trader: true },
+      long_short_ratio: { include_top_trader: true },
     });
     const rows = buildRow();
 
@@ -357,7 +356,7 @@ describe('appendCoinglassLongShortRatio', () => {
     }));
     const client = new AccountRatioHistoryClient(accountHistory);
     const providerCfg = coinglassConfig({
-      long_short_ratio: { request_delay_seconds: 0, include_top_trader: true },
+      long_short_ratio: { include_top_trader: true },
     });
     const rows = buildRow();
 
@@ -376,7 +375,7 @@ describe('appendCoinglassLongShortRatio', () => {
     accountHistory[23] = { top_account_long_short_ratio: 'not-a-number' };
     const client = new AccountRatioHistoryClient(accountHistory);
     const providerCfg = coinglassConfig({
-      long_short_ratio: { request_delay_seconds: 0, include_top_trader: true },
+      long_short_ratio: { include_top_trader: true },
     });
     const rows = buildRow();
 
@@ -385,6 +384,24 @@ describe('appendCoinglassLongShortRatio', () => {
     expect(rows[0]).not.toHaveProperty('top_trader_ratio_delta_24h');
     // The latest entry still parses fine.
     expect(rows[0]?.top_trader_long_short_ratio).toBeCloseTo(3.45, 10);
+  });
+
+  it('drift guard: writes exactly the LONG_SHORT_FIELDS set when every optional ratio is available', async () => {
+    // 30 entries so top_trader_ratio_delta_24h (needs >=7) also gets written, alongside the global,
+    // top-trader, and top-position ratios -- all 4 LONG_SHORT_FIELDS members in one pass.
+    const accountHistory: CoinGlassHistoryRow[] = Array.from({ length: 30 }, (_, index) => ({
+      top_account_long_short_ratio: 2.0 + index * 0.05,
+    }));
+    const client = new AccountRatioHistoryClient(accountHistory);
+    const providerCfg = coinglassConfig({
+      long_short_ratio: { include_top_trader: true, include_top_position: true },
+    });
+    const rows = buildRow();
+
+    await appendCoinglassLongShortRatio(rows, client, providerCfg, {});
+
+    const writtenKeys = LONG_SHORT_FIELDS.filter((key) => key in (rows[0] as Row));
+    expect(new Set(writtenKeys)).toEqual(new Set(LONG_SHORT_FIELDS));
   });
 });
 
@@ -438,7 +455,6 @@ describe('appendCoinglassTechnicals BTC correlation', () => {
       interval: '4h',
       limit: 220,
       max_symbols: 0,
-      request_delay_seconds: 0,
     },
   };
 
@@ -523,7 +539,6 @@ describe('appendCoinglassTechnicals correlation-structure scalars', () => {
       interval: '4h',
       limit: 220,
       max_symbols: 0,
-      request_delay_seconds: 0,
     },
   };
 
@@ -652,7 +667,6 @@ describe('appendCoinglassTechnicals correlation-structure scalars: gapped pairs'
       interval: '4h',
       limit: BAR_COUNT,
       max_symbols: 0,
-      request_delay_seconds: 0,
     },
   };
 
@@ -675,5 +689,70 @@ describe('appendCoinglassTechnicals correlation-structure scalars: gapped pairs'
     const technicals = status.technicals as CorrelationStructureStatus;
     expect(technicals.alt_alt_correlation_pairs).toBe(0);
     expect(technicals.alt_alt_mean_correlation).toBeNull();
+  });
+});
+
+describe('appendCoinglassTechnicals CORRELATION_FIELDS drift guard', () => {
+  // Real-epoch bars (see EpochTimeSeriesClient above) so resolveStep takes its anchored-drift
+  // branch, letting one alt row exercise all three CORRELATION_FIELDS members at once: BTC and the
+  // alt share the exact same close-per-index wave (so their returns line up 1:1 wherever paired,
+  // giving a defined correlation/beta), while a single mid-series timestamp glitch on the alt's own
+  // bars flips `gapped` true without dropping enough pairs to fall below MIN_CORR_PAIRS (60).
+  const STEP_MS = 4 * 60 * 60 * 1000;
+  const BASE_MS = 1_700_000_000_000;
+  const BAR_COUNT = 90;
+  const GLITCH_INDEX = 45;
+
+  function wave(index: number): number {
+    return 100 + (index % 6) * 3 + (index % 4);
+  }
+
+  function evenlySpacedBars(): Array<{ time: number; close: number }> {
+    return Array.from({ length: BAR_COUNT }, (_, index) => ({
+      time: BASE_MS + index * STEP_MS,
+      close: wave(index),
+    }));
+  }
+
+  function glitchedBars(): Array<{ time: number; close: number }> {
+    return evenlySpacedBars().map((bar, index) =>
+      index === GLITCH_INDEX
+        ? { ...bar, time: BASE_MS + (GLITCH_INDEX - 1) * STEP_MS + 60_000 }
+        : bar,
+    );
+  }
+
+  const technicalCfg = {
+    technical_indicators: { enabled: true, interval: '4h', limit: BAR_COUNT, max_symbols: 0 },
+  };
+
+  const rowFor = (symbol: string): Row => ({
+    symbol,
+    primary_exchange: 'OKX',
+    contract_symbol: `${symbol}-USDT-SWAP`,
+  });
+
+  it('writes exactly the CORRELATION_FIELDS set on the alt row, alongside unrelated technical-snapshot fields', async () => {
+    const rows = [rowFor('BTC'), rowFor('GLITCHY')];
+    const client = new EpochTimeSeriesClient({
+      'BTC-USDT-SWAP': evenlySpacedBars(),
+      'GLITCHY-USDT-SWAP': glitchedBars(),
+    });
+    const status: ProviderStatus = {};
+
+    await appendCoinglassTechnicals(rows, client, coinglassConfig(technicalCfg), status);
+
+    const glitchyRow = rows[1] as Row;
+    // All three CORRELATION_FIELDS members must actually get written here -- a fixture that
+    // silently failed to exercise one of them would make the guard below pass trivially.
+    expect(glitchyRow).toHaveProperty('btc_correlation');
+    expect(glitchyRow).toHaveProperty('btc_beta');
+    expect(glitchyRow).toHaveProperty('price_history_gapped');
+
+    // appendCoinglassTechnicals also writes plain technical-snapshot fields (rsi_14, etc.) onto the
+    // same row -- those are NOT part of CORRELATION_FIELDS, so this is a subset check on the
+    // correlation-related keys the row actually carries, not on its full key set.
+    const correlationKeysWritten = CORRELATION_FIELDS.filter((key) => key in glitchyRow);
+    expect(new Set(correlationKeysWritten)).toEqual(new Set(CORRELATION_FIELDS));
   });
 });

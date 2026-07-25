@@ -131,6 +131,116 @@ describe('RefreshRuntime.refresh', () => {
   });
 });
 
+describe('RefreshRuntime mode passthrough', () => {
+  it('refresh() passes an explicit mode override through to runPipelineFn', async () => {
+    const runPipeline = vi.fn().mockResolvedValue({
+      payload: {
+        run_id: 'run-mode',
+        generated_at: '2026-07-03T06:00:00+07:00',
+        provider_status: { refresh_mode: 'light' },
+      },
+      paths: {},
+    });
+    const runtime = new RefreshRuntime({
+      db,
+      settings: { configPath: 'config/default.json', dbPath, reportDir: dir, retainRuns: 0 },
+      loadConfig: () => fakeConfig(),
+      runPipeline,
+    });
+
+    await runtime.refresh('test', 'light');
+
+    expect(runPipeline.mock.calls[0]?.[2]).toEqual({
+      save: true,
+      writeReportFiles: false,
+      mode: 'light',
+    });
+  });
+
+  it('refresh() with no override passes mode: undefined, and the resolved status reflects what runPipeline actually did', async () => {
+    const runPipeline = vi.fn().mockResolvedValue({
+      payload: {
+        run_id: 'run-full',
+        generated_at: '2026-07-03T06:00:00+07:00',
+        // Simulates a light override that degraded to full inside runPipeline (no usable cache).
+        provider_status: { refresh_mode: 'full' },
+      },
+      paths: {},
+    });
+    const runtime = new RefreshRuntime({
+      db,
+      settings: { configPath: 'config/default.json', dbPath, reportDir: dir, retainRuns: 0 },
+      loadConfig: () => fakeConfig(),
+      runPipeline,
+    });
+
+    const status = await runtime.refresh('test');
+
+    expect(runPipeline.mock.calls[0]?.[2]).toEqual({ save: true, writeReportFiles: false });
+    expect(status).toMatchObject({ state: 'ok', refresh_mode: 'full' });
+  });
+
+  it('refresh_mode is null on the ok status when provider_status never carried the field', async () => {
+    const runPipeline = vi.fn().mockResolvedValue({
+      payload: { run_id: 'run-none', generated_at: '2026-07-03T06:00:00+07:00' },
+      paths: {},
+    });
+    const runtime = new RefreshRuntime({
+      db,
+      settings: { configPath: 'config/default.json', dbPath, reportDir: dir, retainRuns: 0 },
+      loadConfig: () => fakeConfig(),
+      runPipeline,
+    });
+
+    const status = await runtime.refresh('test');
+
+    expect(status).toMatchObject({ state: 'ok', refresh_mode: null });
+  });
+
+  it('refreshAsync() echoes the requested override (not yet a resolved mode) in its immediate result', () => {
+    const runPipeline = vi.fn().mockImplementation(
+      () =>
+        new Promise(() => {
+          /* never resolves -- only the immediate return value is asserted */
+        }),
+    );
+    const runtime = new RefreshRuntime({
+      db,
+      settings: { configPath: 'config/default.json', dbPath, reportDir: dir, retainRuns: 0 },
+      loadConfig: () => fakeConfig(),
+      runPipeline,
+    });
+
+    expect(runtime.refreshAsync('manual', 'light')).toEqual({
+      state: 'queued',
+      reason: 'manual',
+      mode: 'light',
+    });
+    expect(runPipeline.mock.calls[0]?.[2]).toMatchObject({ mode: 'light' });
+  });
+
+  it('refreshAsync() with no override reports mode: null', () => {
+    const runPipeline = vi.fn().mockImplementation(
+      () =>
+        new Promise(() => {
+          /* never resolves -- only the immediate return value is asserted */
+        }),
+    );
+    const runtime = new RefreshRuntime({
+      db,
+      settings: { configPath: 'config/default.json', dbPath, reportDir: dir, retainRuns: 0 },
+      loadConfig: () => fakeConfig(),
+      runPipeline,
+    });
+
+    expect(runtime.refreshAsync('manual')).toEqual({
+      state: 'queued',
+      reason: 'manual',
+      mode: null,
+    });
+  });
+});
+
 describe('RefreshRuntime.refresh post-save housekeeping (outcome labeling + weekly review)', () => {
   function insertFactorHistoryRow(
     runId: string,
@@ -344,7 +454,7 @@ describe('RefreshRuntime.refreshAsync', () => {
 
     const result = runtime.refreshAsync('manual');
 
-    expect(result).toEqual({ state: 'queued', reason: 'manual' });
+    expect(result).toEqual({ state: 'queued', reason: 'manual', mode: null });
     expect(runtime.getStatus()).toMatchObject({ state: 'running', reason: 'manual' });
 
     resolveFirst?.();
@@ -370,7 +480,7 @@ describe('RefreshRuntime.refreshAsync', () => {
     const firstResult = runtime.refreshAsync('daily');
     const secondResult = runtime.refreshAsync('manual');
 
-    expect(firstResult).toEqual({ state: 'queued', reason: 'daily' });
+    expect(firstResult).toEqual({ state: 'queued', reason: 'daily', mode: null });
     expect(secondResult).toMatchObject({ state: 'running', reason: 'daily' });
     expect(runPipeline).toHaveBeenCalledOnce();
 

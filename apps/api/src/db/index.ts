@@ -1,4 +1,6 @@
 export { openDatabase } from './client.js';
+export type { EnrichmentCacheBlob } from './enrichmentCache.js';
+export { loadEnrichmentCache, saveEnrichmentCache } from './enrichmentCache.js';
 export {
   historyMetrics,
   loadPriceLookback,
@@ -17,7 +19,7 @@ export {
   saveOutcomeLabelRecords,
 } from './outcomeLabels.js';
 export { loadLatestRegimeState, recordRegimeHistory } from './regimeHistory.js';
-export { pruneOldRuns, saveSnapshot } from './runs.js';
+export { pruneOldRuns, saveSnapshot, updateRunContext } from './runs.js';
 export { ensureSchema } from './schema.js';
 export type {
   FactorHistoryRecordInput,

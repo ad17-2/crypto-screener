@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '../../src/config';
 import { AppConfigSchema } from '../../src/config';
+import type { EnrichmentCacheBlob } from '../../src/db/enrichmentCache';
 import {
   aggregateCoinglassPairs,
   coinglassCandidateStats,
@@ -9,9 +10,17 @@ import {
   collectFearGreedContext,
   collectMacroCalendarContext,
   collectMarket,
+  type EnrichmentCacheDeps,
   normalizeCoingeckoCategories,
   rankCoinglassCandidates,
 } from '../../src/pipeline/collector';
+import { DERIVATIVES_SNAPSHOT_FIELDS } from '../../src/pipeline/derivatives';
+import {
+  BTC_ONLY_CACHE_FIELDS,
+  CORRELATION_FIELDS,
+  LONG_SHORT_FIELDS,
+} from '../../src/pipeline/enrichment';
+import { TECHNICAL_SNAPSHOT_FIELDS } from '../../src/pipeline/technicals';
 import type { CoinGeckoClient } from '../../src/providers/coingecko';
 import type {
   CoinGlassClient,
@@ -310,9 +319,9 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
         min_exchange_count: 2,
         candidate_symbols: 5,
         request_delay_seconds: 0,
-        technical_indicators: { max_symbols: 5, request_delay_seconds: 0, limit: 80 },
-        derivatives_history: { max_symbols: 5, request_delay_seconds: 0, limit: 40 },
-        long_short_ratio: { max_symbols: 0, request_delay_seconds: 0 },
+        technical_indicators: { max_symbols: 5, limit: 80 },
+        derivatives_history: { max_symbols: 5, limit: 40 },
+        long_short_ratio: { max_symbols: 0 },
       },
     },
     universe: {
@@ -344,9 +353,9 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
           min_exchange_count: 2,
           candidate_symbols: 5,
           request_delay_seconds: 0,
-          technical_indicators: { max_symbols: 0, request_delay_seconds: 0 },
-          derivatives_history: { max_symbols: 0, request_delay_seconds: 0 },
-          long_short_ratio: { max_symbols: 0, request_delay_seconds: 0 },
+          technical_indicators: { max_symbols: 0 },
+          derivatives_history: { max_symbols: 0 },
+          long_short_ratio: { max_symbols: 0 },
         },
       },
       universe: {
@@ -430,6 +439,320 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
     for (const key of expectedKeys) {
       expect(rows[0]).toHaveProperty(key);
     }
+  });
+});
+
+// Wraps StubCoinGlassClient to count history-method calls by method name (and log the identifier
+// each was called with) -- everything else (candle/history shape, futuresPairsMarkets tracking via
+// the inherited `calls`) is unchanged.
+class CountingCoinGlassClient extends StubCoinGlassClient {
+  historyCalls: string[] = [];
+
+  override async priceHistory(
+    exchange: string,
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`priceHistory:${symbol}`);
+    return super.priceHistory(exchange, symbol, interval, limit);
+  }
+
+  override async openInterestAggregatedHistory(
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`openInterestAggregatedHistory:${symbol}`);
+    return super.openInterestAggregatedHistory(symbol, interval, limit);
+  }
+
+  override async fundingOiWeightHistory(
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`fundingOiWeightHistory:${symbol}`);
+    return super.fundingOiWeightHistory(symbol, interval, limit);
+  }
+
+  override async liquidationAggregatedHistory(
+    exchanges: string[],
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`liquidationAggregatedHistory:${symbol}`);
+    return super.liquidationAggregatedHistory(exchanges, symbol, interval, limit);
+  }
+
+  override async aggregatedTakerBuySellHistory(
+    exchanges: string[],
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`aggregatedTakerBuySellHistory:${symbol}`);
+    return super.aggregatedTakerBuySellHistory(exchanges, symbol, interval, limit);
+  }
+
+  override async globalLongShortAccountRatioHistory(
+    exchange: string,
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`globalLongShortAccountRatioHistory:${symbol}`);
+    return super.globalLongShortAccountRatioHistory(exchange, symbol, interval, limit);
+  }
+
+  override async topLongShortAccountRatioHistory(
+    exchange: string,
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`topLongShortAccountRatioHistory:${symbol}`);
+    return super.topLongShortAccountRatioHistory(exchange, symbol, interval, limit);
+  }
+
+  override async topLongShortPositionRatioHistory(
+    exchange: string,
+    symbol: string,
+    interval: string,
+    limit: number,
+  ): Promise<CoinGlassHistoryRow[]> {
+    this.historyCalls.push(`topLongShortPositionRatioHistory:${symbol}`);
+    return super.topLongShortPositionRatioHistory(exchange, symbol, interval, limit);
+  }
+}
+
+describe('collectCoinglassFutures light/full enrichment cache', () => {
+  const config = buildConfig({
+    providers: {
+      coinglass: {
+        exchanges: ['OKX', 'Bybit'],
+        min_exchange_count: 2,
+        candidate_symbols: 5,
+        request_delay_seconds: 0,
+        technical_indicators: { max_symbols: 0 },
+        derivatives_history: { max_symbols: 0 },
+        long_short_ratio: { max_symbols: 0 },
+      },
+    },
+    universe: {
+      exclude_base_assets: ['USDT', 'USDC'],
+      min_quote_volume_usd: 20_000_000,
+      top_symbols_by_volume: 80,
+    },
+    report: { core_symbols: ['BTC', 'ETH'] },
+  });
+
+  function twoSymbolPairs(): Record<string, CoinGlassPair[]> {
+    return {
+      BTC: [btcOkxPair()],
+      ETH: [btcOkxPair({ symbol: 'ETH/USDT', instrument_id: 'ETHUSDT' })],
+    };
+  }
+
+  it('(a) light run with a warm cache covering every symbol makes zero history-method calls, but still calls pairs-markets per candidate', async () => {
+    const cachedRows = {
+      BTC: { technical_interval: '4h', rsi_14: 55 },
+      ETH: { technical_interval: '4h', rsi_14: 48 },
+    };
+    const saveMock = vi.fn();
+    const client = new CountingCoinGlassClient(SUPPORTED_PAIRS, twoSymbolPairs());
+    const status: Record<string, unknown> = {};
+    const enrichmentCache: EnrichmentCacheDeps = {
+      mode: 'light',
+      barTsMs: 111,
+      cachedRows,
+      save: saveMock,
+    };
+
+    const rows = await collectCoinglassFutures(config, status, client, enrichmentCache);
+
+    expect(client.historyCalls).toEqual([]);
+    expect(client.calls).toEqual(['futuresPairsMarkets:BTC', 'futuresPairsMarkets:ETH']);
+    expect(saveMock).not.toHaveBeenCalled();
+    expect(rows.find((row) => row.symbol === 'BTC')?.rsi_14).toBe(55);
+    expect(rows.find((row) => row.symbol === 'ETH')?.rsi_14).toBe(48);
+    expect(status.technicals).toMatchObject({
+      status: 'cached',
+      cache_bar_ts_ms: 111,
+      rows: 2,
+      delta_rows: 0,
+    });
+    expect(status.refresh_mode).toBe('light');
+    expect(status.history_bar_ts_ms).toBe(111);
+  });
+
+  it('(b) light run with one symbol missing from the cache fetches only that symbol, overlaying the rest', async () => {
+    const cachedRows = { BTC: { technical_interval: '4h', rsi_14: 55 } };
+    const client = new CountingCoinGlassClient(SUPPORTED_PAIRS, twoSymbolPairs());
+    const enrichmentCache: EnrichmentCacheDeps = {
+      mode: 'light',
+      barTsMs: 222,
+      cachedRows,
+      save: vi.fn(),
+    };
+
+    const rows = await collectCoinglassFutures(config, {}, client, enrichmentCache);
+
+    // Exactly one delta symbol (ETH, not in the cache): 5 history-method calls + 3 long/short-ratio
+    // calls (global + top-trader + top-position, all enabled by default in this config) = 8 total,
+    // one each -- BTC (already cached) contributes zero.
+    expect(client.historyCalls).toHaveLength(8);
+    const methodNames = client.historyCalls.map((call) => call.split(':')[0]).sort();
+    expect(methodNames).toEqual(
+      [
+        'aggregatedTakerBuySellHistory',
+        'fundingOiWeightHistory',
+        'globalLongShortAccountRatioHistory',
+        'liquidationAggregatedHistory',
+        'openInterestAggregatedHistory',
+        'priceHistory',
+        'topLongShortAccountRatioHistory',
+        'topLongShortPositionRatioHistory',
+      ].sort(),
+    );
+    expect(rows.find((row) => row.symbol === 'BTC')?.rsi_14).toBe(55); // overlaid from cache
+    expect(rows.find((row) => row.symbol === 'ETH')?.technical_interval).toBe('4h'); // freshly fetched
+  });
+
+  it('(c) full run harvests every enriched symbol into the save callback, with BTC-only extras only on BTC', async () => {
+    const saveMock = vi.fn();
+    const client = new CountingCoinGlassClient(SUPPORTED_PAIRS, twoSymbolPairs());
+    const status: Record<string, unknown> = {};
+    const enrichmentCache: EnrichmentCacheDeps = {
+      mode: 'full',
+      barTsMs: 333,
+      cachedRows: null,
+      save: saveMock,
+    };
+
+    await collectCoinglassFutures(config, status, client, enrichmentCache);
+
+    expect(status.refresh_mode).toBe('full');
+    expect(status.history_bar_ts_ms).toBe(333);
+
+    expect(saveMock).toHaveBeenCalledOnce();
+    const blob = saveMock.mock.calls[0]?.[0] as EnrichmentCacheBlob;
+    expect(Object.keys(blob.rows).sort()).toEqual(['BTC', 'ETH']);
+
+    for (const key of [...TECHNICAL_SNAPSHOT_FIELDS, ...DERIVATIVES_SNAPSHOT_FIELDS]) {
+      expect(blob.rows.BTC).toHaveProperty(key);
+      expect(blob.rows.ETH).toHaveProperty(key);
+    }
+    // top_trader_ratio_delta_24h excluded: StubCoinGlassClient's top-account-ratio history is a
+    // single entry, below the 7 entries parseRatioDelta needs, so that one field is legitimately
+    // absent here -- see enrichment.test.ts's dedicated AccountRatioHistoryClient fixture for that
+    // field's own coverage.
+    for (const key of [
+      'long_short_account_ratio',
+      'top_trader_long_short_ratio',
+      'top_trader_position_ratio',
+    ] as const) {
+      expect(blob.rows.BTC).toHaveProperty(key);
+    }
+    // BTC-only extras: price_history_bars + alt_alt_* ride only on the BTC row.
+    expect(blob.rows.BTC).toHaveProperty('price_history_bars');
+    expect(blob.rows.BTC).toHaveProperty('alt_alt_mean_correlation');
+    expect(blob.rows.BTC).toHaveProperty('alt_alt_correlation_pairs');
+    expect(blob.rows.ETH).not.toHaveProperty('price_history_bars');
+    expect(blob.rows.ETH).not.toHaveProperty('alt_alt_mean_correlation');
+    expect(blob.rows.ETH).not.toHaveProperty('alt_alt_correlation_pairs');
+
+    // Upper bound: every harvested key must belong to one of the known enrichment allowlists (plus
+    // BTC_ONLY_CACHE_FIELDS for BTC specifically) -- catches a field silently leaking into the cache
+    // that no allowlist accounts for.
+    const sharedAllowlist = new Set<string>([
+      ...TECHNICAL_SNAPSHOT_FIELDS,
+      ...DERIVATIVES_SNAPSHOT_FIELDS,
+      ...LONG_SHORT_FIELDS,
+      ...CORRELATION_FIELDS,
+    ]);
+    const btcAllowlist = new Set<string>([...sharedAllowlist, ...BTC_ONLY_CACHE_FIELDS]);
+    for (const key of Object.keys(blob.rows.BTC as Record<string, unknown>)) {
+      expect(btcAllowlist.has(key)).toBe(true);
+    }
+    for (const key of Object.keys(blob.rows.ETH as Record<string, unknown>)) {
+      expect(sharedAllowlist.has(key)).toBe(true);
+    }
+  });
+
+  it('(d) round-trip parity: fields harvested from a full run overlay onto a light run as deep-equal values', async () => {
+    let harvestedBlob: EnrichmentCacheBlob | undefined;
+    const fullClient = new CountingCoinGlassClient(SUPPORTED_PAIRS, twoSymbolPairs());
+    const fullEnrichmentCache: EnrichmentCacheDeps = {
+      mode: 'full',
+      barTsMs: 444,
+      cachedRows: null,
+      save: (blob) => {
+        harvestedBlob = blob;
+      },
+    };
+
+    const fullRows = await collectCoinglassFutures(config, {}, fullClient, fullEnrichmentCache);
+    expect(harvestedBlob).toBeDefined();
+    const cachedRows = (harvestedBlob as EnrichmentCacheBlob).rows;
+
+    const lightClient = new CountingCoinGlassClient(SUPPORTED_PAIRS, twoSymbolPairs());
+    const lightEnrichmentCache: EnrichmentCacheDeps = {
+      mode: 'light',
+      barTsMs: 444,
+      cachedRows,
+      save: vi.fn(),
+    };
+    const lightRows = await collectCoinglassFutures(config, {}, lightClient, lightEnrichmentCache);
+
+    const allowlistedKeys = [
+      ...TECHNICAL_SNAPSHOT_FIELDS,
+      ...DERIVATIVES_SNAPSHOT_FIELDS,
+      ...LONG_SHORT_FIELDS,
+      ...CORRELATION_FIELDS,
+    ];
+    for (const symbol of ['BTC', 'ETH']) {
+      const fullRow = fullRows.find((row) => row.symbol === symbol);
+      const lightRow = lightRows.find((row) => row.symbol === symbol);
+      for (const key of allowlistedKeys) {
+        expect(lightRow?.[key]).toEqual(fullRow?.[key]);
+      }
+    }
+  });
+
+  it('(e) light run whose cache lacks BTC harvests BTC as a delta row and strips its wrong-universe alt_alt_* stats', async () => {
+    // Mirrors (b), but BTC (not ETH) is the symbol missing from the cache -- the common real-world
+    // case where BTC's own history fetch failed on the prior full run, not the invariant-violating
+    // edge case the old comment in collector.ts used to claim.
+    const cachedRows = { ETH: { technical_interval: '4h', rsi_14: 48 } };
+    const client = new CountingCoinGlassClient(SUPPORTED_PAIRS, twoSymbolPairs());
+    const enrichmentCache: EnrichmentCacheDeps = {
+      mode: 'light',
+      barTsMs: 555,
+      cachedRows,
+      save: vi.fn(),
+    };
+
+    const rows = await collectCoinglassFutures(config, {}, client, enrichmentCache);
+
+    // BTC went through the harvest (delta) path, not the cache overlay: it has freshly computed
+    // technicals from CountingCoinGlassClient's priceHistory fixture, not ETH's cached rsi_14.
+    expect(client.historyCalls.some((call) => call.startsWith('priceHistory:BTC'))).toBe(true);
+    const btcRow = rows.find((row) => row.symbol === 'BTC');
+    expect(btcRow?.technical_interval).toBe('4h');
+    expect(btcRow?.rsi_14).not.toBe(48);
+
+    // appendCoinglassTechnicals computed alt_alt_mean_correlation/alt_alt_correlation_pairs over
+    // ONLY this tiny delta batch (the wrong universe) and stamped them onto BTC's row -- with no
+    // cache entry to overlay them away. collectCoinglassFutures must strip them rather than publish
+    // a non-representative market-wide stat.
+    expect(btcRow).not.toHaveProperty('alt_alt_mean_correlation');
+    expect(btcRow).not.toHaveProperty('alt_alt_correlation_pairs');
+
+    // ETH is untouched: still overlaid from the cache.
+    const ethRow = rows.find((row) => row.symbol === 'ETH');
+    expect(ethRow?.rsi_14).toBe(48);
   });
 });
 
@@ -658,9 +981,9 @@ describe('collectMarket', () => {
           min_exchange_count: 2,
           candidate_symbols: 5,
           request_delay_seconds: 0,
-          technical_indicators: { max_symbols: 0, request_delay_seconds: 0 },
-          derivatives_history: { max_symbols: 0, request_delay_seconds: 0 },
-          long_short_ratio: { max_symbols: 0, request_delay_seconds: 0 },
+          technical_indicators: { max_symbols: 0 },
+          derivatives_history: { max_symbols: 0 },
+          long_short_ratio: { max_symbols: 0 },
         },
       },
       universe: { exclude_base_assets: ['USDT'], min_quote_volume_usd: 20_000_000 },

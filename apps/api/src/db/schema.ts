@@ -90,6 +90,18 @@ CREATE TABLE IF NOT EXISTS market_regime_history (
 
 CREATE INDEX IF NOT EXISTS idx_market_regime_history_time
     ON market_regime_history(generated_at);
+
+-- Single-row cache (db/enrichmentCache.ts) of the last FULL run's history-derived enrichment
+-- fields, keyed by symbol -- lets a LIGHT run (pipeline/collector.ts) skip refetching CoinGlass
+-- history that cannot have changed since the last 4h bar close. id=1 enforced by the CHECK, so
+-- every save is an INSERT OR REPLACE onto the same row rather than an accumulating history table.
+CREATE TABLE IF NOT EXISTS enrichment_cache (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    cache_version INTEGER NOT NULL,
+    bar_ts_ms INTEGER NOT NULL,
+    harvested_at TEXT NOT NULL,
+    payload_json TEXT NOT NULL
+);
 `;
 
 export function ensureSchema(db: Database.Database): void {

@@ -13,6 +13,7 @@ const EXPECTED_TABLES = [
   'outcome_labels',
   'weekly_reviews',
   'market_regime_history',
+  'enrichment_cache',
 ];
 const EXPECTED_INDEXES = [
   'idx_market_rows_symbol_time',

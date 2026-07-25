@@ -41,7 +41,9 @@ export function ReloadButton() {
       {error ? (
         <span className="text-down text-xs">{error}</span>
       ) : queued ? (
-        <span className="text-ash text-xs">Queued — new data in ~25 min</span>
+        <span className="text-ash text-xs">
+          Queued — new data in ~5 min (~25 if full history refresh)
+        </span>
       ) : null}
     </span>
   );

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RawHistoryRow } from '../../src/pipeline/derivatives.js';
-import { derivativesSnapshot } from '../../src/pipeline/derivatives.js';
+import {
+  DERIVATIVES_SNAPSHOT_FIELDS,
+  derivativesSnapshot,
+} from '../../src/pipeline/derivatives.js';
 
 const START = 1_700_000_000_000;
 const STEP_4H = 14_400_000;
@@ -88,5 +91,48 @@ describe('derivativesSnapshot: cvd_trend_72h_pct', () => {
     expect(snapshot.taker_buy_sell_ratio_24h).toBeCloseTo(1.5, 9);
     // taker_imbalance_24h_pct = (buy-sell)/(buy+sell)*100 = (720-480)/(720+480)*100 = 20.
     expect(snapshot.taker_imbalance_24h_pct).toBeCloseTo(20, 9);
+  });
+});
+
+describe('derivativesSnapshot field allowlist (drift guard)', () => {
+  it('emits exactly the keys covered by DERIVATIVES_SNAPSHOT_FIELDS', () => {
+    // 40 bars clears every internal window this function uses (18 for the 72h taker/OI windows, 30
+    // for the OI z-score) with real per-bar variance, so every one of the 19 fields comes back
+    // non-null -- a field silently dropped from the return object (or added without updating the
+    // allowlist) would show up as a mismatch in either direction below, not just a missing key.
+    const BARS = 40;
+    const oiHistory: RawHistoryRow[] = Array.from({ length: BARS }, (_, i) => ({
+      time: START + i * STEP_4H,
+      close: 1_000_000 + i * 15_000 + (i % 3) * 4_000,
+    }));
+    const fundingHistory: RawHistoryRow[] = Array.from({ length: BARS }, (_, i) => ({
+      time: START + i * STEP_4H,
+      close: i % 2 === 0 ? 0.012 : 0.009,
+    }));
+    const liquidationHistory: RawHistoryRow[] = Array.from({ length: BARS }, (_, i) => ({
+      time: START + i * STEP_4H,
+      aggregated_long_liquidation_usd: 50_000 + i * 500,
+      aggregated_short_liquidation_usd: 40_000 + i * 300,
+    }));
+    const takerHistory: RawHistoryRow[] = Array.from({ length: BARS }, (_, i) => ({
+      time: START + i * STEP_4H,
+      aggregated_buy_volume_usd: 120_000 + i * 200,
+      aggregated_sell_volume_usd: 100_000 + i * 150,
+    }));
+
+    const snapshot = derivativesSnapshot(
+      oiHistory,
+      fundingHistory,
+      liquidationHistory,
+      takerHistory,
+      '4h',
+    );
+
+    for (const key of Object.keys(snapshot)) {
+      expect(DERIVATIVES_SNAPSHOT_FIELDS as readonly string[]).toContain(key);
+    }
+    for (const key of DERIVATIVES_SNAPSHOT_FIELDS) {
+      expect(snapshot).toHaveProperty(key);
+    }
   });
 });

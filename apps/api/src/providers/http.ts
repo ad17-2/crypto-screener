@@ -8,6 +8,31 @@ export function sleep(seconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
 }
 
+/**
+ * Client-level request pacing, measured from request START to request START -- unlike a
+ * sleep-after-response call (the pattern this replaces in collector.ts/enrichment.ts), a slow
+ * response's own processing time counts toward the next request's spacing rather than stacking on
+ * top of it. `pace()` is meant to be awaited immediately before each outgoing request; the first
+ * call on a fresh pacer never waits.
+ */
+export class RequestPacer {
+  private nextAllowedAt = 0;
+
+  constructor(private readonly delaySeconds: number) {}
+
+  async pace(): Promise<void> {
+    if (this.delaySeconds <= 0) {
+      return;
+    }
+    const now = Date.now();
+    const waitMs = this.nextAllowedAt - now;
+    if (waitMs > 0) {
+      await sleep(waitMs / 1000);
+    }
+    this.nextAllowedAt = Math.max(now, this.nextAllowedAt) + this.delaySeconds * 1000;
+  }
+}
+
 export interface HttpResponse {
   status: number;
   headers: Headers;

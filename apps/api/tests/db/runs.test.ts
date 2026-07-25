@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { pruneOldRuns, saveSnapshot } from '../../src/db/runs.js';
+import { pruneOldRuns, saveSnapshot, updateRunContext } from '../../src/db/runs.js';
 import type { SnapshotPayload } from '../../src/db/types.js';
 import { SCORING_PIPELINE_VERSION } from '../../src/pipeline/rowScoring.js';
 import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
@@ -109,6 +109,56 @@ describe('saveSnapshot', () => {
     expect(runCount).toBe(1);
     expect(marketRowCount).toBe(1);
     expect(regimeCount).toBe(2);
+  });
+});
+
+describe('updateRunContext', () => {
+  it("updates only the target run's context_json/provider_status_json, leaving its other columns and other runs untouched", () => {
+    saveSnapshot(db, snapshot('run-1', '2026-07-01T06:00:00+07:00', 'BTC'), { storage_path: 'x' });
+    saveSnapshot(db, snapshot('run-2', '2026-07-02T06:00:00+07:00', 'ETH'), { storage_path: 'x' });
+
+    updateRunContext(
+      db,
+      'run-1',
+      { btc_dominance_pct: 99, briefing: { text: 'updated read' } },
+      { deepseek: { status: 'ok' }, timings: { total_ms: 1234 } },
+    );
+
+    const updated = db
+      .prepare(
+        'SELECT generated_at, config_json, context_json, provider_status_json FROM runs WHERE run_id = ?',
+      )
+      .get('run-1') as {
+      generated_at: string;
+      config_json: string;
+      context_json: string;
+      provider_status_json: string;
+    };
+    expect(JSON.parse(updated.context_json)).toEqual({
+      btc_dominance_pct: 99,
+      briefing: { text: 'updated read' },
+    });
+    expect(JSON.parse(updated.provider_status_json)).toEqual({
+      deepseek: { status: 'ok' },
+      timings: { total_ms: 1234 },
+    });
+    // Untouched columns on the same row.
+    expect(updated.generated_at).toBe('2026-07-01T06:00:00+07:00');
+    expect(JSON.parse(updated.config_json)).toEqual({ storage_path: 'x' });
+
+    // The other run's row is completely untouched.
+    const other = db
+      .prepare('SELECT context_json, provider_status_json FROM runs WHERE run_id = ?')
+      .get('run-2') as { context_json: string; provider_status_json: string };
+    expect(JSON.parse(other.context_json)).toEqual({ btc_dominance_pct: 55 });
+    expect(JSON.parse(other.provider_status_json)).toEqual({ coinglass: { status: 'ok' } });
+  });
+
+  it('is a no-op (affects zero rows, does not throw) when run_id has no matching row', () => {
+    expect(() => updateRunContext(db, 'missing-run', {}, {})).not.toThrow();
+    const runCount = (db.prepare('SELECT COUNT(*) AS count FROM runs').get() as { count: number })
+      .count;
+    expect(runCount).toBe(0);
   });
 });
 

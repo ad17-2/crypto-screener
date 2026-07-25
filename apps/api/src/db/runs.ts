@@ -68,6 +68,27 @@ export function saveSnapshot(
 }
 
 /**
+ * Post-commit patch of a single run's two JSON columns, for a value that wasn't known yet when
+ * saveSnapshot ran the original INSERT (runPipeline.ts: the DeepSeek briefing, generated AFTER the
+ * run is committed so publishing a run no longer waits on it, plus the timings it refreshes at the
+ * same time). Never touches market_rows/factor_history -- those already carry everything they'll
+ * ever carry as of the original saveSnapshot call, and price_history_bars/screener_sector_members
+ * are already stripped by then, so there is nothing row-shaped left to update.
+ */
+export function updateRunContext(
+  db: Database.Database,
+  runId: string,
+  context: Record<string, unknown>,
+  providerStatus: Record<string, unknown>,
+): void {
+  db.prepare('UPDATE runs SET context_json = ?, provider_status_json = ? WHERE run_id = ?').run(
+    stableStringify(context ?? {}),
+    stableStringify(providerStatus ?? {}),
+    runId,
+  );
+}
+
+/**
  * Deletes only from `runs` and `market_rows`. factor_history and market_regime_history are
  * append-only history tables; their retention is a separate operator decision (see the CLI
  * backfill/research tooling), not something this prune should ever touch.

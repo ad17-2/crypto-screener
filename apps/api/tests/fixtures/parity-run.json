@@ -42,15 +42,13 @@
           "enabled": true,
           "interval": "4h",
           "limit": 220,
-          "max_symbols": 40,
-          "request_delay_seconds": 2.1
+          "max_symbols": 40
         },
         "derivatives_history": {
           "enabled": true,
           "interval": "4h",
           "limit": 220,
-          "max_symbols": 25,
-          "request_delay_seconds": 2.1
+          "max_symbols": 25
         },
         "long_short_ratio": {
           "enabled": true,
@@ -58,8 +56,7 @@
           "limit": 30,
           "max_symbols": 0,
           "ratio_exchange": "Binance",
-          "include_top_trader": true,
-          "request_delay_seconds": 2.1
+          "include_top_trader": true
         }
       },
       "coingecko": {

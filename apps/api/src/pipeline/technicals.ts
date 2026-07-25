@@ -49,6 +49,52 @@ interface Divergence {
   strength: number | null;
 }
 
+// Exactly the keys technicalSnapshot() below can return -- the enrichment-cache allowlist
+// (db/enrichmentCache.ts, via collector.ts's harvest step) copies fields by this list, not by
+// blindly spreading a row, so a field added here without updating this list is silently dropped
+// from the cache rather than corrupting it; technicals.test.ts's drift test pins the two in sync.
+export const TECHNICAL_SNAPSHOT_FIELDS = [
+  'technical_interval',
+  'technical_candle_count',
+  'technical_close',
+  'ema_20',
+  'ema_50',
+  'ema_200',
+  'distance_ema20_pct',
+  'rsi_14',
+  'macd_line',
+  'macd_signal',
+  'macd_histogram',
+  'macd_histogram_pct',
+  'atr_14',
+  'atr_14_pct',
+  'bb_mid',
+  'bb_upper',
+  'bb_lower',
+  'bb_position',
+  'bb_width_pct',
+  'technical_trend_score',
+  'technical_momentum_score',
+  'technical_setup',
+  'trend_state',
+  'breakout_pct_20',
+  'breakdown_pct_20',
+  'donchian_position_20',
+  'donchian_high_20',
+  'donchian_low_20',
+  'breakout_volume_ratio_20',
+  'ema_cross_direction',
+  'ema_cross_bars_since',
+  'technical_divergence',
+  'technical_divergence_strength',
+  'fib_leg_high',
+  'fib_leg_low',
+  'fib_leg_direction',
+  'golden_pocket_upper',
+  'golden_pocket_lower',
+  'distance_to_golden_pocket_pct',
+] as const;
+
 export function technicalSnapshot(candles: RawCandle[], interval: string): Record<string, unknown> {
   const series = normalizeCandles(candles);
   const closes = series.map((item) => item.close);

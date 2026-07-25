@@ -44,6 +44,11 @@ export type RefreshStatus =
       // Non-blocking post-save steps (outcome labeling, the weekly review) never fail the refresh --
       // this is where a failure or a noteworthy outcome from either shows up instead.
       notes: string[];
+      // The mode runPipeline actually resolved to (pipeline/runPipeline.ts's own mode decision,
+      // read back off provider_status.refresh_mode) -- not necessarily what the caller requested,
+      // since a light override with no usable cache degrades to full. null when provider_status
+      // never carried the field (e.g. a mocked runPipelineFn in a test).
+      refresh_mode: 'light' | 'full' | null;
     }
   | { state: 'error'; reason: string; error: string; finished_at: string };
 
@@ -68,7 +73,7 @@ export interface RefreshRuntimeDeps {
   runPipeline?: (
     config: AppConfig,
     outDir: string,
-    options: { save?: boolean; writeReportFiles?: boolean },
+    options: { save?: boolean; writeReportFiles?: boolean; mode?: 'light' | 'full' },
   ) => Promise<RunPipelineResult>;
   // Mirrors runPipeline.ts's own deepseekClient dep: optional so production constructs the real
   // client (inside attachWeeklyReview below), while tests inject a mock.
@@ -185,7 +190,7 @@ export class RefreshRuntime {
   private readonly runPipelineFn: (
     config: AppConfig,
     outDir: string,
-    options: { save?: boolean; writeReportFiles?: boolean },
+    options: { save?: boolean; writeReportFiles?: boolean; mode?: 'light' | 'full' },
   ) => Promise<RunPipelineResult>;
   private readonly deepseekClient: DeepSeekClient | undefined;
   private busy = false;
@@ -203,7 +208,7 @@ export class RefreshRuntime {
     return this.status;
   }
 
-  async refresh(reason: string): Promise<RefreshStatus> {
+  async refresh(reason: string, mode?: 'light' | 'full'): Promise<RefreshStatus> {
     if (this.busy) {
       return { ...this.status, state: 'running' } as RefreshStatus;
     }
@@ -216,10 +221,25 @@ export class RefreshRuntime {
     };
     try {
       const config = this.loadRuntimeConfig();
-      const { payload, paths } = await this.runPipelineFn(config, this.settings.reportDir, {
-        save: true,
-        writeReportFiles: false,
-      });
+      // exactOptionalPropertyTypes is on: `mode` must be omitted entirely when no override was
+      // requested, not set to `mode: undefined` (that's a distinct, disallowed assignment under an
+      // optional property's type).
+      const pipelineOptions: { save: boolean; writeReportFiles: boolean; mode?: 'light' | 'full' } =
+        mode === undefined
+          ? { save: true, writeReportFiles: false }
+          : { save: true, writeReportFiles: false, mode };
+      const { payload, paths } = await this.runPipelineFn(
+        config,
+        this.settings.reportDir,
+        pipelineOptions,
+      );
+      // What runPipeline actually resolved to (pipeline/collector.ts stamps this onto
+      // provider_status), not necessarily the `mode` requested above -- a light override with no
+      // usable cache degrades to full inside runPipeline itself. Optional-chained: a mocked
+      // runPipelineFn (tests) may resolve a payload with no provider_status at all.
+      const resolvedMode = payload.provider_status?.refresh_mode;
+      const refreshMode: 'light' | 'full' | null =
+        resolvedMode === 'light' || resolvedMode === 'full' ? resolvedMode : null;
       const retention =
         this.settings.retainRuns > 0 ? pruneOldRuns(this.db, this.settings.retainRuns) : null;
 
@@ -260,6 +280,7 @@ export class RefreshRuntime {
         paths,
         retention,
         notes,
+        refresh_mode: refreshMode,
       };
     } catch (error) {
       this.status = {
@@ -274,12 +295,14 @@ export class RefreshRuntime {
     return this.status;
   }
 
-  refreshAsync(reason: string): RefreshAsyncResult {
+  refreshAsync(reason: string, mode?: 'light' | 'full'): RefreshAsyncResult {
     if (this.busy) {
       return { ...this.status, state: 'running' } as RefreshAsyncResult;
     }
-    void this.refresh(reason);
-    return { state: 'queued', reason };
+    void this.refresh(reason, mode);
+    // Echoes the requested override, not a resolved mode -- runPipeline hasn't run yet at this
+    // point (refresh() above continues in the background), so there's nothing resolved to report.
+    return { state: 'queued', reason, mode: mode ?? null };
   }
 
   /** Reloads config fresh each refresh (the file may change on disk) and overrides storage_path with the runtime DB path. */

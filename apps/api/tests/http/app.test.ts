@@ -189,7 +189,7 @@ describe('POST /api/refresh', () => {
     const response = await request(app).post('/api/refresh').set('X-Refresh-Token', 'secret');
 
     expect(response.status).toBe(202);
-    expect(response.body).toEqual({ state: 'queued', reason: 'manual' });
+    expect(response.body).toEqual({ state: 'queued', reason: 'manual', mode: null });
     expect(runPipeline).toHaveBeenCalledOnce();
   });
 
@@ -207,7 +207,7 @@ describe('POST /api/refresh', () => {
     const response = await request(app).post('/api/refresh').set('Authorization', 'Bearer secret');
 
     expect(response.status).toBe(202);
-    expect(response.body).toEqual({ state: 'queued', reason: 'manual' });
+    expect(response.body).toEqual({ state: 'queued', reason: 'manual', mode: null });
     expect(runPipeline).toHaveBeenCalledOnce();
   });
 
@@ -226,10 +226,73 @@ describe('POST /api/refresh', () => {
     const second = await request(app).post('/api/refresh').set('X-Refresh-Token', 'secret');
 
     expect(first.status).toBe(202);
-    expect(first.body).toEqual({ state: 'queued', reason: 'manual' });
+    expect(first.body).toEqual({ state: 'queued', reason: 'manual', mode: null });
     // Always 202, even for the already-running response.
     expect(second.status).toBe(202);
     expect(second.body).toMatchObject({ state: 'running', reason: 'manual' });
     expect(runPipeline).toHaveBeenCalledOnce();
+  });
+
+  it('accepts ?mode=light and passes it through to refreshAsync', async () => {
+    const { runtime, runPipeline } = fakeRuntime();
+    const app = createApp({
+      db,
+      config: AppConfigSchema.parse({ storage_path: dbPath }),
+      dbPath,
+      limit: 5,
+      runtime,
+      refreshToken: 'secret',
+    });
+
+    const response = await request(app)
+      .post('/api/refresh?mode=light')
+      .set('X-Refresh-Token', 'secret');
+
+    expect(response.status).toBe(202);
+    expect(response.body).toEqual({ state: 'queued', reason: 'manual', mode: 'light' });
+    expect(runPipeline.mock.calls[0]?.[2]).toMatchObject({ mode: 'light' });
+  });
+
+  it('accepts ?mode=full and passes it through to refreshAsync', async () => {
+    const { runtime, runPipeline } = fakeRuntime();
+    const app = createApp({
+      db,
+      config: AppConfigSchema.parse({ storage_path: dbPath }),
+      dbPath,
+      limit: 5,
+      runtime,
+      refreshToken: 'secret',
+    });
+
+    const response = await request(app)
+      .post('/api/refresh?mode=full')
+      .set('X-Refresh-Token', 'secret');
+
+    expect(response.status).toBe(202);
+    expect(response.body).toEqual({ state: 'queued', reason: 'manual', mode: 'full' });
+    expect(runPipeline.mock.calls[0]?.[2]).toMatchObject({ mode: 'full' });
+  });
+
+  it('400s on an invalid ?mode value, without touching the runtime', async () => {
+    const { runtime, runPipeline } = fakeRuntime();
+    const app = createApp({
+      db,
+      config: AppConfigSchema.parse({ storage_path: dbPath }),
+      dbPath,
+      limit: 5,
+      runtime,
+      refreshToken: 'secret',
+    });
+
+    const response = await request(app)
+      .post('/api/refresh?mode=bogus')
+      .set('X-Refresh-Token', 'secret');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      status: 'invalid_request',
+      reason: 'mode must be "full" or "light"',
+    });
+    expect(runPipeline).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import type { AppConfig } from '../config/index.js';
+import type { EnrichmentCacheBlob } from '../db/index.js';
 import type { CoinGeckoClient } from '../providers/coingecko.js';
 import { CoinGeckoHttpClient } from '../providers/coingecko.js';
 import type { CoinGlassClient, CoinGlassPair } from '../providers/coinglass.js';
@@ -8,21 +9,25 @@ import type { FearGreedClient } from '../providers/feargreed.js';
 import { FearGreedHttpClient } from '../providers/feargreed.js';
 import type { ForexFactoryClient } from '../providers/forexfactory.js';
 import { ForexFactoryHttpClient } from '../providers/forexfactory.js';
-import { sleep } from '../providers/http.js';
 import {
   baseFromPair,
   isLikelyPerpetualPair,
   pairSymbolMatchesQuote,
   quoteMatches,
 } from './coinglassPairs.js';
+import { DERIVATIVES_SNAPSHOT_FIELDS } from './derivatives.js';
 import type { ProviderStatus } from './enrichment.js';
 import {
   appendCoinglassDerivativesHistory,
   appendCoinglassLongShortRatio,
   appendCoinglassTechnicals,
+  BTC_ONLY_CACHE_FIELDS,
+  CORRELATION_FIELDS,
+  LONG_SHORT_FIELDS,
 } from './enrichment.js';
 import { applyDataQuality } from './quality.js';
 import { fundingAnnualizedPct, toFloat, weightedAverage } from './scoring.js';
+import { TECHNICAL_SNAPSHOT_FIELDS } from './technicals.js';
 import type { Row } from './types.js';
 import { asRecord } from './types.js';
 
@@ -34,11 +39,25 @@ export interface CollectResult {
   provider_status: ProviderStatus;
 }
 
+/**
+ * Light/full split (see runPipeline.ts's mode decision): `barTsMs` is threaded through from
+ * runPipeline rather than recomputed here so one Date.now() call decides both the mode (there) and
+ * the provenance stamps below (here), and so light/full collector tests can inject a fixed value
+ * instead of mocking time.
+ */
+export interface EnrichmentCacheDeps {
+  mode: 'light' | 'full';
+  barTsMs: number;
+  cachedRows: Record<string, Record<string, unknown>> | null;
+  save?: ((blob: EnrichmentCacheBlob) => void) | undefined;
+}
+
 export interface CollectDeps {
   coinglassClient?: CoinGlassClient;
   coingeckoClient?: CoinGeckoClient;
   feargreedClient?: FearGreedClient;
   forexfactoryClient?: ForexFactoryClient;
+  enrichmentCache?: EnrichmentCacheDeps;
 }
 
 export async function collectMarket(
@@ -46,7 +65,12 @@ export async function collectMarket(
   deps: CollectDeps = {},
 ): Promise<CollectResult> {
   const status: ProviderStatus = {};
-  const rows = await collectCoinglassFutures(config, status, deps.coinglassClient);
+  const rows = await collectCoinglassFutures(
+    config,
+    status,
+    deps.coinglassClient,
+    deps.enrichmentCache,
+  );
   const marketContext = await collectCoingeckoContext(config, status, deps.coingeckoClient);
   Object.assign(marketContext, await collectFearGreedContext(config, status, deps.feargreedClient));
   Object.assign(
@@ -61,6 +85,7 @@ export async function collectCoinglassFutures(
   config: AppConfig,
   status?: ProviderStatus,
   client?: CoinGlassClient,
+  enrichmentCache?: EnrichmentCacheDeps,
 ): Promise<Row[]> {
   const providerCfg = config.providers.coinglass;
   const universeCfg = config.universe;
@@ -85,10 +110,10 @@ export async function collectCoinglassFutures(
       retry429MaxDelaySeconds: providerCfg.retry_429_max_delay_seconds,
       retry429JitterSeconds: providerCfg.retry_429_jitter_seconds,
       retry429MaxAttempts: providerCfg.retry_429_max_attempts,
+      requestDelaySeconds: providerCfg.request_delay_seconds,
     });
 
   const exchanges = new Set(providerCfg.exchanges);
-  const requestDelay = providerCfg.request_delay_seconds;
   const topSymbols = universeCfg.top_symbols_by_volume;
   const candidateLimit = providerCfg.candidate_symbols || topSymbols;
   const minVolume = universeCfg.min_quote_volume_usd;
@@ -97,6 +122,10 @@ export async function collectCoinglassFutures(
   const excludedBases = new Set(universeCfg.exclude_base_assets.map((item) => item.toUpperCase()));
   const coreSymbols = config.report.core_symbols.map((item) => item.toUpperCase());
 
+  // Wraps the candidate scan end-to-end (supportedExchangePairs through the per-candidate
+  // pairs-markets loop below) for status.coinglass.duration_ms -- see the enrichment.ts append*
+  // functions for the same pattern applied to their own stages.
+  const coinglassScanStartMs = Date.now();
   const supportedPairs = await coinglassClient.supportedExchangePairs();
   const candidateStats = coinglassCandidateStats({
     supportedPairs,
@@ -124,22 +153,145 @@ export async function collectCoinglassFutures(
       }
     } catch (error) {
       collectProviderError(errors, error, symbol);
-    } finally {
-      if (requestDelay > 0) {
-        await sleep(requestDelay);
-      }
     }
   }
+  const coinglassScanMs = Date.now() - coinglassScanStartMs;
 
   rows.sort(
     (a, b) => (toFloat(b.quote_volume_usd, 0.0) ?? 0.0) - (toFloat(a.quote_volume_usd, 0.0) ?? 0.0),
   );
   const topRows = rows.slice(0, topSymbols);
-  await appendCoinglassTechnicals(topRows, coinglassClient, providerCfg, status);
-  await appendCoinglassDerivativesHistory(topRows, coinglassClient, providerCfg, status);
-  await appendCoinglassLongShortRatio(topRows, coinglassClient, providerCfg, status);
+
+  // CoinGlass 4h history cannot change between 4h bar closes (Hobbyist tier locks history to 4h
+  // candles), so a "light" run reuses the previous full run's enrichment fields for every symbol
+  // already in the cache, fetching history only for symbols the cache doesn't have (new entrants).
+  // `mode` defaults to 'full' when no enrichmentCache deps were supplied at all -- e.g. some
+  // CLI/test paths -- which reproduces today's behavior exactly (always refetch everything).
+  const mode: 'light' | 'full' = enrichmentCache?.mode ?? 'full';
+
+  if (enrichmentCache && mode === 'light') {
+    const cachedRows = enrichmentCache.cachedRows ?? {};
+    const deltaRows = topRows.filter((row) => !(String(row.symbol ?? '') in cachedRows));
+
+    // New entrants fetch fresh, into a throwaway status object so its own 'ok'/'error' shape
+    // doesn't leak into the 'cached' status this branch reports below -- only its errors survive,
+    // folded into delta_errors. A delta batch commonly has no BTC row of its own (BTC is usually
+    // cached from the prior full run -- see the comment just below for when it isn't), so
+    // appendCoinglassTechnicals's beta loop (needs seriesBySymbol.get('BTC')) and its alt_alt write
+    // (needs a BTC row in `target`) both skip silently: btc_beta/btc_correlation/alt_alt_* stay
+    // unset for a new entrant until its next full run (<=4h away). scoring.ts already falls back to
+    // the raw change when btc_beta is null, so this is an accepted, temporary degradation.
+    const deltaStatus: ProviderStatus = {};
+    if (deltaRows.length > 0) {
+      await appendCoinglassTechnicals(deltaRows, coinglassClient, providerCfg, deltaStatus);
+      await appendCoinglassDerivativesHistory(deltaRows, coinglassClient, providerCfg, deltaStatus);
+      await appendCoinglassLongShortRatio(deltaRows, coinglassClient, providerCfg, deltaStatus);
+    }
+
+    // BTC itself IS commonly missing from the cache (its history fetch failed during the harvest
+    // full run) and thus lands in deltaRows -- not the invariant-violating edge case the comment
+    // above used to claim. When that happens, appendCoinglassTechnicals just above computed
+    // alt_alt_mean_correlation/alt_alt_correlation_pairs over ONLY this tiny delta batch (the wrong
+    // universe) and stamped them onto BTC's row, and there is no cache entry to overlay them away
+    // (the overlay loop below skips delta rows by construction). Unset those two fields here rather
+    // than publish a non-representative market-wide stat: market.ts's correlationStructureSummary
+    // null-checks them via toFloat, so unset is a supported state, and this self-heals at BTC's next
+    // successful full-run harvest.
+    const btcDeltaRow = deltaRows.find((row) => String(row.symbol ?? '') === 'BTC');
+    if (btcDeltaRow) {
+      delete btcDeltaRow.alt_alt_mean_correlation;
+      delete btcDeltaRow.alt_alt_correlation_pairs;
+    }
+
+    // Overlay cached fields onto every row the cache actually has -- delta rows are skipped here by
+    // construction (they have no cache entry), since they already carry the fresh fields the calls
+    // above just wrote directly onto the same row objects.
+    let overlaidCount = 0;
+    for (const row of topRows) {
+      const cachedFields = cachedRows[String(row.symbol ?? '')];
+      if (cachedFields) {
+        Object.assign(row, cachedFields);
+        overlaidCount += 1;
+      }
+    }
+
+    if (status) {
+      const cachedStatusBase = {
+        status: 'cached' as const,
+        cache_bar_ts_ms: enrichmentCache.barTsMs,
+        rows: overlaidCount,
+        delta_rows: deltaRows.length,
+      };
+      // duration_ms on a cached stage is the delta work only (0 when deltaRows is empty, since the
+      // append* call above never ran at all) -- it means "time spent in this stage this run"
+      // regardless of light/full mode, not "time since this function started".
+      status.technicals = {
+        ...cachedStatusBase,
+        delta_errors: (deltaStatus.technicals as { errors?: string[] } | undefined)?.errors ?? [],
+        duration_ms:
+          (deltaStatus.technicals as { duration_ms?: number } | undefined)?.duration_ms ?? 0,
+      };
+      status.derivatives_history = {
+        ...cachedStatusBase,
+        delta_errors:
+          (deltaStatus.derivatives_history as { errors?: string[] } | undefined)?.errors ?? [],
+        duration_ms:
+          (deltaStatus.derivatives_history as { duration_ms?: number } | undefined)?.duration_ms ??
+          0,
+      };
+      status.long_short_ratio = {
+        ...cachedStatusBase,
+        delta_errors:
+          (deltaStatus.long_short_ratio as { errors?: string[] } | undefined)?.errors ?? [],
+        duration_ms:
+          (deltaStatus.long_short_ratio as { duration_ms?: number } | undefined)?.duration_ms ?? 0,
+      };
+    }
+  } else {
+    await appendCoinglassTechnicals(topRows, coinglassClient, providerCfg, status);
+    await appendCoinglassDerivativesHistory(topRows, coinglassClient, providerCfg, status);
+    await appendCoinglassLongShortRatio(topRows, coinglassClient, providerCfg, status);
+
+    // Harvest immediately after the three append calls, before any later stage gets a chance to
+    // mutate these fields: market.ts's scoring step deletes alt_alt_mean_correlation/
+    // alt_alt_correlation_pairs off the BTC row, and runPipeline.ts deletes price_history_bars
+    // before persisting -- both run after this function returns, so this is the only point where
+    // every enrichment field this run touched is still intact and attributable to its symbol.
+    if (enrichmentCache?.save) {
+      const cacheableKeys = new Set<string>([
+        ...TECHNICAL_SNAPSHOT_FIELDS,
+        ...DERIVATIVES_SNAPSHOT_FIELDS,
+        ...LONG_SHORT_FIELDS,
+        ...CORRELATION_FIELDS,
+      ]);
+      const blob: EnrichmentCacheBlob = { rows: {} };
+      for (const row of topRows) {
+        const symbol = String(row.symbol ?? '');
+        // technical_interval is the same marker appendCoinglassTechnicals itself uses to count
+        // `enriched` (Object.assign only runs when technicalSnapshot() returned non-empty) --
+        // absence means this symbol's enrichment failed or was skipped this run, so it's left out
+        // of the cache rather than harvesting a stale/partial row; it self-heals as a delta fetch
+        // on the next light run once it succeeds.
+        if (!symbol || row.technical_interval === undefined) {
+          continue;
+        }
+        const keysForRow =
+          symbol === 'BTC' ? new Set([...cacheableKeys, ...BTC_ONLY_CACHE_FIELDS]) : cacheableKeys;
+        const cachedFields: Record<string, unknown> = {};
+        for (const key of keysForRow) {
+          if (key in row) {
+            cachedFields[key] = row[key];
+          }
+        }
+        blob.rows[symbol] = cachedFields;
+      }
+      enrichmentCache.save(blob);
+    }
+  }
 
   if (status) {
+    status.refresh_mode = mode;
+    status.history_bar_ts_ms = enrichmentCache?.barTsMs ?? null;
     status.coinglass = {
       status: topRows.length ? 'ok' : 'error',
       rows: topRows.length,
@@ -147,6 +299,7 @@ export async function collectCoinglassFutures(
       supported_symbols: candidateStats.size,
       errors: errors.slice(0, 5),
       note: 'CoinGlass futures pairs-markets primary data',
+      duration_ms: coinglassScanMs,
     };
   }
   return topRows;
@@ -157,9 +310,10 @@ export async function collectCoingeckoContext(
   status: ProviderStatus,
   client?: CoinGeckoClient,
 ): Promise<Record<string, unknown>> {
+  const startMs = Date.now();
   const providerCfg = config.providers.coingecko;
   if (!providerCfg.enabled) {
-    status.coingecko = { status: 'disabled' };
+    status.coingecko = { status: 'disabled', duration_ms: Date.now() - startMs };
     return {};
   }
 
@@ -219,6 +373,7 @@ export async function collectCoingeckoContext(
     status: Object.keys(context).length ? 'ok' : 'error',
     errors: errors.slice(0, 5),
     note: 'global market and category context',
+    duration_ms: Date.now() - startMs,
   };
   return context;
 }
@@ -228,9 +383,10 @@ export async function collectFearGreedContext(
   status: ProviderStatus,
   client?: FearGreedClient,
 ): Promise<Record<string, unknown>> {
+  const startMs = Date.now();
   const providerCfg = config.providers.feargreed;
   if (!providerCfg.enabled) {
-    status.feargreed = { status: 'disabled' };
+    status.feargreed = { status: 'disabled', duration_ms: Date.now() - startMs };
     return {};
   }
 
@@ -260,6 +416,7 @@ export async function collectFearGreedContext(
     status: Object.keys(context).length ? 'ok' : 'error',
     errors: errors.slice(0, 5),
     note: 'alternative.me Fear & Greed Index',
+    duration_ms: Date.now() - startMs,
   };
   return context;
 }
@@ -271,9 +428,10 @@ export async function collectMacroCalendarContext(
   status: ProviderStatus,
   client?: ForexFactoryClient,
 ): Promise<Record<string, unknown>> {
+  const startMs = Date.now();
   const providerCfg = config.providers.forexfactory;
   if (!providerCfg.enabled) {
-    status.forexfactory = { status: 'disabled' };
+    status.forexfactory = { status: 'disabled', duration_ms: Date.now() - startMs };
     return {};
   }
 
@@ -299,6 +457,7 @@ export async function collectMacroCalendarContext(
     status: Object.keys(context).length ? 'ok' : 'error',
     errors: errors.slice(0, 5),
     note: 'ForexFactory weekly macro calendar',
+    duration_ms: Date.now() - startMs,
   };
   return context;
 }
