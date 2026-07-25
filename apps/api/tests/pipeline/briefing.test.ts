@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WatchlistDiff } from '../../src/dashboard/runDiff.js';
 import { formatJakartaIso } from '../../src/db/time.js';
 import {
+  BRIEFING_FALLBACK_SYSTEM_PROMPT,
   BRIEFING_MAX_TOOL_ITERATIONS,
   BRIEFING_SYSTEM_PROMPT,
   BRIEFING_TOOL_BUDGET_MS,
@@ -364,6 +365,41 @@ describe('BRIEFING_SYSTEM_PROMPT', () => {
       "you must call get_outcome_base_rate for that candidate's technical_setup",
     );
   });
+
+  it('states the round budget and requires convergence to finished text on the final round', () => {
+    // The 2026-07-25 incident run exhausted 3 iterations without ever producing text -- the model
+    // kept requesting tools instead of converging. These assertions fail loudly if the convergence
+    // instruction, or its wiring to the real iteration ceiling, ever regresses.
+    expect(BRIEFING_SYSTEM_PROMPT).toContain(
+      `You have at most ${BRIEFING_MAX_TOOL_ITERATIONS} rounds of tool calls`,
+    );
+    expect(BRIEFING_SYSTEM_PROMPT).toContain(
+      'on your final round you must return the finished briefing text instead of more tool calls',
+    );
+  });
+});
+
+describe('BRIEFING_MAX_TOOL_ITERATIONS', () => {
+  it('is 5, raised from the 3 that let the 2026-07-25 incident run exhaust its budget without converging', () => {
+    expect(BRIEFING_MAX_TOOL_ITERATIONS).toBe(5);
+  });
+});
+
+describe('BRIEFING_FALLBACK_SYSTEM_PROMPT', () => {
+  it('never mentions get_outcome_base_rate -- the fallback call has no tools to call it with', () => {
+    expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).not.toContain('get_outcome_base_rate');
+  });
+
+  it('explicitly prohibits claiming to have consulted, called, or looked anything up', () => {
+    // This is the fix for the 2026-07-25 incident: the fallback prompt inherited the tool-enabled
+    // prompt's mandatory base-rate call, had no tool to satisfy it with, and invented a
+    // get_outcome_base_rate result instead. This string assertion fails loudly if a future edit
+    // reverts to the shared prompt or drops this prohibition.
+    expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).toContain('You have no tools this run');
+    expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).toContain(
+      'you must not claim to have consulted, called, queried, or looked up anything',
+    );
+  });
 });
 
 describe('generateBriefing with a toolContext', () => {
@@ -412,6 +448,16 @@ describe('generateBriefing with a toolContext', () => {
     // First attempt is the tool loop (3-arg call with options); second is the plain fallback.
     expect(complete.mock.calls[0]).toHaveLength(3);
     expect(complete.mock.calls[1]).toHaveLength(2);
+
+    // The regression this fix closes: the fallback call has no tools, so it must NOT receive the
+    // tool-enabled prompt that mandates a get_outcome_base_rate call -- that mandate is exactly
+    // what made the model invent a tool result in the 2026-07-25 incident run. Proven red by
+    // temporarily reverting this line to BRIEFING_SYSTEM_PROMPT: the equality assertion failed
+    // ("expected 'You write ...you must call get_outcome_base_rate...' to be 'You write ...You
+    // have no tools this run...'"), and the not.toBe assertion below failed too. Restored here.
+    const fallbackSystemPrompt = complete.mock.calls[1]?.[0];
+    expect(fallbackSystemPrompt).toBe(BRIEFING_FALLBACK_SYSTEM_PROMPT);
+    expect(fallbackSystemPrompt).not.toBe(BRIEFING_SYSTEM_PROMPT);
 
     // The fallback path must be observable and distinguishable from a tool loop that genuinely ran
     // and made 0 calls: used_tools is false, tool_calls is null (not 0), and the reason the loop

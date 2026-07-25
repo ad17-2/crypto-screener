@@ -25,6 +25,11 @@ const MACRO_LOOKAHEAD_HOURS = 48;
 const MACRO_LOOKBACK_HOURS = 12;
 const MS_PER_HOUR = 60 * 60 * 1000;
 
+// Hard ceiling on model<->tool round trips for the BRIEFING_SYSTEM_PROMPT loop below. Declared up
+// here (rather than beside BRIEFING_TOOL_BUDGET_MS near generateBriefing) so the prompt text can
+// reference the real value instead of a hand-copied number that can drift from it.
+export const BRIEFING_MAX_TOOL_ITERATIONS = 5;
+
 export const BRIEFING_SYSTEM_PROMPT =
   'You write "Tonight\'s read" for a discretionary trend + support/resistance trader who enters ' +
   'on 1H/15M golden-pocket pullbacks. Write at most 6 sentences of plain prose -- no markdown, no ' +
@@ -35,7 +40,12 @@ export const BRIEFING_SYSTEM_PROMPT =
   'confidence). Flag any symbol newly arrived on a list and any macro event landing inside the ' +
   'given window. The long/short lists in the JSON carry only the top-ranked candidates, not the ' +
   'whole run: call list_rows or get_row when you need anything beyond them, and never describe ' +
-  'the whole run from the seed payload alone. Say nothing is new tonight only when ' +
+  'the whole run from the seed payload alone. ' +
+  `You have at most ${BRIEFING_MAX_TOOL_ITERATIONS} rounds of tool calls: request every tool ` +
+  'call you need in as few rounds as possible -- you may request several tool calls in the same ' +
+  'message -- and on your final round you must return the finished briefing text instead of more ' +
+  'tool calls. ' +
+  'Say nothing is new tonight only when ' +
   'new_to_list_total is 0, otherwise mention the count even when the new names sit outside the ' +
   'candidates listed. For at least one candidate you name, you must call get_outcome_base_rate ' +
   "for that candidate's technical_setup and state its live win rate or mean return with n, as " +
@@ -43,6 +53,27 @@ export const BRIEFING_SYSTEM_PROMPT =
   'rather than stating a tendency. Those base rates cover only the live era and deliberately ' +
   'exclude a historical backfill, so they describe recent behaviour, not a long-run edge. If bias ' +
   'is risk-off, add one caution sentence. If both the long and short lists are empty, say plainly ' +
+  'that the tape offers nothing worth trading tonight.';
+
+// Used for the plain single-shot call generateBriefing's catch makes when the tool loop throws
+// (exhausted iterations, unsupported tool calling, etc). That call has no tools available, so
+// unlike BRIEFING_SYSTEM_PROMPT this must never mandate or even imply a tool call -- a model
+// complying with a tool mandate it can't fulfil will invent one instead (see the 2026-07-25 run
+// 20260725-133739 incident this prompt fixes: the fallback fabricated a get_outcome_base_rate
+// result that never happened).
+export const BRIEFING_FALLBACK_SYSTEM_PROMPT =
+  'You write "Tonight\'s read" for a discretionary trend + support/resistance trader who enters ' +
+  'on 1H/15M golden-pocket pullbacks. Write at most 6 sentences of plain prose -- no markdown, no ' +
+  'headers, no bullet points, no disclaimers. Use ONLY the facts and numbers present in the JSON ' +
+  'you are given -- never invent prices, levels, events, or percentages. Name at most 3 ' +
+  "candidates worth opening a chart on tonight and say why, in the data's own terms (trend " +
+  'state, distance to the golden pocket, whether it fights BTC, setup confidence). Flag any ' +
+  'symbol newly arrived on a list and any macro event landing inside the given window. Say ' +
+  'nothing is new tonight only when new_to_list_total is 0, otherwise mention the count even ' +
+  'when the new names sit outside the candidates listed. You have no tools this run: you must ' +
+  'not claim to have consulted, called, queried, or looked up anything -- no base rates, no ' +
+  'history, no external data of any kind -- you may use only the JSON you were given. If bias is ' +
+  'risk-off, add one caution sentence. If both the long and short lists are empty, say plainly ' +
   'that the tape offers nothing worth trading tonight.';
 
 export interface BriefingCandidateRow {
@@ -441,13 +472,16 @@ export function createBriefingToolExecutor(
 // attachBriefing (runPipeline.ts) awaits generateBriefing before saveSnapshot, so this sits on the
 // critical path of the data write. completeWithTools only checks budgetMs BEFORE each request in
 // the loop -- it never bounds a request already in flight -- and generateBriefing's catch then
-// issues one more single-shot request bounded by its own request_timeout_seconds. So the dominant
-// term isn't the budget, it's two stacked request_timeout_seconds requests (180s default each):
-// up to BRIEFING_TOOL_BUDGET_MS (120s) of loop time, during which one request can still be
-// in flight past the budget check (+180s), plus the fallback single-shot request (+180s) =
-// ~480s (~8 min) worst case, not ~5 min. Still finite either way, and attachBriefing's existing
+// issues one more single-shot request bounded by its own request_timeout_seconds (180s default,
+// config/schema.ts's request_timeout_seconds). So the dominant term isn't the budget, it's two
+// stacked request_timeout_seconds requests: up to BRIEFING_TOOL_BUDGET_MS (120s) of loop time,
+// during which one request can still be in flight past the budget check (+180s), plus the
+// fallback single-shot request (+180s) = ~480s (~8 min) worst case, not ~5 min. Raising
+// BRIEFING_MAX_TOOL_ITERATIONS (3 -> 5) does NOT change this arithmetic: the loop is bounded by
+// budgetMs checked once per iteration, not by the iteration count itself, so extra rounds only
+// matter if the model converges within the existing 120s budget -- they can't add wall-clock time
+// beyond what was already the worst case. Still finite either way, and attachBriefing's existing
 // try/catch guarantees a failed or slow briefing never fails the run.
-export const BRIEFING_MAX_TOOL_ITERATIONS = 3;
 export const BRIEFING_TOOL_BUDGET_MS = 120_000;
 
 // Kept short: this lands in provider_status.deepseek's note (runPipeline.ts's attachBriefing), not
@@ -491,10 +525,15 @@ export async function generateBriefing(
       // discarding it, so attachBriefing (runPipeline.ts) can record it in provider_status.
       const message = error instanceof Error ? error.message : String(error);
       toolError = message.slice(0, TOOL_FALLBACK_REASON_PREVIEW_LENGTH);
-      completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user);
+      completion = await client.complete(BRIEFING_FALLBACK_SYSTEM_PROMPT, user);
     }
   } else {
-    completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user);
+    // No toolContext means no tools on the wire, so this takes the fallback prompt for the same
+    // reason the catch above does: BRIEFING_SYSTEM_PROMPT *mandates* a get_outcome_base_rate call,
+    // and a model told to cite a tool it hasn't got will invent one (observed in run
+    // 20260725-133739). runPipeline always passes a context today, so this branch is reachable
+    // only from direct callers -- which is exactly why it must not depend on that staying true.
+    completion = await client.complete(BRIEFING_FALLBACK_SYSTEM_PROMPT, user);
   }
 
   const text = completion.text.trim();

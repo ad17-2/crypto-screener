@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBriefing } from '../lib/briefing';
+import { briefingWrittenWithoutTools, parseBriefing } from '../lib/briefing';
 import { NO_LEAKED_VALUES } from './noLeakedValues';
 
 describe('parseBriefing', () => {
@@ -16,6 +16,9 @@ describe('parseBriefing', () => {
       text: 'Tonight the tape is quiet.',
       model: 'deepseek-v4-pro',
       generatedAt: '2026-07-19T00:00:00+07:00',
+      usedTools: null,
+      toolCalls: null,
+      toolError: null,
     });
   });
 
@@ -74,5 +77,85 @@ describe('parseBriefing', () => {
     const parsed = parseBriefing(marketContext);
 
     expect(`${parsed?.text}\n${parsed?.model}`).not.toMatch(NO_LEAKED_VALUES);
+  });
+
+  it('reads used_tools/tool_calls/tool_error when explicitly set', () => {
+    const marketContext = {
+      briefing: {
+        text: 'ok',
+        model: 'deepseek-v4-pro',
+        used_tools: true,
+        tool_calls: 3,
+        tool_error: null,
+      },
+    };
+
+    const parsed = parseBriefing(marketContext);
+    expect(parsed?.usedTools).toBe(true);
+    expect(parsed?.toolCalls).toBe(3);
+    expect(parsed?.toolError).toBeNull();
+  });
+
+  it('reads used_tools: false and a tool_error string', () => {
+    const marketContext = {
+      briefing: {
+        text: 'ok',
+        model: 'deepseek-v4-pro',
+        used_tools: false,
+        tool_calls: null,
+        tool_error: 'exhausted 3 tool iterations',
+      },
+    };
+
+    const parsed = parseBriefing(marketContext);
+    expect(parsed?.usedTools).toBe(false);
+    expect(parsed?.toolCalls).toBeNull();
+    expect(parsed?.toolError).toBe('exhausted 3 tool iterations');
+  });
+
+  it('falls back to usedTools/toolCalls/toolError: null when the fields are absent entirely', () => {
+    const marketContext = { briefing: { text: 'ok', model: 'deepseek-v4-pro' } };
+
+    const parsed = parseBriefing(marketContext);
+    expect(parsed?.usedTools).toBeNull();
+    expect(parsed?.toolCalls).toBeNull();
+    expect(parsed?.toolError).toBeNull();
+  });
+
+  it('falls back to usedTools/toolCalls/toolError: null on malformed, non-boolean/number/string values', () => {
+    const marketContext = {
+      briefing: {
+        text: 'ok',
+        model: 'deepseek-v4-pro',
+        used_tools: 'yes',
+        tool_calls: '3',
+        tool_error: 42,
+      },
+    };
+
+    const parsed = parseBriefing(marketContext);
+    expect(parsed?.usedTools).toBeNull();
+    expect(parsed?.toolCalls).toBeNull();
+    expect(parsed?.toolError).toBeNull();
+  });
+});
+
+describe('briefingWrittenWithoutTools', () => {
+  it('shows the note only when usedTools is explicitly false', () => {
+    const base = { text: 'ok', model: 'm', generatedAt: null, toolCalls: null, toolError: null };
+
+    expect(briefingWrittenWithoutTools({ ...base, usedTools: false })).toBe(true);
+  });
+
+  it('stays silent when usedTools is true', () => {
+    const base = { text: 'ok', model: 'm', generatedAt: null, toolCalls: null, toolError: null };
+
+    expect(briefingWrittenWithoutTools({ ...base, usedTools: true })).toBe(false);
+  });
+
+  it('stays silent when usedTools is absent/unknown (null)', () => {
+    const base = { text: 'ok', model: 'm', generatedAt: null, toolCalls: null, toolError: null };
+
+    expect(briefingWrittenWithoutTools({ ...base, usedTools: null })).toBe(false);
   });
 });
