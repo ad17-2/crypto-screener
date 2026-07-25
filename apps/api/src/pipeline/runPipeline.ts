@@ -102,9 +102,11 @@ async function attachBriefing(
       newToList: diff.newToList,
     });
     payload.market_context.briefing = briefing;
+    const toolsNote = briefing.used_tools ? `tools=${briefing.tool_calls}` : 'tools=fallback';
+    const reasonNote = briefing.tool_error ? ` (${briefing.tool_error})` : '';
     payload.provider_status.deepseek = {
       status: 'ok',
-      note: `model=${briefing.model} reasoning_tokens=${briefing.reasoning_tokens ?? 'n/a'}`,
+      note: `model=${briefing.model} reasoning_tokens=${briefing.reasoning_tokens ?? 'n/a'} ${toolsNote}${reasonNote}`,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

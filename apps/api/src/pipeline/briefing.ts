@@ -37,9 +37,10 @@ export const BRIEFING_SYSTEM_PROMPT =
   'whole run: call list_rows or get_row when you need anything beyond them, and never describe ' +
   'the whole run from the seed payload alone. Say nothing is new tonight only when ' +
   'new_to_list_total is 0, otherwise mention the count even when the new names sit outside the ' +
-  'candidates listed. Before asserting what a setup or trend state TENDS to do, you must call ' +
-  'get_outcome_base_rate and quote its n; if the cell comes back too_thin, say the sample is too ' +
-  'small rather than stating a tendency. Those base rates cover only the live era and deliberately ' +
+  'candidates listed. For at least one candidate you name, you must call get_outcome_base_rate ' +
+  "for that candidate's technical_setup and state its live win rate or mean return with n, as " +
+  'one of your six sentences; if the cell comes back too_thin, say the sample is too small ' +
+  'rather than stating a tendency. Those base rates cover only the live era and deliberately ' +
   'exclude a historical backfill, so they describe recent behaviour, not a long-run edge. If bias ' +
   'is risk-off, add one caution sentence. If both the long and short lists are empty, say plainly ' +
   'that the tape offers nothing worth trading tonight.';
@@ -90,6 +91,16 @@ export interface Briefing {
   generated_at: string;
   output_tokens: number | null;
   reasoning_tokens: number | null;
+  /** Real count when the tool loop ran (may legitimately be 0 -- the model can choose not to call
+   * anything); null when the tool loop never ran at all (no toolContext, or it fell back). */
+  tool_calls: number | null;
+  /** True only when the tool loop actually completed (even with 0 invocations) -- false for both
+   * the no-toolContext single-shot path and a tool loop that threw and fell back. Distinguishing
+   * those two false cases from each other is what tool_error is for. */
+  used_tools: boolean;
+  /** The tool loop's caught error message (truncated), when used_tools is false because it threw
+   * and generateBriefing fell back to a plain single-shot call. Null otherwise. */
+  tool_error: string | null;
 }
 
 function stringOrNull(value: unknown): string | null {
@@ -439,6 +450,10 @@ export function createBriefingToolExecutor(
 export const BRIEFING_MAX_TOOL_ITERATIONS = 3;
 export const BRIEFING_TOOL_BUDGET_MS = 120_000;
 
+// Kept short: this lands in provider_status.deepseek's note (runPipeline.ts's attachBriefing), not
+// in the briefing text itself, so it only needs to be diagnosable, not readable prose.
+const TOOL_FALLBACK_REASON_PREVIEW_LENGTH = 80;
+
 export async function generateBriefing(
   client: DeepSeekClient,
   payload: BriefingPayload,
@@ -447,18 +462,35 @@ export async function generateBriefing(
 ): Promise<Briefing> {
   const user = JSON.stringify(payload);
   let completion: DeepSeekCompletion;
+  let usedTools = false;
+  let toolCalls: number | null = null;
+  let toolError: string | null = null;
+
   if (toolContext) {
+    // Wraps the real executor purely to observe how many times the model actually invokes a tool
+    // -- 0 is a legitimate outcome (the model judged no tool call necessary) and must be
+    // distinguishable from the fallback below, which reports tool_calls as null instead.
+    let invocationCount = 0;
+    const baseExecute = createBriefingToolExecutor(toolContext);
     try {
       completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user, {
         tools: briefingTools(),
-        execute: createBriefingToolExecutor(toolContext),
+        execute: async (call) => {
+          invocationCount += 1;
+          return baseExecute(call);
+        },
         maxIterations: BRIEFING_MAX_TOOL_ITERATIONS,
         budgetMs: BRIEFING_TOOL_BUDGET_MS,
       });
-    } catch {
+      usedTools = true;
+      toolCalls = invocationCount;
+    } catch (error) {
       // The tool loop must never be the reason tonight's briefing doesn't ship -- a model or API
       // that rejects tool calls, exhausts its iteration budget, or blows the wall-clock budget
-      // still falls back to today's plain single-shot completion.
+      // still falls back to today's plain single-shot completion. Capture why, instead of
+      // discarding it, so attachBriefing (runPipeline.ts) can record it in provider_status.
+      const message = error instanceof Error ? error.message : String(error);
+      toolError = message.slice(0, TOOL_FALLBACK_REASON_PREVIEW_LENGTH);
       completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user);
     }
   } else {
@@ -475,5 +507,8 @@ export async function generateBriefing(
     generated_at: nowIso,
     output_tokens: completion.output_tokens,
     reasoning_tokens: completion.reasoning_tokens,
+    tool_calls: toolCalls,
+    used_tools: usedTools,
+    tool_error: toolError,
   };
 }

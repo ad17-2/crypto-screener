@@ -4,6 +4,7 @@ import type { WatchlistDiff } from '../../src/dashboard/runDiff.js';
 import { formatJakartaIso } from '../../src/db/time.js';
 import {
   BRIEFING_MAX_TOOL_ITERATIONS,
+  BRIEFING_SYSTEM_PROMPT,
   BRIEFING_TOOL_BUDGET_MS,
   buildBriefingPayload,
   createBriefingToolExecutor,
@@ -313,6 +314,9 @@ describe('generateBriefing', () => {
       generated_at: '2026-07-19T00:00:00+07:00',
       output_tokens: 100,
       reasoning_tokens: 80,
+      tool_calls: null,
+      used_tools: false,
+      tool_error: null,
     });
   });
 
@@ -343,6 +347,22 @@ describe('generateBriefing', () => {
     expect(briefing.text).toBe('Quiet night.');
     expect(complete).toHaveBeenCalledTimes(1);
     expect(complete.mock.calls[0]).toHaveLength(2);
+    // No toolContext at all -- distinct from a tool loop that ran and threw (used_tools is false
+    // in both cases, but this one has no tool_error since nothing was attempted).
+    expect(briefing.used_tools).toBe(false);
+    expect(briefing.tool_calls).toBeNull();
+    expect(briefing.tool_error).toBeNull();
+  });
+});
+
+describe('BRIEFING_SYSTEM_PROMPT', () => {
+  it('makes the base-rate call unconditional, not gated behind an assertion the 6-sentence format discourages', () => {
+    // A prior version only required calling get_outcome_base_rate "before asserting a tendency" --
+    // a fully compliant briefing never asserts one, so a compliant model made zero tool calls. This
+    // string assertion fails loudly if that conditional phrasing ever comes back.
+    expect(BRIEFING_SYSTEM_PROMPT).toContain(
+      "you must call get_outcome_base_rate for that candidate's technical_setup",
+    );
   });
 });
 
@@ -393,6 +413,13 @@ describe('generateBriefing with a toolContext', () => {
     expect(complete.mock.calls[0]).toHaveLength(3);
     expect(complete.mock.calls[1]).toHaveLength(2);
 
+    // The fallback path must be observable and distinguishable from a tool loop that genuinely ran
+    // and made 0 calls: used_tools is false, tool_calls is null (not 0), and the reason the loop
+    // threw is captured rather than silently discarded.
+    expect(briefing.used_tools).toBe(false);
+    expect(briefing.tool_calls).toBeNull();
+    expect(briefing.tool_error).toBe('tool calling not supported by this deployment');
+
     // The assertions above only prove *some* truthy options object was passed as the third
     // argument -- they'd still pass if generateBriefing sent `tools: []` (wire-identical to no
     // tools) or bound execute to the wrong context. Inspect the actual options.
@@ -417,6 +444,82 @@ describe('generateBriefing with a toolContext', () => {
       argumentsJson: JSON.stringify({ symbol: 'AAA' }),
     });
     expect(JSON.parse(rowRaw).symbol).toBe('AAA');
+  });
+
+  it('tool path where the model executes two tool calls -- used_tools true, tool_calls counts real invocations', async () => {
+    const complete = vi.fn(
+      async (
+        _system: string,
+        _user: string,
+        options?: DeepSeekToolOptions,
+      ): Promise<DeepSeekCompletion> => {
+        if (!options) {
+          throw new Error('expected the tool-loop call, not the fallback');
+        }
+        await options.execute({
+          name: 'get_row',
+          argumentsJson: JSON.stringify({ symbol: 'AAA' }),
+        });
+        await options.execute({
+          name: 'get_outcome_base_rate',
+          argumentsJson: JSON.stringify({ group_by: 'technical_setup', horizon_hours: 24 }),
+        });
+        return {
+          text: 'AAA is a breakout_up setup with a 60% live win rate on n=5.',
+          model: 'deepseek-v4-pro',
+          output_tokens: 50,
+          reasoning_tokens: 20,
+        };
+      },
+    );
+    const client: DeepSeekClient = { complete };
+    const payload = buildBriefingPayload([], EMPTY_DIFF, {}, {}, '2026-07-19T00:00:00+07:00');
+
+    const briefing = await generateBriefing(client, payload, '2026-07-19T00:00:00+07:00', {
+      db,
+      rows: [{ symbol: 'AAA', watchlist_side: 'long', watchlist_rank: 1 }],
+      newToList: new Set(),
+    });
+
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(briefing.used_tools).toBe(true);
+    expect(briefing.tool_calls).toBe(2);
+    expect(briefing.tool_error).toBeNull();
+  });
+
+  it('tool path where the model calls nothing -- used_tools true, tool_calls 0, distinguishable from a fallback', async () => {
+    // This is the previously-undiagnosable case: a compliant tool loop that simply chose not to
+    // call anything produced byte-identical output to a tool loop that threw and fell back.
+    const complete = vi.fn(
+      async (
+        _system: string,
+        _user: string,
+        options?: DeepSeekToolOptions,
+      ): Promise<DeepSeekCompletion> => {
+        if (!options) {
+          throw new Error('expected the tool-loop call, not the fallback');
+        }
+        return {
+          text: 'Nothing worth trading tonight.',
+          model: 'deepseek-v4-pro',
+          output_tokens: 30,
+          reasoning_tokens: 5,
+        };
+      },
+    );
+    const client: DeepSeekClient = { complete };
+    const payload = buildBriefingPayload([], EMPTY_DIFF, {}, {}, '2026-07-19T00:00:00+07:00');
+
+    const briefing = await generateBriefing(client, payload, '2026-07-19T00:00:00+07:00', {
+      db,
+      rows: [],
+      newToList: new Set(),
+    });
+
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(briefing.used_tools).toBe(true);
+    expect(briefing.tool_calls).toBe(0);
+    expect(briefing.tool_error).toBeNull();
   });
 });
 
