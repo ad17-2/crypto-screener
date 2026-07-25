@@ -2,6 +2,7 @@ import {
   clamp,
   mean,
   meanOrNull,
+  median,
   numericValues,
   pyRound,
   stdev,
@@ -218,6 +219,67 @@ function sectorRotationSummary(marketContext: MarketContext): Record<string, unk
     leader_laggard_spread_pct: spread !== null ? pyRound(spread, 3) : null,
     positive_category_pct: positivePct !== null ? pyRound(positivePct, 2) : null,
   };
+}
+
+export interface ScreenerSectorRotationEntry {
+  sector: string;
+  median_residual_change_24h_pct: number;
+  n: number;
+}
+
+/**
+ * Sector rotation computed from the screener's OWN ~70-coin universe, not sectorRotationSummary's
+ * CoinGecko categories above -- those categories describe a universe the user doesn't trade (see
+ * f74b9fc's liquidity floor and the "align the sector with the screener" ask that followed it).
+ * `sectorMembers` is `sector label -> member symbols`, built by collector.ts's
+ * collectCoingeckoContext from providers.coingecko.sectors.
+ *
+ * Uses residual_change_24h_pct (BTC-beta stripped, set by rowScoring.ts's applyScores when both
+ * btc_beta and the market's btc_change_24h_pct are known), not price_change_24h_pct: the entire
+ * point of building this from our own data is to read genuine relative strength, not everything
+ * drifting together with BTC. A row without a residual value is skipped from both the sector's
+ * median and its n. `rows` is unfiltered (like marketSensingSummary's own `rows` param above) --
+ * trustedRows() is applied internally.
+ *
+ * A coin can legitimately belong to more than one sector (LINK is both DeFi and AI) -- it counts
+ * toward each sector's median independently. That's intentional, not a bug to be deduplicated away.
+ *
+ * Symbol matching is case-insensitive. A sector whose matched-and-valued member count falls below
+ * `minMembers` is dropped entirely -- too thin a sample to read as a sector move. Results sort by
+ * median residual descending (strongest rotation first).
+ */
+export function screenerSectorRotation(
+  rows: Row[],
+  sectorMembers: Record<string, string[]>,
+  minMembers: number,
+): ScreenerSectorRotationEntry[] {
+  const residualBySymbol = new Map<string, number>();
+  for (const row of trustedRows(rows)) {
+    const symbol = typeof row.symbol === 'string' ? row.symbol.toUpperCase() : null;
+    const residual = toFloat(row.residual_change_24h_pct);
+    if (symbol !== null && residual !== null) {
+      residualBySymbol.set(symbol, residual);
+    }
+  }
+
+  const entries: ScreenerSectorRotationEntry[] = [];
+  for (const [sector, members] of Object.entries(sectorMembers)) {
+    const values = members
+      .map((member) => residualBySymbol.get(member.toUpperCase()))
+      .filter((value): value is number => value !== undefined);
+    if (values.length < minMembers) {
+      continue;
+    }
+    entries.push({
+      sector,
+      median_residual_change_24h_pct: pyRound(median(values), 3),
+      n: values.length,
+    });
+  }
+
+  return entries.sort(
+    (a, b) => b.median_residual_change_24h_pct - a.median_residual_change_24h_pct,
+  );
 }
 
 function volumeWeightedReturn(rows: Row[]): number | null {

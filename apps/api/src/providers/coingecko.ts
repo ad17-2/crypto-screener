@@ -3,6 +3,7 @@ import { buildUrl, fetchWithRetry429, parseJsonResponse } from './http.js';
 export interface CoinGeckoClient {
   globalData(): Promise<Record<string, unknown>>;
   categories(): Promise<Record<string, unknown>[]>;
+  categoryMembers(categoryId: string): Promise<string[]>;
 }
 
 export interface CoinGeckoClientOptions {
@@ -80,5 +81,28 @@ export class CoinGeckoHttpClient implements CoinGeckoClient {
   async categories(): Promise<Record<string, unknown>[]> {
     const payload = await this.getJson('/coins/categories', { order: 'market_cap_desc' });
     return Array.isArray(payload) ? (payload as Record<string, unknown>[]) : [];
+  }
+
+  // Coin membership for one category, cheap: one call per sector rather than one per coin. See
+  // pipeline/collector.ts's collectCoingeckoContext (screener_sector_members) and
+  // pipeline/market.ts's screenerSectorRotation for the consumer.
+  async categoryMembers(categoryId: string): Promise<string[]> {
+    const payload = await this.getJson('/coins/markets', {
+      vs_currency: 'usd',
+      category: categoryId,
+      per_page: 250,
+      page: 1,
+    });
+    if (!Array.isArray(payload)) {
+      return [];
+    }
+    const symbols: string[] = [];
+    for (const item of payload as Record<string, unknown>[]) {
+      const symbol = item.symbol;
+      if (typeof symbol === 'string' && symbol.length > 0) {
+        symbols.push(symbol.toUpperCase());
+      }
+    }
+    return symbols;
   }
 }

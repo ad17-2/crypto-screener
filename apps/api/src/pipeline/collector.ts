@@ -198,6 +198,23 @@ export async function collectCoingeckoContext(
     collectProviderError(errors, error);
   }
 
+  // Screener-native sector membership -- see screenerSectorRotation in market.ts for the
+  // aggregation this feeds. Transient plumbing, not a display field: runPipeline.ts consumes it
+  // (once scoreSnapshot has set residual_change_24h_pct on rows, which hasn't happened yet at
+  // collection time) and deletes it before market_context is persisted or returned. This whole
+  // fetch must NEVER fail the run, so any single sector's failure resets the map to empty rather
+  // than surfacing a partial one -- mirrors the categories try/catch just above.
+  try {
+    const memberMap: Record<string, string[]> = {};
+    for (const sector of providerCfg.sectors) {
+      memberMap[sector.label] = await coingeckoClient.categoryMembers(sector.id);
+    }
+    context.screener_sector_members = memberMap;
+  } catch (error) {
+    collectProviderError(errors, error);
+    context.screener_sector_members = {};
+  }
+
   status.coingecko = {
     status: Object.keys(context).length ? 'ok' : 'error',
     errors: errors.slice(0, 5),

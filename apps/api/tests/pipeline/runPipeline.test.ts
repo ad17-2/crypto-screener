@@ -64,6 +64,65 @@ describe('runPipeline', () => {
   });
 });
 
+describe('runPipeline screener sector rotation wiring', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('computes market_context.screener_sectors from the collector-stashed member map and strips the temp key', async () => {
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const config = AppConfigSchema.parse({
+      storage_path: ':memory:',
+      providers: { coingecko: { sector_min_members: 2 } },
+    });
+    collectMarketMock.mockResolvedValueOnce({
+      rows: [{ symbol: 'BTC' }, { symbol: 'ETH' }],
+      market_context: { screener_sector_members: { 'Layer 1': ['BTC', 'ETH'] } },
+      provider_status: {},
+    });
+    scoreSnapshotMock.mockReturnValueOnce({
+      rows: [
+        { symbol: 'BTC', scores: {}, factors: {}, residual_change_24h_pct: 2 },
+        { symbol: 'ETH', scores: {}, factors: {}, residual_change_24h_pct: 6 },
+      ],
+      regime: {},
+    });
+
+    const { payload } = await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save: false,
+      writeReportFiles: false,
+    });
+
+    // median([2, 6]) = 4.
+    expect(payload.market_context.screener_sectors).toEqual([
+      { sector: 'Layer 1', median_residual_change_24h_pct: 4, n: 2 },
+    ]);
+    expect(payload.market_context).not.toHaveProperty('screener_sector_members');
+  });
+
+  it('leaves screener_sectors absent (not an empty array) when the collector-stashed member map is empty', async () => {
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    const config = AppConfigSchema.parse({ storage_path: ':memory:' });
+    collectMarketMock.mockResolvedValueOnce({
+      rows: [{ symbol: 'BTC' }],
+      market_context: { screener_sector_members: {} },
+      provider_status: {},
+    });
+    scoreSnapshotMock.mockReturnValueOnce({
+      rows: [{ symbol: 'BTC', scores: {}, factors: {}, residual_change_24h_pct: 2 }],
+      regime: {},
+    });
+
+    const { payload } = await runPipeline(config, '/tmp/crypto-screener-unused-out-dir', {
+      save: false,
+      writeReportFiles: false,
+    });
+
+    expect(payload.market_context).not.toHaveProperty('screener_sectors');
+    expect(payload.market_context).not.toHaveProperty('screener_sector_members');
+  });
+});
+
 describe('runPipeline deepseek briefing wiring', () => {
   afterEach(() => {
     vi.unstubAllEnvs();

@@ -13,6 +13,12 @@ interface CategoryItem {
   changePct: number | null;
 }
 
+interface ScreenerSectorItem {
+  sector: string;
+  medianResidualPct: number | null;
+  n: number | null;
+}
+
 const MAX_CATEGORY_ROWS = 4;
 
 export function BreadthRotationStage({ marketContext }: BreadthRotationStageProps) {
@@ -35,6 +41,11 @@ export function BreadthRotationStage({ marketContext }: BreadthRotationStageProp
   const categories = rec(marketContext, 'categories');
   const leaders = categoryItems(arr(categories, 'leaders')).slice(0, MAX_CATEGORY_ROWS);
   const laggards = categoryItems(arr(categories, 'laggards')).slice(0, MAX_CATEGORY_ROWS);
+
+  // Sector rotation built from the screener's OWN coins (see pipeline/market.ts's
+  // screenerSectorRotation), not CoinGecko's ~744 broad categories -- falls back to the CoinGecko
+  // leaders/laggards above when absent or empty (older runs, or a CoinGecko outage on this run).
+  const screenerSectors = screenerSectorItems(arr(marketContext, 'screener_sectors'));
 
   return (
     <section className="stage" aria-label="Breadth and rotation">
@@ -73,10 +84,16 @@ export function BreadthRotationStage({ marketContext }: BreadthRotationStageProp
             </p>
           ) : null}
 
-          <div className="mt-4 grid grid-cols-2 gap-6">
-            <CategoryList title="Leaders" items={leaders} />
-            <CategoryList title="Laggards" items={laggards} />
-          </div>
+          {screenerSectors.length > 0 ? (
+            <div className="mt-4">
+              <SectorRotationList items={screenerSectors} />
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-2 gap-6">
+              <CategoryList title="Leaders" items={leaders} />
+              <CategoryList title="Laggards" items={laggards} />
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -108,6 +125,35 @@ function CategoryList({ title, items }: { title: string; items: CategoryItem[] }
       )}
     </div>
   );
+}
+
+function SectorRotationList({ items }: { items: ScreenerSectorItem[] }) {
+  return (
+    <ul className="mt-2 grid list-none gap-1.5 p-0">
+      {items.map((item) => (
+        <li key={item.sector} className="min-w-0 flex items-baseline gap-2 text-[13px]">
+          <span className="select-none text-ash" aria-hidden="true">
+            –
+          </span>
+          <span className="min-w-0 flex-1 truncate" title={item.sector}>
+            {item.sector}
+          </span>
+          <span className={`shrink-0 font-mono ${clsFor(item.medianResidualPct)}`}>
+            {signedPct(item.medianResidualPct, 1)}
+          </span>
+          <span className="shrink-0 font-mono text-ash">n={item.n ?? '—'}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function screenerSectorItems(entries: unknown[]): ScreenerSectorItem[] {
+  return entries.map((entry, index) => ({
+    sector: str(entry, 'sector') ?? `sector-${index}`,
+    medianResidualPct: num(entry, 'median_residual_change_24h_pct'),
+    n: num(entry, 'n'),
+  }));
 }
 
 function categoryItems(entries: unknown[]): CategoryItem[] {

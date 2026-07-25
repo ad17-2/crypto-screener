@@ -4,6 +4,7 @@ import { AppConfigSchema } from '../../src/config';
 import {
   aggregateCoinglassPairs,
   coinglassCandidateStats,
+  collectCoingeckoContext,
   collectCoinglassFutures,
   collectFearGreedContext,
   collectMacroCalendarContext,
@@ -620,6 +621,10 @@ class StubCoinGeckoClient implements CoinGeckoClient {
       },
     ];
   }
+
+  async categoryMembers(_categoryId: string): Promise<string[]> {
+    return [];
+  }
 }
 
 class StubFearGreedClient implements FearGreedClient {
@@ -711,6 +716,67 @@ describe('collectMarket', () => {
     expect((result.provider_status.feargreed as { status: string }).status).toBe('ok');
     expect((result.provider_status.forexfactory as { status: string }).status).toBe('ok');
     expect((result.provider_status.data_quality as { excluded: number }).excluded).toBe(0);
+  });
+});
+
+describe('collectCoingeckoContext (screener sectors)', () => {
+  const config = buildConfig({});
+
+  class SectorStubCoinGeckoClient implements CoinGeckoClient {
+    constructor(
+      private readonly membersByCategoryId: Record<string, string[]>,
+      private readonly failingCategoryId: string | null = null,
+    ) {}
+
+    async globalData(): Promise<Record<string, unknown>> {
+      return {};
+    }
+
+    async categories(): Promise<Record<string, unknown>[]> {
+      return [];
+    }
+
+    async categoryMembers(categoryId: string): Promise<string[]> {
+      if (categoryId === this.failingCategoryId) {
+        throw new ProviderError(`${categoryId}: simulated outage`);
+      }
+      return this.membersByCategoryId[categoryId] ?? [];
+    }
+  }
+
+  it('sets market_context.screener_sector_members keyed by each configured sector label', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new SectorStubCoinGeckoClient({
+      'layer-1': ['BTC', 'ETH'],
+      'decentralized-finance-defi': ['UNI'],
+    });
+
+    const context = await collectCoingeckoContext(config, status, client);
+
+    expect(context.screener_sector_members).toEqual({
+      'Layer 1': ['BTC', 'ETH'],
+      DeFi: ['UNI'],
+      AI: [],
+      Meme: [],
+      'Layer 2': [],
+      Gaming: [],
+    });
+  });
+
+  it('falls back to an empty map, without failing the run, when one sector fetch fails', async () => {
+    const status: Record<string, unknown> = {};
+    const client = new SectorStubCoinGeckoClient(
+      { 'layer-1': ['BTC'] },
+      'decentralized-finance-defi',
+    );
+
+    const context = await collectCoingeckoContext(config, status, client);
+
+    expect(context.screener_sector_members).toEqual({});
+    const coingeckoStatus = status.coingecko as { errors: string[] };
+    expect(coingeckoStatus.errors.some((message) => message.includes('simulated outage'))).toBe(
+      true,
+    );
   });
 });
 

@@ -81,6 +81,24 @@ const CoinGeckoConfigSchema = z
     // normalizeCoingeckoCategories in pipeline/collector.ts for the measured thresholds.
     categories_min_market_cap_usd: z.number().default(100_000_000),
     categories_min_volume_24h_usd: z.number().default(10_000_000),
+    // Screener-native sector rotation -- membership for the screener's OWN ~70-coin universe,
+    // not CoinGecko's ~744 broad categories above (which describe a universe the user doesn't
+    // trade). Six calls per run via GET /coins/markets?category=<id> (see providers/coingecko.ts's
+    // categoryMembers and pipeline/market.ts's screenerSectorRotation). Defaults measured live
+    // 2026-07-25 against the live universe: layer-1 (30 coins), decentralized-finance-defi (19),
+    // artificial-intelligence (11), meme-token (6), layer-2 (4), gaming (3); 11 coins fall in more
+    // than one sector, 8 in none.
+    sectors: z.array(z.object({ id: z.string(), label: z.string() }).strict()).default([
+      { id: 'layer-1', label: 'Layer 1' },
+      { id: 'decentralized-finance-defi', label: 'DeFi' },
+      { id: 'artificial-intelligence', label: 'AI' },
+      { id: 'meme-token', label: 'Meme' },
+      { id: 'layer-2', label: 'Layer 2' },
+      { id: 'gaming', label: 'Gaming' },
+    ]),
+    // Below this many matched-and-valued members, a sector's median residual is too thin a sample
+    // to read as a sector move -- see screenerSectorRotation.
+    sector_min_members: z.number().int().default(4),
     request_timeout_seconds: z.number().default(12),
     retry_429: z.boolean().default(true),
     retry_429_initial_delay_seconds: z.number().default(30),

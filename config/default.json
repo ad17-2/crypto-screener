@@ -80,6 +80,15 @@
       "categories_limit": 12,
       "categories_min_market_cap_usd": 100000000,
       "categories_min_volume_24h_usd": 10000000,
+      "sectors": [
+        { "id": "layer-1", "label": "Layer 1" },
+        { "id": "decentralized-finance-defi", "label": "DeFi" },
+        { "id": "artificial-intelligence", "label": "AI" },
+        { "id": "meme-token", "label": "Meme" },
+        { "id": "layer-2", "label": "Layer 2" },
+        { "id": "gaming", "label": "Gaming" }
+      ],
+      "sector_min_members": 4,
       "request_timeout_seconds": 12,
       "retry_429": true,
       "retry_429_initial_delay_seconds": 30,
