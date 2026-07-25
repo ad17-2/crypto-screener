@@ -1,7 +1,12 @@
 import { DIRECTIONAL_FACTORS, QUALITY_FACTORS } from './factorDefinitions.js';
-import { marketSensingSummary, marketStructureSummary } from './market.js';
+import {
+  marketSensingSummary,
+  marketStructureSummary,
+  type ScreenerSectorRotationEntry,
+  screenerSectorRotation,
+} from './market.js';
 import { type InferredRegime, inferRegime } from './regime.js';
-import { applyExcludedScores, applyScores } from './rowScoring.js';
+import { applyExcludedScores, applyScores, setResidualChange } from './rowScoring.js';
 import {
   copysign,
   median,
@@ -28,7 +33,58 @@ export function scoreSnapshot(
 ): ScoreSnapshotResult {
   const trustedRows = rows.filter((row) => row.is_trusted !== false);
   const enrichedContext: MarketContext = { ...(marketContext ?? {}) };
-  Object.assign(enrichedContext, marketStructureSummary(trustedRows, enrichedContext));
+
+  // BTC's own state, for the fights-BTC veto in rowScoring.ts, and for the residual pass below
+  // (screener sector rotation and breadth's screener-sector-momentum input both key off
+  // residual_change_24h_pct, which needs btc_change_24h_pct): prefer BTC's own row (it carries
+  // technicals already; see collector.ts's appendCoinglassTechnicals, which runs before
+  // scoreSnapshot), fall back to the coingecko-derived context field, else null. Must run before
+  // marketStructureSummary below.
+  const btcRow = trustedRows.find((row) => row.symbol === 'BTC');
+  enrichedContext.btc_change_24h_pct = btcRow
+    ? toFloat(btcRow.price_change_24h_pct)
+    : toFloat(marketContext.btc_price_change_24h_pct);
+  enrichedContext.btc_momentum_score = btcRow ? toFloat(btcRow.technical_momentum_score) : null;
+
+  // Residuals used to be set as a side effect inside applyScores' forEach further down, which ran
+  // AFTER breadth -- so breadth's screener-sector-momentum input never saw them. Set them here,
+  // before marketStructureSummary, instead.
+  for (const row of trustedRows) {
+    setResidualChange(row, enrichedContext);
+  }
+
+  // Screener-native sector rotation: sector->member-symbol map stashed by collector.ts's
+  // collectCoingeckoContext under market_context.screener_sector_members. Mirrors the object/
+  // non-empty guard runPipeline.ts applied after scoreSnapshot returned before this moved here --
+  // an empty or missing map leaves screenerSectors (and enrichedContext.screener_sectors below)
+  // empty, never a misleading value.
+  const rawSectorMembers = enrichedContext.screener_sector_members;
+  let screenerSectors: ScreenerSectorRotationEntry[] = [];
+  if (rawSectorMembers && typeof rawSectorMembers === 'object') {
+    const sectorMembers = rawSectorMembers as Record<string, string[]>;
+    if (Object.keys(sectorMembers).length > 0) {
+      screenerSectors = screenerSectorRotation(
+        trustedRows,
+        sectorMembers,
+        config.providers?.coingecko?.sector_min_members ?? 4,
+      );
+    }
+  }
+  if (screenerSectors.length > 0) {
+    // The dashboard reads market_context.screener_sectors directly; runPipeline.ts deletes the
+    // raw screener_sector_members plumbing after scoreSnapshot returns.
+    enrichedContext.screener_sectors = screenerSectors;
+  }
+
+  Object.assign(
+    enrichedContext,
+    marketStructureSummary(
+      trustedRows,
+      enrichedContext,
+      screenerSectors,
+      config.factors?.prefer_screener_sector_momentum ?? true,
+    ),
+  );
   // Unfiltered `rows`, not `trustedRows`: marketSensingSummary re-filters internally for every
   // trusted-derived field, but it also has to find BTC's own row to collect (and clear) the
   // correlation-structure scalars enrichment.ts stashes there. Pre-filtering here would hide an
@@ -39,15 +95,6 @@ export function scoreSnapshot(
     .map((row) => toFloat(row.atr_14_pct))
     .filter((value): value is number => value !== null);
   enrichedContext.median_atr_pct = validAtr.length > 0 ? median(validAtr) : null;
-
-  // BTC's own state, for the fights-BTC veto in rowScoring.ts: prefer BTC's own row (it carries
-  // technicals already; see collector.ts's appendCoinglassTechnicals, which runs before
-  // scoreSnapshot), fall back to the coingecko-derived context field, else null.
-  const btcRow = trustedRows.find((row) => row.symbol === 'BTC');
-  enrichedContext.btc_change_24h_pct = btcRow
-    ? toFloat(btcRow.price_change_24h_pct)
-    : toFloat(marketContext.btc_price_change_24h_pct);
-  enrichedContext.btc_momentum_score = btcRow ? toFloat(btcRow.technical_momentum_score) : null;
 
   const rawFactorsList = trustedRows.map((row) => rawFactors(row, enrichedContext));
   const factorCfg = config.factors ?? {};

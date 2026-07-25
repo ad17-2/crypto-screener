@@ -69,7 +69,14 @@ describe('runPipeline screener sector rotation wiring', () => {
     vi.unstubAllEnvs();
   });
 
-  it('computes market_context.screener_sectors from the collector-stashed member map and strips the temp key', async () => {
+  // screener_sectors is now computed inside scoreSnapshot itself (pipeline/factors.ts, see
+  // factors.test.ts for that wiring), since it needs residual_change_24h_pct before breadth is
+  // scored. This module mocks scoreSnapshot entirely, so runPipeline's remaining, still-real
+  // responsibility is only to strip the raw screener_sector_members plumbing off whatever
+  // market_context scoreSnapshot returns -- exercised here by having the mock return a
+  // market_context shaped like the real scoreSnapshot's (both the raw map and the computed result
+  // present), matching production where the map survives on enrichedContext via its initial spread.
+  it('strips the collector-stashed member map from market_context, preserving what scoreSnapshot computed', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '');
     const config = AppConfigSchema.parse({
       storage_path: ':memory:',
@@ -85,6 +92,11 @@ describe('runPipeline screener sector rotation wiring', () => {
         { symbol: 'BTC', scores: {}, factors: {}, residual_change_24h_pct: 2 },
         { symbol: 'ETH', scores: {}, factors: {}, residual_change_24h_pct: 6 },
       ],
+      market_context: {
+        screener_sector_members: { 'Layer 1': ['BTC', 'ETH'] },
+        // median([2, 6]) = 4.
+        screener_sectors: [{ sector: 'Layer 1', median_residual_change_24h_pct: 4, n: 2 }],
+      },
       regime: {},
     });
 
@@ -93,7 +105,6 @@ describe('runPipeline screener sector rotation wiring', () => {
       writeReportFiles: false,
     });
 
-    // median([2, 6]) = 4.
     expect(payload.market_context.screener_sectors).toEqual([
       { sector: 'Layer 1', median_residual_change_24h_pct: 4, n: 2 },
     ]);

@@ -22,7 +22,7 @@ export interface RowScores {
  * against this string and fails deliberately (over-triggers on comment/format churn too) if the
  * two drift apart without a matching hash re-pin -- do not silence that test without bumping.
  */
-export const SCORING_PIPELINE_VERSION = '1';
+export const SCORING_PIPELINE_VERSION = '2';
 
 /**
  * No directional model prediction exists any more (the factor-weighting engine that used to
@@ -42,6 +42,36 @@ const CVD_TREND_FLOOR_PCT = 5.0;
 // 3x dashboard/rows.ts' OI_PRICE_QUADRANT_OI_DEADZONE_PCT (1.0%), scaled for this term's 3d window.
 const OI_TREND_DEADZONE_PCT = 3.0;
 
+/**
+ * Pure residual-change calculation (price move with the BTC-beta-implied component stripped),
+ * UNROUNDED. Shared by setResidualChange below (scoreSnapshot's early pass in factors.ts, so
+ * screenerSectorRotation can read residuals before breadth is scored) and applyScores' own
+ * longMomentum/shortMomentum terms further down, which reuse this same unrounded local rather
+ * than the pyRound(...,2) value stored on the row -- both call sites must keep returning
+ * identical numbers, or every momentum score would shift by the rounding error.
+ */
+export function computeResidualChange(row: Row, marketContext: MarketContext): number {
+  const priceChange = toFloat(row.price_change_24h_pct, 0.0) ?? 0.0;
+  const btcBeta = toFloat(row.btc_beta);
+  const btcChange24h = toFloat(marketContext.btc_change_24h_pct);
+  return btcBeta !== null && btcChange24h !== null
+    ? priceChange - btcBeta * btcChange24h
+    : priceChange;
+}
+
+/**
+ * Mutates `row` in place: sets residual_change_24h_pct (rounded) only when both btc_beta and the
+ * market's btc_change_24h_pct are known, preserving the field's existing stays-unset-otherwise
+ * behaviour. Called from scoreSnapshot before screenerSectorRotation, which reads this field.
+ */
+export function setResidualChange(row: Row, marketContext: MarketContext): void {
+  const btcBeta = toFloat(row.btc_beta);
+  const btcChange24h = toFloat(marketContext.btc_change_24h_pct);
+  if (btcBeta !== null && btcChange24h !== null) {
+    row.residual_change_24h_pct = pyRound(computeResidualChange(row, marketContext), 2);
+  }
+}
+
 /** Mutates `row` in place. */
 export function applyScores(
   row: Row,
@@ -59,7 +89,6 @@ export function applyScores(
   const oiChange = toFloat(row.oi_change_24h_pct, 0.0) ?? 0.0;
   const priceChange = toFloat(row.price_change_24h_pct, 0.0) ?? 0.0;
   const atrPct = toFloat(row.atr_14_pct);
-  const btcBeta = toFloat(row.btc_beta);
   const btcCorrelation = toFloat(row.btc_correlation);
   const btcChange24h = toFloat(marketContext.btc_change_24h_pct);
   const btcMomentumScore = toFloat(marketContext.btc_momentum_score);
@@ -88,11 +117,7 @@ export function applyScores(
   //     name and a 5% move in a 10%-ATR name aren't treated as the same conviction.
   //   - stretch and lateness penalize chasing a move (3d) or a liquidation flush (24h) that has
   //     already happened, rather than anticipating one.
-  const residualChange =
-    btcBeta !== null && btcChange24h !== null ? priceChange - btcBeta * btcChange24h : priceChange;
-  if (btcBeta !== null && btcChange24h !== null) {
-    row.residual_change_24h_pct = pyRound(residualChange, 2);
-  }
+  const residualChange = computeResidualChange(row, marketContext);
 
   const momentumScale = atrPct !== null ? clamp(5.0 * atrPct, 4.0, 25.0) : 10.0;
   const longMomentum = clamp(Math.max(residualChange, 0.0) / momentumScale);

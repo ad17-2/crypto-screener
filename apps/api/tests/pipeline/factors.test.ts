@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { rawFactors, residualiseOiPriceSignal, scoreSnapshot } from '../../src/pipeline/factors.js';
-import type { Row } from '../../src/pipeline/types.js';
+import type { MarketContext, Row } from '../../src/pipeline/types.js';
 
 describe('rawFactors', () => {
   it('normalizes reversal by volatility (test_reversal_is_volatility_normalized)', () => {
@@ -324,5 +324,71 @@ describe('BTC context extraction', () => {
     const withoutFallback = scoreSnapshot(rows, {}, { factors: {} });
     expect(withoutFallback.market_context.btc_change_24h_pct).toBeNull();
     expect(withoutFallback.market_context.btc_momentum_score).toBeNull();
+  });
+});
+
+describe('screener sector momentum wiring (category_momentum_source)', () => {
+  // BTC sets btc_change_24h_pct; AAA/BBB both carry btc_beta so residual_change_24h_pct comes out
+  // non-null for both, and both are members of the same screener_sector_members sector -- enough
+  // for screenerSectorRotation to produce a non-empty entry once sector_min_members is lowered to 2.
+  function sectorRows(): Row[] {
+    return [
+      {
+        symbol: 'BTC',
+        price_usd: 100,
+        price_change_24h_pct: 2,
+        oi_change_24h_pct: 1,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 200_000_000,
+      },
+      {
+        symbol: 'AAA',
+        price_usd: 10,
+        price_change_24h_pct: 8,
+        oi_change_24h_pct: 4,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 100_000_000,
+        btc_beta: 1.0,
+      },
+      {
+        symbol: 'BBB',
+        price_usd: 10,
+        price_change_24h_pct: 6,
+        oi_change_24h_pct: 3,
+        funding_rate_pct: 0.01,
+        quote_volume_usd: 100_000_000,
+        btc_beta: 1.0,
+      },
+    ];
+  }
+
+  // Also carries CoinGecko categories, so the coingecko_categories fallback path resolves to a
+  // real value (not 'none') when the screener-sector preference is turned off below.
+  function sectorMarketContext(): MarketContext {
+    return {
+      screener_sector_members: { 'Layer 1': ['AAA', 'BBB'] },
+      categories: {
+        leaders: [{ name: 'Layer 1', market_cap_change_24h_pct: 3 }],
+        laggards: [{ name: 'Meme', market_cap_change_24h_pct: -1 }],
+      },
+    };
+  }
+
+  it('feeds screener sector rotation into breadth once residuals exist before marketStructureSummary runs (test_screener_sector_momentum_reaches_breadth)', () => {
+    const scored = scoreSnapshot(sectorRows(), sectorMarketContext(), {
+      factors: {},
+      providers: { coingecko: { sector_min_members: 2 } },
+    });
+    const breadth = scored.market_context.breadth as Record<string, unknown>;
+    expect(breadth.category_momentum_source).toBe('screener_sectors');
+  });
+
+  it('prefer_screener_sector_momentum=false falls back to coingecko_categories even when screener sectors are present (test_prefer_screener_sector_momentum_toggle)', () => {
+    const scored = scoreSnapshot(sectorRows(), sectorMarketContext(), {
+      factors: { prefer_screener_sector_momentum: false },
+      providers: { coingecko: { sector_min_members: 2 } },
+    });
+    const breadth = scored.market_context.breadth as Record<string, unknown>;
+    expect(breadth.category_momentum_source).toBe('coingecko_categories');
   });
 });

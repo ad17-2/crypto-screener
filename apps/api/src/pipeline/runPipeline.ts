@@ -18,7 +18,6 @@ import { buildBriefingPayload, generateBriefing } from './briefing.js';
 import { collectMarket } from './collector.js';
 import { scoreSnapshot } from './factors.js';
 import { annotateMacroReactions } from './macroReaction.js';
-import { screenerSectorRotation } from './market.js';
 import type { RunPayload } from './models.js';
 import { pctChange, toFloat } from './scoring.js';
 
@@ -173,26 +172,15 @@ export async function runPipeline(
       regime: { ...scored.regime },
     };
 
-    // Screener-native sector rotation: collectCoingeckoContext (collector.ts) stashes the raw
-    // sector->member-symbol map under market_context.screener_sector_members purely as transient
-    // plumbing, since rows don't carry residual_change_24h_pct until scoreSnapshot has run above.
-    // Consumed here and always deleted so it never becomes a second persisted market_context key --
-    // only screener_sectors (the aggregated result) is meant to ship. An empty map (older test
-    // fixtures that never went through the real collector, or collectCoingeckoContext's own
-    // never-fail fallback on a CoinGecko outage) leaves screener_sectors absent entirely, which the
-    // dashboard already treats the same as "empty" by falling back to the CoinGecko categories list.
-    const rawSectorMembers = payload.market_context.screener_sector_members;
+    // Screener-native sector rotation is now computed inside scoreSnapshot (pipeline/factors.ts),
+    // which needs residual_change_24h_pct before breadth can score it -- see scoreSnapshot for the
+    // object/non-empty guard and the screener_sectors assignment (an empty or missing map there
+    // leaves screener_sectors absent entirely, which the dashboard already treats the same as
+    // "empty" by falling back to the CoinGecko categories list). collectCoingeckoContext
+    // (collector.ts) stashes the raw sector->member-symbol map under
+    // market_context.screener_sector_members purely as transient plumbing; delete it now so it
+    // never ships as a second persisted market_context key.
     delete payload.market_context.screener_sector_members;
-    if (rawSectorMembers && typeof rawSectorMembers === 'object') {
-      const sectorMembers = rawSectorMembers as Record<string, string[]>;
-      if (Object.keys(sectorMembers).length > 0) {
-        payload.market_context.screener_sectors = screenerSectorRotation(
-          payload.rows,
-          sectorMembers,
-          config.providers.coingecko.sector_min_members,
-        );
-      }
-    }
 
     // Persisted membership is a point-in-time record of what the screener said under
     // then-current config -- it deliberately does NOT track later config/predicate changes (the

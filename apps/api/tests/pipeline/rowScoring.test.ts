@@ -6,6 +6,7 @@ import {
   applyExcludedScores,
   applyScores,
   SCORING_PIPELINE_VERSION,
+  setResidualChange,
 } from '../../src/pipeline/rowScoring.js';
 import type { MarketContext, PipelineConfig, Row } from '../../src/pipeline/types.js';
 
@@ -15,7 +16,11 @@ import type { MarketContext, PipelineConfig, Row } from '../../src/pipeline/type
 const NEUTRAL_FACTORS: Record<string, number> = { liquidity_30d: 0 };
 const NO_CONFIG: PipelineConfig = {};
 
+// scoreSnapshot (factors.ts) now calls setResidualChange on every trusted row before applyScores'
+// forEach -- mirror that order here so residual_change_24h_pct lands on the row the same way it
+// does in production (applyScores itself no longer sets it; see rowScoring.ts).
 function score(row: Row, marketContext: MarketContext = {}): Row {
+  setResidualChange(row, marketContext);
   applyScores(row, NEUTRAL_FACTORS, marketContext, NO_CONFIG);
   return row;
 }
@@ -365,7 +370,7 @@ describe('applyExcludedScores', () => {
 // rebalance masquerade as market movement in every run-over-run delta and weekly review that
 // reads pipeline_version. Over-suppressing a comparison is safe; under-suppressing produces a
 // number that looks like evidence and isn't.
-const PINNED_SOURCE_SHA256 = 'bc7cd8cd114cb806f1e6bbb92b5fb7232a7dae72d494c5a6ae7f850b9d065c62';
+const PINNED_SOURCE_SHA256 = 'd2e3bdd0db2d3a477ef0bfcccc77dec65e4cde8639620a4b41252498fd2cc3ca';
 
 describe('SCORING_PIPELINE_VERSION forcing function', () => {
   it('pins a hash of rowScoring.ts so any edit forces a version bump + re-pin', () => {

@@ -34,6 +34,7 @@ export interface FactorsConfigInput {
   reversal_lookback_hours?: number;
   ic_min_cross_section?: number;
   residualise_collinear_factors?: boolean;
+  prefer_screener_sector_momentum?: boolean;
   regime?: RegimeConfigInput;
 }
 
@@ -44,7 +45,16 @@ export interface CostsConfigInput {
   funding_settlements_per_day?: number;
 }
 
+export interface CoinGeckoConfigInput {
+  sector_min_members?: number;
+}
+
+export interface ProvidersConfigInput {
+  coingecko?: CoinGeckoConfigInput;
+}
+
 export interface PipelineConfig {
   factors?: FactorsConfigInput;
   costs?: CostsConfigInput;
+  providers?: ProvidersConfigInput;
 }
