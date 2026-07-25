@@ -149,7 +149,18 @@ export function WatchlistWorkbench({
     if (!rail) return;
     if (!shouldScrollRailIntoView(rail.getBoundingClientRect(), window.innerHeight)) return;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const startY = window.scrollY;
     rail.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+    // Same guard as Sieve.tsx's scrollToScreenedCoins, and for the same measured reason: some
+    // Chrome builds accept behavior:'smooth' and silently never scroll. Verified against
+    // production on 2026-07-25 -- smooth left scrollY at 2275, 'auto' moved it to 3767 on the
+    // identical element. Without this the selection looks unresponsive exactly as it did before
+    // the rail-scroll fix existed. Ask for smooth, then hard-jump if we did not actually move.
+    if (reduceMotion) return;
+    const timer = window.setTimeout(() => {
+      if (window.scrollY === startY) rail.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+    }, 250);
+    return () => window.clearTimeout(timer);
   }, [effectiveSelectedKey]);
 
   const handleTabChange = (id: WatchlistId) => {
