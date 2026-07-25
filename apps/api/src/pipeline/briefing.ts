@@ -1,5 +1,13 @@
+import type Database from 'better-sqlite3';
 import type { WatchlistDiff } from '../dashboard/runDiff.js';
-import type { DeepSeekClient } from '../providers/deepseek.js';
+import type { OutcomeStatsGroupBy } from '../db/outcomeStats.js';
+import { queryOutcomeStats } from '../db/outcomeStats.js';
+import type {
+  DeepSeekClient,
+  DeepSeekCompletion,
+  DeepSeekTool,
+  DeepSeekToolInvocation,
+} from '../providers/deepseek.js';
 import { ProviderError } from '../providers/errors.js';
 import { toFloat } from './scoring.js';
 import type { MarketContext, Row } from './types.js';
@@ -21,15 +29,20 @@ export const BRIEFING_SYSTEM_PROMPT =
   'You write "Tonight\'s read" for a discretionary trend + support/resistance trader who enters ' +
   'on 1H/15M golden-pocket pullbacks. Write at most 6 sentences of plain prose -- no markdown, no ' +
   'headers, no bullet points, no disclaimers. Use ONLY the facts and numbers present in the JSON ' +
-  'you are given -- never invent prices, levels, events, or percentages. Name at most 3 candidates ' +
-  "worth opening a chart on tonight and say why, in the data's own terms (trend state, distance to " +
-  'the golden pocket, whether it fights BTC, setup confidence). Flag any symbol newly arrived on a ' +
-  'list and any macro event landing inside the given window. The long/short lists only carry the ' +
-  'top-ranked candidates, not the whole run, so scope any absence claim to what you were given: say ' +
-  'nothing is new tonight only when new_to_list_total is 0, otherwise mention the count even when ' +
-  'the new names sit outside the candidates listed (for example, one lower-ranked name is new). If ' +
-  'bias is risk-off, add one caution sentence. If both the long and short lists are empty, say ' +
-  'plainly that the tape offers nothing worth trading tonight.';
+  'you are given or returned by a tool call -- never invent prices, levels, events, or ' +
+  'percentages. Name at most 3 candidates worth opening a chart on tonight and say why, in the ' +
+  "data's own terms (trend state, distance to the golden pocket, whether it fights BTC, setup " +
+  'confidence). Flag any symbol newly arrived on a list and any macro event landing inside the ' +
+  'given window. The long/short lists in the JSON carry only the top-ranked candidates, not the ' +
+  'whole run: call list_rows or get_row when you need anything beyond them, and never describe ' +
+  'the whole run from the seed payload alone. Say nothing is new tonight only when ' +
+  'new_to_list_total is 0, otherwise mention the count even when the new names sit outside the ' +
+  'candidates listed. Before asserting what a setup or trend state TENDS to do, you must call ' +
+  'get_outcome_base_rate and quote its n; if the cell comes back too_thin, say the sample is too ' +
+  'small rather than stating a tendency. Those base rates cover only the live era and deliberately ' +
+  'exclude a historical backfill, so they describe recent behaviour, not a long-run edge. If bias ' +
+  'is risk-off, add one caution sentence. If both the long and short lists are empty, say plainly ' +
+  'that the tape offers nothing worth trading tonight.';
 
 export interface BriefingCandidateRow {
   symbol: string | null;
@@ -205,12 +218,253 @@ export function buildBriefingPayload(
   };
 }
 
+// -- DeepSeek tool loop: lets the model reach beyond the fixed top-5-per-side seed above ---------
+
+const LIST_ROWS_MAX_LIMIT = 25;
+
+export interface BriefingToolContext {
+  db: Database.Database;
+  rows: Row[];
+  newToList: Set<string>;
+}
+
+/** Narrows an arbitrary row's watchlist_side to the two membership values -- null for core symbols, non-members, and (via list_rows(side: 'any')) rows on neither list. */
+function watchlistSideOf(row: Row): 'long' | 'short' | null {
+  return row.watchlist_side === 'long' || row.watchlist_side === 'short'
+    ? row.watchlist_side
+    : null;
+}
+
+/** Same compact fields as BriefingCandidateRow, widened to a nullable side/rank since list_rows can return rows that never made a watchlist. */
+function toolListRow(row: Row, newToList: Set<string>): Record<string, unknown> {
+  const symbol = stringOrNull(row.symbol);
+  return {
+    symbol,
+    rank: toFloat(row.watchlist_rank),
+    side: watchlistSideOf(row),
+    price_usd: toFloat(row.price_usd),
+    price_change_24h_pct: toFloat(row.price_change_24h_pct),
+    trend_state: stringOrNull(row.trend_state),
+    setup_confidence: stringOrNull(row.setup_confidence),
+    distance_to_golden_pocket_pct: toFloat(row.distance_to_golden_pocket_pct),
+    fib_leg_direction: stringOrNull(row.fib_leg_direction),
+    new_to_list: symbol !== null && newToList.has(symbol),
+    fights_btc: stringOrNull(row.fights_btc),
+  };
+}
+
+function executeListRows(ctx: BriefingToolContext, args: Record<string, unknown>): unknown {
+  const side = args.side;
+  if (side !== 'long' && side !== 'short' && side !== 'any') {
+    return { error: 'side must be "long", "short", or "any"' };
+  }
+  const rawLimit = toFloat(args.limit);
+  if (rawLimit === null || rawLimit < 1) {
+    return { error: 'limit must be a positive integer' };
+  }
+  const limit = Math.min(Math.trunc(rawLimit), LIST_ROWS_MAX_LIMIT);
+
+  const filtered =
+    side === 'any' ? ctx.rows : ctx.rows.filter((row) => watchlistSideOf(row) === side);
+  const sorted = [...filtered].sort(
+    (a, b) =>
+      (toFloat(a.watchlist_rank, Number.MAX_SAFE_INTEGER) ?? Number.MAX_SAFE_INTEGER) -
+      (toFloat(b.watchlist_rank, Number.MAX_SAFE_INTEGER) ?? Number.MAX_SAFE_INTEGER),
+  );
+  return sorted.slice(0, limit).map((row) => toolListRow(row, ctx.newToList));
+}
+
+function executeGetRow(ctx: BriefingToolContext, args: Record<string, unknown>): unknown {
+  const symbol = typeof args.symbol === 'string' ? args.symbol : null;
+  if (symbol === null) {
+    return { error: 'symbol must be a string' };
+  }
+  const row = ctx.rows.find((candidate) => candidate.symbol === symbol);
+  if (!row) {
+    return { error: 'unknown symbol' };
+  }
+  const rowSymbol = stringOrNull(row.symbol);
+  return {
+    symbol: rowSymbol,
+    side: watchlistSideOf(row),
+    price_usd: toFloat(row.price_usd),
+    price_change_24h_pct: toFloat(row.price_change_24h_pct),
+    residual_change_24h_pct: toFloat(row.residual_change_24h_pct),
+    trend_state: stringOrNull(row.trend_state),
+    technical_setup: stringOrNull(row.technical_setup),
+    setup_confidence: stringOrNull(row.setup_confidence),
+    distance_to_golden_pocket_pct: toFloat(row.distance_to_golden_pocket_pct),
+    fib_leg_direction: stringOrNull(row.fib_leg_direction),
+    fights_btc: stringOrNull(row.fights_btc),
+    funding_rate_pct: toFloat(row.funding_rate_pct),
+    oi_change_24h_pct: toFloat(row.oi_change_24h_pct),
+    long_short_ratio: toFloat(row.long_short_ratio),
+    btc_correlation: toFloat(row.btc_correlation),
+    btc_beta: toFloat(row.btc_beta),
+    rsi_14: toFloat(row.rsi_14),
+    donchian_position_20: toFloat(row.donchian_position_20),
+    cvd_trend_72h_pct: toFloat(row.cvd_trend_72h_pct),
+    new_to_list: rowSymbol !== null && ctx.newToList.has(rowSymbol),
+  };
+}
+
+function executeGetOutcomeBaseRate(
+  ctx: BriefingToolContext,
+  args: Record<string, unknown>,
+): unknown {
+  // Whitelisted against OutcomeStatsGroupBy/known horizons before ever reaching queryOutcomeStats
+  // -- unchecked model output must never be forwarded into that query (see db/outcomeStats.ts).
+  let groupBy: OutcomeStatsGroupBy;
+  if (args.group_by === 'technical_setup' || args.group_by === 'trend_state') {
+    groupBy = args.group_by;
+  } else {
+    return { error: 'group_by must be "technical_setup" or "trend_state"' };
+  }
+
+  let horizonHours: 24 | 72;
+  const rawHorizon = toFloat(args.horizon_hours);
+  if (rawHorizon === 24) {
+    horizonHours = 24;
+  } else if (rawHorizon === 72) {
+    horizonHours = 72;
+  } else {
+    return { error: 'horizon_hours must be 24 or 72' };
+  }
+
+  const symbol =
+    typeof args.symbol === 'string' && args.symbol.length > 0 ? args.symbol : undefined;
+  return queryOutcomeStats(
+    ctx.db,
+    symbol !== undefined
+      ? { group_by: groupBy, horizon_hours: horizonHours, symbol }
+      : { group_by: groupBy, horizon_hours: horizonHours },
+  );
+}
+
+export function briefingTools(): DeepSeekTool[] {
+  return [
+    {
+      name: 'list_rows',
+      description:
+        "Lists rows from this run's full cross-section beyond the top-ranked candidates already " +
+        'in the seed payload, in the same compact shape, sorted by watchlist_rank ascending.',
+      parameters: {
+        type: 'object',
+        properties: {
+          side: {
+            type: 'string',
+            enum: ['long', 'short', 'any'],
+            description: '"any" returns rows from both lists, and rows on neither, unfiltered.',
+          },
+          limit: {
+            type: 'integer',
+            minimum: 1,
+            maximum: LIST_ROWS_MAX_LIMIT,
+            description: `Capped at ${LIST_ROWS_MAX_LIMIT} regardless of the value requested.`,
+          },
+        },
+        required: ['side', 'limit'],
+      },
+    },
+    {
+      name: 'get_row',
+      description:
+        "Returns the fuller metric set for one symbol in this run's cross-section, beyond the " +
+        'compact fields already in the seed payload.',
+      parameters: {
+        type: 'object',
+        properties: {
+          symbol: { type: 'string', description: 'Exact symbol, e.g. "BTC".' },
+        },
+        required: ['symbol'],
+      },
+    },
+    {
+      name: 'get_outcome_base_rate',
+      description:
+        "Returns this cohort's live forward-outcome track record (mean/median return, win rate, " +
+        'sample size n). Call this before asserting what a setup or trend state tends to do.',
+      parameters: {
+        type: 'object',
+        properties: {
+          group_by: { type: 'string', enum: ['technical_setup', 'trend_state'] },
+          horizon_hours: { type: 'integer', enum: [24, 72] },
+          symbol: { type: 'string', description: 'Optional: restrict to one symbol.' },
+        },
+        required: ['group_by', 'horizon_hours'],
+      },
+    },
+  ];
+}
+
+/** Executor contract (see providers/deepseek.ts's DeepSeekToolOptions.execute): must never throw -- every branch below returns a JSON error string instead. */
+export function createBriefingToolExecutor(
+  ctx: BriefingToolContext,
+): (call: DeepSeekToolInvocation) => Promise<string> {
+  return async (call: DeepSeekToolInvocation): Promise<string> => {
+    let args: Record<string, unknown>;
+    try {
+      args = asRecord(JSON.parse(call.argumentsJson));
+    } catch {
+      return JSON.stringify({ error: 'malformed arguments JSON' });
+    }
+
+    try {
+      switch (call.name) {
+        case 'list_rows':
+          return JSON.stringify(executeListRows(ctx, args));
+        case 'get_row':
+          return JSON.stringify(executeGetRow(ctx, args));
+        case 'get_outcome_base_rate':
+          return JSON.stringify(executeGetOutcomeBaseRate(ctx, args));
+        default:
+          return JSON.stringify({ error: `unknown tool: ${call.name}` });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return JSON.stringify({ error: message });
+    }
+  };
+}
+
+// attachBriefing (runPipeline.ts) awaits generateBriefing before saveSnapshot, so this sits on the
+// critical path of the data write. completeWithTools only checks budgetMs BEFORE each request in
+// the loop -- it never bounds a request already in flight -- and generateBriefing's catch then
+// issues one more single-shot request bounded by its own request_timeout_seconds. So the dominant
+// term isn't the budget, it's two stacked request_timeout_seconds requests (180s default each):
+// up to BRIEFING_TOOL_BUDGET_MS (120s) of loop time, during which one request can still be
+// in flight past the budget check (+180s), plus the fallback single-shot request (+180s) =
+// ~480s (~8 min) worst case, not ~5 min. Still finite either way, and attachBriefing's existing
+// try/catch guarantees a failed or slow briefing never fails the run.
+export const BRIEFING_MAX_TOOL_ITERATIONS = 3;
+export const BRIEFING_TOOL_BUDGET_MS = 120_000;
+
 export async function generateBriefing(
   client: DeepSeekClient,
   payload: BriefingPayload,
   nowIso: string,
+  toolContext?: BriefingToolContext,
 ): Promise<Briefing> {
-  const completion = await client.complete(BRIEFING_SYSTEM_PROMPT, JSON.stringify(payload));
+  const user = JSON.stringify(payload);
+  let completion: DeepSeekCompletion;
+  if (toolContext) {
+    try {
+      completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user, {
+        tools: briefingTools(),
+        execute: createBriefingToolExecutor(toolContext),
+        maxIterations: BRIEFING_MAX_TOOL_ITERATIONS,
+        budgetMs: BRIEFING_TOOL_BUDGET_MS,
+      });
+    } catch {
+      // The tool loop must never be the reason tonight's briefing doesn't ship -- a model or API
+      // that rejects tool calls, exhausts its iteration budget, or blows the wall-clock budget
+      // still falls back to today's plain single-shot completion.
+      completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user);
+    }
+  } else {
+    completion = await client.complete(BRIEFING_SYSTEM_PROMPT, user);
+  }
+
   const text = completion.text.trim();
   if (text.length === 0) {
     throw new ProviderError('DeepSeek briefing completion was empty after trimming');

@@ -1,8 +1,32 @@
-import { describe, expect, it, vi } from 'vitest';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WatchlistDiff } from '../../src/dashboard/runDiff.js';
-import { buildBriefingPayload, generateBriefing } from '../../src/pipeline/briefing.js';
+import { formatJakartaIso } from '../../src/db/time.js';
+import {
+  BRIEFING_MAX_TOOL_ITERATIONS,
+  BRIEFING_TOOL_BUDGET_MS,
+  buildBriefingPayload,
+  createBriefingToolExecutor,
+  generateBriefing,
+} from '../../src/pipeline/briefing.js';
 import type { Row } from '../../src/pipeline/types.js';
-import type { DeepSeekClient, DeepSeekCompletion } from '../../src/providers/deepseek.js';
+import type {
+  DeepSeekClient,
+  DeepSeekCompletion,
+  DeepSeekToolOptions,
+} from '../../src/providers/deepseek.js';
+import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
+
+// See providers/deepseekTools.test.ts's precedent: an ambient DEEPSEEK_API_KEY (dev laptop, CI
+// sharing deploy secrets) must never let a test in this file fall through to a real, paid fetch.
+// Every client below is a hand-built fake, but this stub is defense in depth against that ever
+// changing.
+beforeEach(() => {
+  vi.stubEnv('DEEPSEEK_API_KEY', '');
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const EMPTY_DIFF: WatchlistDiff = { newToList: new Set(), changes: null };
 
@@ -302,5 +326,271 @@ describe('generateBriefing', () => {
     const payload = buildBriefingPayload([], EMPTY_DIFF, {}, {}, '2026-07-19T00:00:00+07:00');
 
     await expect(generateBriefing(client, payload, '2026-07-19T00:00:00+07:00')).rejects.toThrow();
+  });
+
+  it('with no toolContext, issues exactly one complete call with two arguments -- backward compat', async () => {
+    const complete = vi.fn().mockResolvedValue({
+      text: 'Quiet night.',
+      model: 'deepseek-v4-pro',
+      output_tokens: 10,
+      reasoning_tokens: 2,
+    } satisfies DeepSeekCompletion);
+    const client: DeepSeekClient = { complete };
+    const payload = buildBriefingPayload([], EMPTY_DIFF, {}, {}, '2026-07-19T00:00:00+07:00');
+
+    const briefing = await generateBriefing(client, payload, '2026-07-19T00:00:00+07:00');
+
+    expect(briefing.text).toBe('Quiet night.');
+    expect(complete).toHaveBeenCalledTimes(1);
+    expect(complete.mock.calls[0]).toHaveLength(2);
+  });
+});
+
+describe('generateBriefing with a toolContext', () => {
+  let dir: string;
+  let db: Database.Database;
+
+  beforeEach(() => {
+    ({ dir, db } = setupTempDb('crypto-screener-briefing-tools-'));
+  });
+
+  afterEach(() => {
+    teardownTempDb(dir, db);
+  });
+
+  it('falls back to the plain single-shot call when the tool-loop call rejects, and returns its text', async () => {
+    let capturedOptions: DeepSeekToolOptions | undefined;
+    const complete = vi.fn(
+      async (
+        _system: string,
+        _user: string,
+        options?: DeepSeekToolOptions,
+      ): Promise<DeepSeekCompletion> => {
+        if (options) {
+          capturedOptions = options;
+          throw new Error('tool calling not supported by this deployment');
+        }
+        return {
+          text: 'Fallback read: nothing worth trading tonight.',
+          model: 'deepseek-v4-pro',
+          output_tokens: 42,
+          reasoning_tokens: 10,
+        };
+      },
+    );
+    const client: DeepSeekClient = { complete };
+    const payload = buildBriefingPayload([], EMPTY_DIFF, {}, {}, '2026-07-19T00:00:00+07:00');
+
+    const briefing = await generateBriefing(client, payload, '2026-07-19T00:00:00+07:00', {
+      db,
+      rows: [{ symbol: 'AAA', watchlist_side: 'long', watchlist_rank: 1 }],
+      newToList: new Set(),
+    });
+
+    expect(briefing.text).toBe('Fallback read: nothing worth trading tonight.');
+    expect(complete).toHaveBeenCalledTimes(2);
+    // First attempt is the tool loop (3-arg call with options); second is the plain fallback.
+    expect(complete.mock.calls[0]).toHaveLength(3);
+    expect(complete.mock.calls[1]).toHaveLength(2);
+
+    // The assertions above only prove *some* truthy options object was passed as the third
+    // argument -- they'd still pass if generateBriefing sent `tools: []` (wire-identical to no
+    // tools) or bound execute to the wrong context. Inspect the actual options.
+    expect(capturedOptions).toBeDefined();
+    const options = capturedOptions as DeepSeekToolOptions;
+    expect(options.tools.length).toBeGreaterThan(0);
+    expect(options.tools.map((tool) => tool.name).sort()).toEqual(
+      ['get_outcome_base_rate', 'get_row', 'list_rows'].sort(),
+    );
+    for (const tool of options.tools) {
+      expect(tool.description.length).toBeGreaterThan(0);
+      expect(typeof tool.parameters).toBe('object');
+      expect(tool.parameters).not.toBeNull();
+    }
+    expect(options.maxIterations).toBe(BRIEFING_MAX_TOOL_ITERATIONS);
+    expect(options.budgetMs).toBe(BRIEFING_TOOL_BUDGET_MS);
+
+    // Prove execute is bound to the toolContext passed into generateBriefing above (symbol 'AAA'
+    // in ctx.rows), not an empty or default context.
+    const rowRaw = await options.execute({
+      name: 'get_row',
+      argumentsJson: JSON.stringify({ symbol: 'AAA' }),
+    });
+    expect(JSON.parse(rowRaw).symbol).toBe('AAA');
+  });
+});
+
+describe('createBriefingToolExecutor', () => {
+  let dir: string;
+  let db: Database.Database;
+
+  beforeEach(() => {
+    ({ dir, db } = setupTempDb('crypto-screener-briefing-executor-'));
+  });
+
+  afterEach(() => {
+    teardownTempDb(dir, db);
+  });
+
+  function toolRow(symbol: string, side: 'long' | 'short', rank: number): Row {
+    return { symbol, watchlist_side: side, watchlist_rank: rank };
+  }
+
+  function seedOutcomeRow(params: {
+    runId: string;
+    symbol: string;
+    fwdReturnPct: number;
+    metrics: Record<string, unknown>;
+  }): void {
+    const generatedAt = formatJakartaIso(new Date('2026-01-01T00:00:00.000Z'));
+    db.prepare(
+      `INSERT INTO factor_history (run_id, generated_at, symbol, price_usd, factors_json, scores_json, metrics_json)
+       VALUES (?, ?, ?, 100, '{}', '{}', ?)`,
+    ).run(params.runId, generatedAt, params.symbol, JSON.stringify(params.metrics));
+    db.prepare(
+      `INSERT INTO outcome_labels
+          (run_id, generated_at, symbol, horizon_hours, fwd_return_pct, fwd_residual_pct,
+           btc_fwd_return_pct, beta_used, matched_run_id, matched_delta_hours)
+       VALUES (?, ?, ?, 24, ?, NULL, NULL, NULL, ?, 24)`,
+    ).run(params.runId, generatedAt, params.symbol, params.fwdReturnPct, params.runId);
+  }
+
+  describe('get_outcome_base_rate', () => {
+    it('returns real aggregates from the seeded temp DB, excluding a backfill-* row', async () => {
+      seedOutcomeRow({
+        runId: 'live-1',
+        symbol: 'AAA',
+        fwdReturnPct: 5,
+        metrics: { technical_setup: 'breakout_up' },
+      });
+      seedOutcomeRow({
+        runId: 'backfill-xyz',
+        symbol: 'AAA',
+        fwdReturnPct: 999,
+        metrics: { technical_setup: 'breakout_up' },
+      });
+      const executor = createBriefingToolExecutor({ db, rows: [], newToList: new Set() });
+
+      const raw = await executor({
+        name: 'get_outcome_base_rate',
+        argumentsJson: JSON.stringify({ group_by: 'technical_setup', horizon_hours: 24 }),
+      });
+      const result = JSON.parse(raw);
+
+      expect(result.live_era_only).toBe(true);
+      expect(result.cells).toHaveLength(1);
+      expect(result.cells[0]).toMatchObject({
+        key: 'breakout_up',
+        n: 1,
+        mean_fwd_return_pct: 5,
+      });
+    });
+  });
+
+  describe('never throws', () => {
+    it('returns a JSON error string for malformed argumentsJson', async () => {
+      const executor = createBriefingToolExecutor({ db, rows: [], newToList: new Set() });
+
+      const raw = await executor({ name: 'get_row', argumentsJson: '{not valid json' });
+
+      expect(JSON.parse(raw)).toHaveProperty('error');
+    });
+
+    it('returns a JSON error string for an unknown tool name', async () => {
+      const executor = createBriefingToolExecutor({ db, rows: [], newToList: new Set() });
+
+      const raw = await executor({ name: 'not_a_real_tool', argumentsJson: '{}' });
+
+      expect(JSON.parse(raw)).toHaveProperty('error');
+    });
+
+    it('returns a JSON error string for an out-of-range group_by', async () => {
+      const executor = createBriefingToolExecutor({ db, rows: [], newToList: new Set() });
+
+      const raw = await executor({
+        name: 'get_outcome_base_rate',
+        argumentsJson: JSON.stringify({ group_by: 'not_a_real_group', horizon_hours: 24 }),
+      });
+
+      expect(JSON.parse(raw)).toHaveProperty('error');
+    });
+  });
+
+  describe('list_rows', () => {
+    it('respects the side filter, sorts by watchlist_rank ascending, and caps at 25', async () => {
+      const longRows = Array.from({ length: 30 }, (_, i) => toolRow(`L${i}`, 'long', i + 1));
+      const shortRows = [toolRow('S1', 'short', 1)];
+      const executor = createBriefingToolExecutor({
+        db,
+        rows: [...longRows, ...shortRows],
+        newToList: new Set(),
+      });
+
+      const raw = await executor({
+        name: 'list_rows',
+        argumentsJson: JSON.stringify({ side: 'long', limit: 100 }),
+      });
+      const result = JSON.parse(raw) as Array<{ symbol: string; side: string }>;
+
+      expect(result).toHaveLength(25);
+      expect(result.every((row) => row.side === 'long')).toBe(true);
+      expect(result.map((row) => row.symbol)).toEqual(
+        Array.from({ length: 25 }, (_, i) => `L${i}`),
+      );
+    });
+
+    it('computes new_to_list from ctx.newToList, not a hardcoded false', async () => {
+      const executor = createBriefingToolExecutor({
+        db,
+        rows: [toolRow('FRESH', 'long', 1), toolRow('OLD', 'long', 2)],
+        newToList: new Set(['FRESH']),
+      });
+
+      const raw = await executor({
+        name: 'list_rows',
+        argumentsJson: JSON.stringify({ side: 'long', limit: 25 }),
+      });
+      const result = JSON.parse(raw) as Array<{ symbol: string; new_to_list: boolean }>;
+
+      expect(result.find((row) => row.symbol === 'FRESH')?.new_to_list).toBe(true);
+      expect(result.find((row) => row.symbol === 'OLD')?.new_to_list).toBe(false);
+    });
+  });
+
+  describe('get_row', () => {
+    it('returns {"error":"unknown symbol"} for a symbol not in ctx.rows', async () => {
+      const executor = createBriefingToolExecutor({
+        db,
+        rows: [toolRow('AAA', 'long', 1)],
+        newToList: new Set(),
+      });
+
+      const raw = await executor({
+        name: 'get_row',
+        argumentsJson: JSON.stringify({ symbol: 'ZZZ' }),
+      });
+
+      expect(raw).toBe(JSON.stringify({ error: 'unknown symbol' }));
+    });
+
+    it('computes new_to_list from ctx.newToList, not a hardcoded false', async () => {
+      const executor = createBriefingToolExecutor({
+        db,
+        rows: [toolRow('FRESH', 'long', 1), toolRow('OLD', 'long', 2)],
+        newToList: new Set(['FRESH']),
+      });
+
+      const freshRaw = await executor({
+        name: 'get_row',
+        argumentsJson: JSON.stringify({ symbol: 'FRESH' }),
+      });
+      const oldRaw = await executor({
+        name: 'get_row',
+        argumentsJson: JSON.stringify({ symbol: 'OLD' }),
+      });
+
+      expect(JSON.parse(freshRaw).new_to_list).toBe(true);
+      expect(JSON.parse(oldRaw).new_to_list).toBe(false);
+    });
   });
 });

@@ -96,7 +96,11 @@ async function attachBriefing(
       payload.regime,
       payload.generated_at,
     );
-    const briefing = await generateBriefing(deepseekClient, briefingPayload, payload.generated_at);
+    const briefing = await generateBriefing(deepseekClient, briefingPayload, payload.generated_at, {
+      db,
+      rows: payload.rows,
+      newToList: diff.newToList,
+    });
     payload.market_context.briefing = briefing;
     payload.provider_status.deepseek = {
       status: 'ok',
@@ -177,8 +181,10 @@ export async function runPipeline(
     // with BTC's reaction, BEFORE attachBriefing so the briefing payload can see it too.
     annotateMacroReactions(payload.rows, payload.market_context, payload.generated_at);
 
-    // Display-only: attachBriefing never throws, so a DeepSeek outage or timeout can never fail or
-    // delay-block a refresh beyond its own request_timeout_seconds.
+    // Display-only: attachBriefing never throws, so a DeepSeek outage or timeout can never fail a
+    // refresh. It CAN delay one, and since the briefing gained a tool loop the bound is no longer a
+    // single request_timeout_seconds -- see BRIEFING_TOOL_BUDGET_MS in pipeline/briefing.ts for the
+    // ~8 min worst case (loop budget + one in-flight request + one fallback request).
     await attachBriefing(db, payload, config, deps.deepseekClient);
 
     // Transient plumbing only (enrichment.ts stashes it on the BTC row so annotateMacroReactions
