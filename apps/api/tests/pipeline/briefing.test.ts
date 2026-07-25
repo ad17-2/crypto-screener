@@ -377,6 +377,18 @@ describe('BRIEFING_SYSTEM_PROMPT', () => {
       'on your final round you must return the finished briefing text instead of more tool calls',
     );
   });
+
+  it('instructs the lead-sentence / candidate-line / closing-sentence shape, without reintroducing bullets', () => {
+    expect(BRIEFING_SYSTEM_PROMPT).toContain(
+      'Write your answer as three blocks separated by exactly one blank line',
+    );
+    expect(BRIEFING_SYSTEM_PROMPT).toContain(
+      'per named candidate -- ticker, one space, "long" or "short", then " — "',
+    );
+    expect(BRIEFING_SYSTEM_PROMPT).toContain(
+      'the line-per-candidate shape replaces bullets, it must not reintroduce them',
+    );
+  });
 });
 
 describe('BRIEFING_MAX_TOOL_ITERATIONS', () => {
@@ -398,6 +410,15 @@ describe('BRIEFING_FALLBACK_SYSTEM_PROMPT', () => {
     expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).toContain('You have no tools this run');
     expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).toContain(
       'you must not claim to have consulted, called, queried, or looked up anything',
+    );
+  });
+
+  it('carries the identical lead-sentence / candidate-line / closing-sentence shape instruction as the tool-enabled prompt', () => {
+    expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).toContain(
+      'Write your answer as three blocks separated by exactly one blank line',
+    );
+    expect(BRIEFING_FALLBACK_SYSTEM_PROMPT).toContain(
+      'per named candidate -- ticker, one space, "long" or "short", then " — "',
     );
   });
 });

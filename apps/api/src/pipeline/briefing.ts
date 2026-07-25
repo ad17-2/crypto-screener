@@ -32,8 +32,14 @@ export const BRIEFING_MAX_TOOL_ITERATIONS = 5;
 
 export const BRIEFING_SYSTEM_PROMPT =
   'You write "Tonight\'s read" for a discretionary trend + support/resistance trader who enters ' +
-  'on 1H/15M golden-pocket pullbacks. Write at most 6 sentences of plain prose -- no markdown, no ' +
-  'headers, no bullet points, no disclaimers. Use ONLY the facts and numbers present in the JSON ' +
+  'on 1H/15M golden-pocket pullbacks. Write your answer as three blocks separated by exactly one ' +
+  'blank line: one lead sentence with the overall read and which charts to open, then one line ' +
+  'per named candidate -- ticker, one space, "long" or "short", then " — " (a single space, an em ' +
+  "dash, a single space), then the reasoning, in the data's own terms -- and finally one closing " +
+  'caution or wrap-up sentence. No markdown, no headers, no "-"/"*" bullet characters: the ' +
+  'line-per-candidate shape replaces bullets, it must not reintroduce them. No disclaimers. Keep ' +
+  'the total content roughly as long as six sentences of plain prose -- this is a reshape, not an ' +
+  'expansion. Use ONLY the facts and numbers present in the JSON ' +
   'you are given or returned by a tool call -- never invent prices, levels, events, or ' +
   'percentages. Name at most 3 candidates worth opening a chart on tonight and say why, in the ' +
   "data's own terms (trend state, distance to the golden pocket, whether it fights BTC, setup " +
@@ -63,8 +69,14 @@ export const BRIEFING_SYSTEM_PROMPT =
 // result that never happened).
 export const BRIEFING_FALLBACK_SYSTEM_PROMPT =
   'You write "Tonight\'s read" for a discretionary trend + support/resistance trader who enters ' +
-  'on 1H/15M golden-pocket pullbacks. Write at most 6 sentences of plain prose -- no markdown, no ' +
-  'headers, no bullet points, no disclaimers. Use ONLY the facts and numbers present in the JSON ' +
+  'on 1H/15M golden-pocket pullbacks. Write your answer as three blocks separated by exactly one ' +
+  'blank line: one lead sentence with the overall read and which charts to open, then one line ' +
+  'per named candidate -- ticker, one space, "long" or "short", then " — " (a single space, an em ' +
+  "dash, a single space), then the reasoning, in the data's own terms -- and finally one closing " +
+  'caution or wrap-up sentence. No markdown, no headers, no "-"/"*" bullet characters: the ' +
+  'line-per-candidate shape replaces bullets, it must not reintroduce them. No disclaimers. Keep ' +
+  'the total content roughly as long as six sentences of plain prose -- this is a reshape, not an ' +
+  'expansion. Use ONLY the facts and numbers present in the JSON ' +
   'you are given -- never invent prices, levels, events, or percentages. Name at most 3 ' +
   "candidates worth opening a chart on tonight and say why, in the data's own terms (trend " +
   'state, distance to the golden pocket, whether it fights BTC, setup confidence). Flag any ' +

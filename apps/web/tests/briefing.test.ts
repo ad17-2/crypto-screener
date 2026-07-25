@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { briefingWrittenWithoutTools, parseBriefing } from '../lib/briefing';
+import { briefingBlocks, briefingWrittenWithoutTools, parseBriefing } from '../lib/briefing';
 import { NO_LEAKED_VALUES } from './noLeakedValues';
 
 describe('parseBriefing', () => {
@@ -157,5 +157,146 @@ describe('briefingWrittenWithoutTools', () => {
     const base = { text: 'ok', model: 'm', generatedAt: null, toolCalls: null, toolError: null };
 
     expect(briefingWrittenWithoutTools({ ...base, usedTools: null })).toBe(false);
+  });
+});
+
+describe('briefingBlocks', () => {
+  it('parses a new-format briefing into lead prose, a candidates block, and closing prose', () => {
+    const text = [
+      'The tape leans long tonight, open VANA and BNB for the clearest reactions.',
+      '',
+      'VANA long — reclaimed the 4h golden pocket with rising OI.',
+      'BNB short — fights BTC into resistance, funding stretched.',
+      'ETC short — breakdown confirmed below the range low.',
+      '',
+      'Keep size small given the risk-off tone across majors tonight.',
+    ].join('\n');
+
+    expect(briefingBlocks(text)).toEqual([
+      {
+        kind: 'prose',
+        text: 'The tape leans long tonight, open VANA and BNB for the clearest reactions.',
+      },
+      {
+        kind: 'candidates',
+        items: [
+          {
+            symbol: 'VANA',
+            side: 'long',
+            reason: 'reclaimed the 4h golden pocket with rising OI.',
+          },
+          {
+            symbol: 'BNB',
+            side: 'short',
+            reason: 'fights BTC into resistance, funding stretched.',
+          },
+          { symbol: 'ETC', side: 'short', reason: 'breakdown confirmed below the range low.' },
+        ],
+      },
+      { kind: 'prose', text: 'Keep size small given the risk-off tone across majors tonight.' },
+    ]);
+  });
+
+  it('never leaks a null/NaN/undefined value into a parsed candidate reason', () => {
+    const text = 'VANA long — reclaimed the 4h golden pocket with rising OI.';
+    const [block] = briefingBlocks(text);
+
+    expect(block?.kind).toBe('candidates');
+    if (block?.kind === 'candidates') {
+      for (const item of block.items) {
+        expect(item.reason).not.toMatch(NO_LEAKED_VALUES);
+      }
+    }
+  });
+
+  it('the legacy single-paragraph blob (no blank lines) parses as exactly one unchanged prose block', () => {
+    // Load-bearing regression test: every briefing already in the DB predates this shape and is a
+    // single unbroken paragraph like this one -- it must keep rendering exactly as it does today.
+    const legacy =
+      'BTC holds its range with funding flat and the fear/greed index sitting near neutral, ' +
+      'ETH continues to lag the broader market on relative strength while open interest drifts ' +
+      'sideways across majors, and no macro print lands inside the next 48 hours worth flagging, ' +
+      'so tonight favors patience over forcing a new entry until price shows a clean reaction at ' +
+      'a level worth defending.';
+
+    expect(briefingBlocks(legacy)).toEqual([{ kind: 'prose', text: legacy }]);
+  });
+
+  it('falls the whole block back to prose when one candidate line does not match the pattern', () => {
+    const text = [
+      'VANA long — reclaimed the 4h golden pocket with rising OI.',
+      'this line does not match the candidate pattern at all',
+      'ETC short — breakdown confirmed below the range low.',
+    ].join('\n');
+
+    expect(briefingBlocks(text)).toEqual([
+      {
+        kind: 'prose',
+        text:
+          'VANA long — reclaimed the 4h golden pocket with rising OI. ' +
+          'this line does not match the candidate pattern at all ' +
+          'ETC short — breakdown confirmed below the range low.',
+      },
+    ]);
+  });
+
+  it('accepts em dash, hyphen, and en dash as the candidate-line separator', () => {
+    const text = [
+      'VANA long — em dash works.',
+      'BNB short - hyphen works too.',
+      'ETC long – en dash also works.',
+    ].join('\n');
+
+    expect(briefingBlocks(text)).toEqual([
+      {
+        kind: 'candidates',
+        items: [
+          { symbol: 'VANA', side: 'long', reason: 'em dash works.' },
+          { symbol: 'BNB', side: 'short', reason: 'hyphen works too.' },
+          { symbol: 'ETC', side: 'long', reason: 'en dash also works.' },
+        ],
+      },
+    ]);
+  });
+
+  it('parses \\r\\n line endings identically to \\n', () => {
+    const lines = [
+      'Lead sentence about tonight.',
+      '',
+      'VANA long — reclaimed the golden pocket.',
+      '',
+      'Closing sentence.',
+    ];
+
+    expect(briefingBlocks(lines.join('\r\n'))).toEqual(briefingBlocks(lines.join('\n')));
+  });
+
+  it('returns an empty array for blank or empty input, without throwing', () => {
+    expect(briefingBlocks('')).toEqual([]);
+    expect(briefingBlocks('   \n\n  \n ')).toEqual([]);
+  });
+
+  it('capNarrative does not strip blank lines -- a new-format briefing still splits into multiple blocks after parseBriefing', () => {
+    // Proves the backward-compat decision documented at briefingBlocks' definition: capNarrative
+    // (a plain character-index slice) runs before this parser inside parseBriefing today, and must
+    // not collapse or strip the blank lines a new-format briefing depends on.
+    const newFormatText = [
+      'Lead sentence about tonight.',
+      '',
+      'VANA long — reclaimed the golden pocket.',
+      'BNB short — fights BTC into resistance.',
+      '',
+      'Closing caution sentence.',
+    ].join('\n');
+    const marketContext = { briefing: { text: newFormatText, model: 'deepseek-v4-pro' } };
+
+    const parsed = parseBriefing(marketContext);
+
+    expect(parsed?.text).toContain('\n\n');
+    expect(parsed ? briefingBlocks(parsed.text).map((block) => block.kind) : []).toEqual([
+      'prose',
+      'candidates',
+      'prose',
+    ]);
   });
 });
