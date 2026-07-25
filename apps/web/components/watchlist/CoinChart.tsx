@@ -240,24 +240,24 @@ export function CoinChart({ row }: CoinChartProps) {
     // (derived from one specific 4h swing leg, not a rolling window), and it's this user's actual
     // entry trigger -- so it's the only pair of axis labels this chart draws (previously seven
     // overlapping labels covered ~40% of chart width, over the most recent candles).
+    //
+    // No `title`: a titled price line renders its text in a box ON the canvas, and verified against
+    // production 2026-07-25 (MORPHO, band at 1.9577/1.9627) the two boxes sat over the last ~3 days
+    // of candles -- the tail end of the same clutter this chart was fixed for, just gold. The band
+    // is already identified by the header legend's "Golden pocket (4h)" entry, and axisLabelVisible
+    // still prints each bound's price in gold on the axis, so the boxes were redundant as well as
+    // in the way.
     const goldenPocket = selectGoldenPocket(row.technical_state);
     if (goldenPocket) {
-      series.createPriceLine({
-        price: goldenPocket.lower,
-        color: colors.gold,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: 'Golden pocket lower (4h)',
-      });
-      series.createPriceLine({
-        price: goldenPocket.upper,
-        color: colors.gold,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: 'Golden pocket upper (4h)',
-      });
+      for (const price of [goldenPocket.lower, goldenPocket.upper]) {
+        series.createPriceLine({
+          price,
+          color: colors.gold,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          axisLabelVisible: true,
+        });
+      }
     }
 
     chart.timeScale().fitContent();
