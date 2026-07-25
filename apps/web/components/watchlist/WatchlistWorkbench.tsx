@@ -2,7 +2,7 @@
 
 import type { Watchlist, WatchlistChanges, WatchlistId } from '@crypto-screener/contracts';
 import { BtcPulseSchema } from '@crypto-screener/contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BTC_PULSE_POLL_MS,
   btcDeltaPct,
@@ -11,6 +11,7 @@ import {
   threatenedSide,
 } from '@/lib/btc-pulse';
 import { rowKey } from '@/lib/dashboard-row';
+import { shouldScrollRailIntoView } from '@/lib/detail-rail-visibility';
 import { readPrefs, writePrefs } from '@/lib/prefs';
 import type { WatchlistFilterState } from '@/lib/watchlist-filters';
 import { DEFAULT_WATCHLIST_FILTERS, filterRows } from '@/lib/watchlist-filters';
@@ -58,6 +59,10 @@ export function WatchlistWorkbench({
   const [sortDir, setSortDir] = useState<SortDirection>(() => defaultSortDirection('rank'));
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [btcPulse, setBtcPulse] = useState<{ livePrice: number; deltaPct: number } | null>(null);
+  const railRef = useRef<HTMLElement | null>(null);
+  // Guards against auto-scrolling on first mount -- the effect below fires once with the initial
+  // selection, which is not a user-driven change and must not move the page.
+  const skipNextRailScroll = useRef(true);
 
   // Post-mount only, matching ThemeProvider: server-safe default (rank / API order) renders first
   // (no hydration mismatch), then this syncs from localStorage once a saved sort is known.
@@ -128,6 +133,25 @@ export function WatchlistWorkbench({
 
   const selectedRow = visibleRows.find((row) => rowKey(row) === effectiveSelectedKey) ?? null;
 
+  // Selecting a row updates .detail-rail, but the rail can render well below the fold with no
+  // other feedback that anything happened -- bring it into view, but only when it's actually
+  // off-screen (see lib/detail-rail-visibility.ts); scrolling a rail that's already showing would
+  // yank the viewport out from under someone reading it.
+  useEffect(() => {
+    if (skipNextRailScroll.current) {
+      skipNextRailScroll.current = false;
+      return;
+    }
+    // Nothing selected (e.g. an empty watchlist) -- the rail just shows its placeholder, nothing
+    // to scroll to.
+    if (!effectiveSelectedKey) return;
+    const rail = railRef.current;
+    if (!rail) return;
+    if (!shouldScrollRailIntoView(rail.getBoundingClientRect(), window.innerHeight)) return;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    rail.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+  }, [effectiveSelectedKey]);
+
   const handleTabChange = (id: WatchlistId) => {
     setActiveTab(id);
     setSelectedKey(null);
@@ -170,7 +194,7 @@ export function WatchlistWorkbench({
         btcStalenessBanner={btcStalenessBanner}
         watchlistChanges={watchlistChanges}
       />
-      <aside className="detail-rail">
+      <aside ref={railRef} className="detail-rail">
         <SelectedCoinRail row={selectedRow} />
       </aside>
     </section>
