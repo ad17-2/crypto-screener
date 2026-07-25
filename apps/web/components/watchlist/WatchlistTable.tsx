@@ -418,16 +418,31 @@ function QualityWarningMark({ row }: { row: DashboardRow }) {
   );
 }
 
+/** Two lines, not the five separate ones each badge used to force (`.watch-setup`'s CSS grid puts
+ *  one grid row per direct child): the direction + description are the primary read and share a
+ *  wrapping flex line (same `inline-flex items-center flex-wrap gap-1.5` SymbolCell already uses
+ *  for its own badge run), and the confidence/Fights-BTC/size qualifiers share a second one,
+ *  rendered only when at least one of them is present so a plain row (e.g. Core, nothing to flag)
+ *  costs a single line. No badge is dropped or hidden behind a tooltip -- this only changes how
+ *  many of them are forced onto their own line. */
 function SetupCell({ row }: { row: DashboardRow }) {
   const side = sideMeta(row.side);
   const setup = lookupSetup(row.setup);
+  const hasSecondary =
+    Boolean(row.setup_confidence) || Boolean(row.fights_btc) || sizeMultiplierChip(row) !== null;
   return (
     <td className="watch-cell left watch-setup" data-label="Setup">
-      <span className={`setup-badge ${side.tone}`}>{side.label}</span>
-      <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
-      {row.setup_confidence ? <SetupConfidenceBadge confidence={row.setup_confidence} /> : null}
-      {row.fights_btc ? <FightsBtcChip /> : null}
-      <SizeChip row={row} />
+      <span className="inline-flex items-center flex-wrap gap-1.5">
+        <span className={`setup-badge ${side.tone}`}>{side.label}</span>
+        <span className={`setup-badge ${row.setup_tone || 'neutral'}`}>{setup.label}</span>
+      </span>
+      {hasSecondary ? (
+        <span className="inline-flex items-center flex-wrap gap-1.5">
+          {row.setup_confidence ? <SetupConfidenceBadge confidence={row.setup_confidence} /> : null}
+          {row.fights_btc ? <FightsBtcChip /> : null}
+          <SizeChip row={row} />
+        </span>
+      ) : null}
     </td>
   );
 }
