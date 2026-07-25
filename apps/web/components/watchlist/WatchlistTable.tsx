@@ -2,6 +2,7 @@ import type { DashboardRow, DashboardRowSide } from '@crypto-screener/contracts'
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { Term } from '@/components/ui/Tooltip';
 import {
+  type CopyEntry,
   lookupMetric,
   lookupQualityFlag,
   lookupRunTrend,
@@ -33,20 +34,32 @@ interface ColumnDef {
   label: string;
   /** Present only where the term isn't self-evident -- renders via Term (label + ⓘ). */
   definition?: string;
+  /** The full name behind an abbreviated `label`, carried through to the tooltip heading and
+      aria-label. Only set where `label` shortens the metric's own name to fit the header track. */
+  term?: string;
   /** Text columns read left; numbers read right. Must match the body cell, or the header floats
       away from the data it labels. */
   align?: 'left';
+}
+
+/** Abbreviates a metric's own label for the header track while keeping its full name as `term`,
+    so the tooltip heading and aria-label still read the unabbreviated word. */
+function abbreviated(
+  metric: CopyEntry,
+  label: string,
+): Pick<ColumnDef, 'label' | 'definition' | 'term'> {
+  return { label, definition: metric.definition, term: metric.label };
 }
 
 const COLUMNS: ColumnDef[] = [
   { key: 'symbol', label: 'Coin', align: 'left' },
   { key: 'setup', label: 'Setup', align: 'left' },
   { key: 'price', label: '24h' },
-  { key: 'volume', ...lookupMetric('volume') },
+  { key: 'volume', ...abbreviated(lookupMetric('volume'), 'Vol') },
   { key: 'oi', label: 'OI 24h', definition: lookupMetric('open_interest').definition },
-  { key: 'funding', ...lookupMetric('funding') },
-  { key: 'crowding', ...lookupMetric('crowding') },
-  { key: 'btc_correlation', ...lookupMetric('btc_correlation') },
+  { key: 'funding', ...abbreviated(lookupMetric('funding'), 'Fund') },
+  { key: 'crowding', ...abbreviated(lookupMetric('crowding'), 'Crowd') },
+  { key: 'btc_correlation', ...abbreviated(lookupMetric('btc_correlation'), 'Corr') },
   { key: 'positioning_divergence', ...lookupMetric('positioning_divergence') },
 ];
 
@@ -58,9 +71,18 @@ const COLUMNS: ColumnDef[] = [
  * `@media (max-width: 900px)` 2-column override, which is why that override is repeated here too
  * (it would otherwise be shadowed the same way, breaking the mobile card collapse). No Rank or
  * Conviction column here -- THE SCREEN ranks by observable facts, not a model opinion.
+ *
+ * The HEADER labels, not the body cells, are the binding constraint on these tracks: body cells
+ * carry `min-width: 0` (globals.css `.watch-cell`) so content never widens a track, but the `<th>`
+ * is `inline-flex` + `justify-end`, so a header label wider than its track spills LEFTWARD over
+ * the previous column instead of being clipped. This template deliberately moves fr weight off
+ * Coin/Setup (whose body content had slack) onto the six numeric columns whose labels were
+ * overflowing. The combined minimum track width is 814px + 64px of gaps + 24px padding = 902px,
+ * just above the 900px breakpoint where the layout collapses to the 2-column card form -- so
+ * these minimums never apply on a screen that still shows this header.
  */
 const GRID_COLUMNS =
-  'grid-cols-[minmax(96px,1.05fr)_minmax(150px,1.5fr)_minmax(68px,0.62fr)_minmax(86px,0.8fr)_minmax(76px,0.68fr)_minmax(82px,0.74fr)_minmax(76px,0.68fr)_minmax(76px,0.68fr)_minmax(76px,0.68fr)] max-[900px]:grid-cols-2';
+  'grid-cols-[minmax(92px,0.92fr)_minmax(150px,1.38fr)_minmax(68px,0.60fr)_minmax(80px,0.70fr)_minmax(80px,0.70fr)_minmax(80px,0.72fr)_minmax(88px,0.76fr)_minmax(88px,0.76fr)_minmax(88px,0.76fr)] max-[900px]:grid-cols-2';
 
 export interface SideMeta {
   label: string;
@@ -107,7 +129,7 @@ export function WatchlistTable({
     <table aria-label="Watchlist rows" className="watch-table w-full block">
       <thead className="block">
         <tr
-          className={`watch-head ${GRID_COLUMNS} sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-ash text-xs font-medium tracking-[0.25em] uppercase`}
+          className={`watch-head ${GRID_COLUMNS} sticky top-0 z-[2] px-3 py-2 border-b border-line bg-panel-2 text-ash text-xs font-medium tracking-[0.15em] uppercase`}
         >
           {COLUMNS.map((column) => (
             <HeaderCell
@@ -115,6 +137,7 @@ export function WatchlistTable({
               columnKey={column.key}
               label={column.label}
               definition={column.definition}
+              term={column.term}
               align={column.align}
               active={sortKey === column.key}
               dir={sortDir}
@@ -145,6 +168,7 @@ function HeaderCell({
   columnKey,
   label,
   definition,
+  term,
   align,
   active,
   dir,
@@ -153,6 +177,7 @@ function HeaderCell({
   columnKey: SortColumnKey;
   label: string;
   definition?: string | undefined;
+  term?: string | undefined;
   align?: 'left' | undefined;
   active: boolean;
   dir: SortDirection;
@@ -193,7 +218,13 @@ function HeaderCell({
           it, and inward (align="right") because every column carrying a definition is a right-aligned
           numeric one, the last of which (Crowding) sits flush against the page's right margin. */}
       {definition ? (
-        <Term label={label} definition={definition} placement="bottom" align="right" />
+        <Term
+          label={label}
+          definition={definition}
+          placement="bottom"
+          align="right"
+          {...(term !== undefined ? { term } : {})}
+        />
       ) : (
         label
       )}

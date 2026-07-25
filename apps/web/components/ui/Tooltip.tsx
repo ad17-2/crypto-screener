@@ -72,14 +72,17 @@ type TermProps = {
   definition: string;
   placement?: Placement;
   align?: Align;
+  /** The visible `label` may be abbreviated to fit a layout; `term` carries the full name used for
+   *  the tooltip heading and the aria-label. Defaults to `label`. */
+  term?: string;
 };
 
 /** A label paired with its InfoTip — the label + ⓘ combo recurs constantly across the dashboard. */
-export function Term({ label, definition, placement = 'top', align = 'left' }: TermProps) {
+export function Term({ label, definition, placement = 'top', align = 'left', term }: TermProps) {
   return (
     <span className="inline-flex items-center gap-1">
       {label}
-      <InfoTip term={label} definition={definition} placement={placement} align={align} />
+      <InfoTip term={term ?? label} definition={definition} placement={placement} align={align} />
     </span>
   );
 }
