@@ -78,6 +78,8 @@
       "base_url": "https://api.coingecko.com/api/v3",
       "api_key_env": "COINGECKO_API_KEY",
       "categories_limit": 12,
+      "categories_min_market_cap_usd": 100000000,
+      "categories_min_volume_24h_usd": 10000000,
       "request_timeout_seconds": 12,
       "retry_429": true,
       "retry_429_initial_delay_seconds": 30,

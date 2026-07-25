@@ -76,6 +76,11 @@ const CoinGeckoConfigSchema = z
     base_url: z.string().default('https://api.coingecko.com/api/v3'),
     api_key_env: z.string().default('COINGECKO_API_KEY'),
     categories_limit: z.number().int().default(12),
+    // Liquidity floor for /coins/categories before ranking leaders/laggards -- without it, dead
+    // microcap buckets print +900%/-100% swings that saturate categoryMomentumScore. See
+    // normalizeCoingeckoCategories in pipeline/collector.ts for the measured thresholds.
+    categories_min_market_cap_usd: z.number().default(100_000_000),
+    categories_min_volume_24h_usd: z.number().default(10_000_000),
     request_timeout_seconds: z.number().default(12),
     retry_429: z.boolean().default(true),
     retry_429_initial_delay_seconds: z.number().default(30),

@@ -8,6 +8,7 @@ import {
   collectFearGreedContext,
   collectMacroCalendarContext,
   collectMarket,
+  normalizeCoingeckoCategories,
   rankCoinglassCandidates,
 } from '../../src/pipeline/collector';
 import type { CoinGeckoClient } from '../../src/providers/coingecko';
@@ -428,6 +429,163 @@ describe('collectCoinglassFutures (full pass, stubbed client)', () => {
     for (const key of expectedKeys) {
       expect(rows[0]).toHaveProperty(key);
     }
+  });
+});
+
+describe('normalizeCoingeckoCategories', () => {
+  const LIMIT = 12;
+  const MIN_MARKET_CAP_USD = 100_000_000;
+  const MIN_VOLUME_24H_USD = 10_000_000;
+
+  function category(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      id: 'defi',
+      name: 'DeFi',
+      market_cap: 500_000_000,
+      market_cap_change_24h: 4.2,
+      volume_24h: 50_000_000,
+      top_3_coins: [],
+      ...overrides,
+    };
+  }
+
+  it('drops a microcap category even when it carries a huge swing', () => {
+    // NFT Index: -100.0%, mcap $0.0M, vol $0.0M -- exactly the dashboard-visible bug this floor fixes.
+    const nftIndex = category({
+      id: 'nft-index',
+      name: 'NFT Index',
+      market_cap: 12_000,
+      market_cap_change_24h: -100.0,
+      volume_24h: 3_000,
+    });
+
+    const { leaders, laggards } = normalizeCoingeckoCategories(
+      [nftIndex],
+      LIMIT,
+      MIN_MARKET_CAP_USD,
+      MIN_VOLUME_24H_USD,
+    );
+
+    expect(leaders).toEqual([]);
+    expect(laggards).toEqual([]);
+  });
+
+  it('keeps a category that clears both the market-cap and volume floors', () => {
+    const layer1 = category({
+      id: 'layer-1',
+      name: 'Layer 1',
+      market_cap: 250_000_000,
+      market_cap_change_24h: 6.5,
+      volume_24h: 40_000_000,
+    });
+
+    const { leaders, laggards } = normalizeCoingeckoCategories(
+      [layer1],
+      LIMIT,
+      MIN_MARKET_CAP_USD,
+      MIN_VOLUME_24H_USD,
+    );
+
+    expect(leaders).toHaveLength(1);
+    expect(leaders[0]).toMatchObject({ id: 'layer-1', market_cap_change_24h_pct: 6.5 });
+    expect(laggards).toHaveLength(1);
+  });
+
+  it('drops a category with a null market_cap', () => {
+    const { leaders, laggards } = normalizeCoingeckoCategories(
+      [category({ id: 'unknown-mcap', market_cap: null })],
+      LIMIT,
+      MIN_MARKET_CAP_USD,
+      MIN_VOLUME_24H_USD,
+    );
+
+    expect(leaders).toEqual([]);
+    expect(laggards).toEqual([]);
+  });
+
+  it('drops a category with a null volume_24h', () => {
+    const { leaders, laggards } = normalizeCoingeckoCategories(
+      [category({ id: 'unknown-volume', volume_24h: null })],
+      LIMIT,
+      MIN_MARKET_CAP_USD,
+      MIN_VOLUME_24H_USD,
+    );
+
+    expect(leaders).toEqual([]);
+    expect(laggards).toEqual([]);
+  });
+
+  it('computes leaders and laggards only from survivors of the liquidity floor', () => {
+    // CNY Stablecoin (+928.4%) and Farming Games (-100.0%) are the dashboard-visible garbage this
+    // fix removes; Market-Making (+143.0%, mcap $2.5M, vol $0.1M) is a real measured example.
+    const cnyStablecoin = category({
+      id: 'cny-stablecoin',
+      name: 'CNY Stablecoin',
+      market_cap: 2_000_000,
+      market_cap_change_24h: 928.4,
+      volume_24h: 500_000,
+    });
+    const farmingGames = category({
+      id: 'farming-games',
+      name: 'Farming Games',
+      market_cap: 0,
+      market_cap_change_24h: -100.0,
+      volume_24h: 0,
+    });
+    const marketMaking = category({
+      id: 'market-making',
+      name: 'Market-Making',
+      market_cap: 2_500_000,
+      market_cap_change_24h: 143.0,
+      volume_24h: 100_000,
+    });
+    const liquidLeader = category({
+      id: 'liquid-leader',
+      name: 'Liquid Leader',
+      market_cap: 300_000_000,
+      market_cap_change_24h: 13.0,
+      volume_24h: 20_000_000,
+    });
+    const liquidLaggard = category({
+      id: 'liquid-laggard',
+      name: 'Liquid Laggard',
+      market_cap: 300_000_000,
+      market_cap_change_24h: -12.0,
+      volume_24h: 20_000_000,
+    });
+
+    // limit=1 isolates the single leader and single laggard, proving the garbage swings
+    // (CNY Stablecoin +928.4%, Farming Games -100.0%, Market-Making +143.0%) never even enter the
+    // ranking despite dwarfing the liquid categories' +13.0%/-12.0% moves.
+    const { leaders, laggards } = normalizeCoingeckoCategories(
+      [cnyStablecoin, farmingGames, marketMaking, liquidLeader, liquidLaggard],
+      1,
+      MIN_MARKET_CAP_USD,
+      MIN_VOLUME_24H_USD,
+    );
+
+    expect(leaders.map((item) => item.id)).toEqual(['liquid-leader']);
+    expect(laggards.map((item) => item.id)).toEqual(['liquid-laggard']);
+  });
+
+  it('yields empty leaders and laggards, without throwing, when everything is filtered out', () => {
+    const categories = [
+      category({ id: 'a', market_cap: 1_000, volume_24h: 100 }),
+      category({ id: 'b', market_cap: null, volume_24h: 50_000_000 }),
+      category({ id: 'c', market_cap: 200_000_000, volume_24h: null }),
+    ];
+
+    expect(() =>
+      normalizeCoingeckoCategories(categories, LIMIT, MIN_MARKET_CAP_USD, MIN_VOLUME_24H_USD),
+    ).not.toThrow();
+    const { leaders, laggards } = normalizeCoingeckoCategories(
+      categories,
+      LIMIT,
+      MIN_MARKET_CAP_USD,
+      MIN_VOLUME_24H_USD,
+    );
+    expect(leaders).toEqual([]);
+    expect(laggards).toEqual([]);
   });
 });
 

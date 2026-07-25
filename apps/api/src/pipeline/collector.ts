@@ -188,7 +188,12 @@ export async function collectCoingeckoContext(
 
   try {
     const categories = await coingeckoClient.categories();
-    context.categories = normalizeCoingeckoCategories(categories, providerCfg.categories_limit);
+    context.categories = normalizeCoingeckoCategories(
+      categories,
+      providerCfg.categories_limit,
+      providerCfg.categories_min_market_cap_usd,
+      providerCfg.categories_min_volume_24h_usd,
+    );
   } catch (error) {
     collectProviderError(errors, error);
   }
@@ -447,9 +452,19 @@ function normalizeCoingeckoGlobal(globalData: Record<string, unknown>): Record<s
   };
 }
 
-function normalizeCoingeckoCategories(
+// CoinGecko's `market_cap_change_24h` is a MARKET-CAP delta (today's category mcap vs. yesterday's),
+// not a price return -- a thinly-traded category can print -100% purely from its constituent coins'
+// combined market cap collapsing toward zero, or swing hundreds of percent as coins are added to or
+// dropped from the bucket. Below a liquidity floor those swings are noise, not signal, so we drop
+// illiquid categories before ranking leaders/laggards rather than letting them saturate
+// categoryMomentumScore (see market.ts). Thresholds were measured live 2026-07-25: of 383 categories
+// with a change value, mcap>=$100M AND vol>=$10M keeps 196 and collapses the |change| range from
+// +143%/-100% down to +13%/-12%.
+export function normalizeCoingeckoCategories(
   categories: Record<string, unknown>[],
   limit: number,
+  minMarketCapUsd: number,
+  minVolume24hUsd: number,
 ): { leaders: Record<string, unknown>[]; laggards: Record<string, unknown>[] } {
   const normalized = categories
     .filter((item) => toFloat(item.market_cap_change_24h) !== null)
@@ -460,7 +475,16 @@ function normalizeCoingeckoCategories(
       market_cap_change_24h_pct: toFloat(item.market_cap_change_24h),
       volume_24h_usd: toFloat(item.volume_24h),
       top_3_coins: item.top_3_coins ?? [],
-    }));
+    }))
+    // A missing market_cap or volume_24h is dropped, not kept: unknown liquidity is exactly the
+    // failure mode this floor exists to remove.
+    .filter(
+      (item) =>
+        item.market_cap_usd !== null &&
+        item.market_cap_usd >= minMarketCapUsd &&
+        item.volume_24h_usd !== null &&
+        item.volume_24h_usd >= minVolume24hUsd,
+    );
 
   const leaders = [...normalized]
     .sort((a, b) => (b.market_cap_change_24h_pct ?? 0) - (a.market_cap_change_24h_pct ?? 0))
