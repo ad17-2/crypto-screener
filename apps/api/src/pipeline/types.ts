@@ -9,20 +9,6 @@ export interface Row {
 
 export type MarketContext = Record<string, unknown>;
 
-/**
- * Shape of one labeled `factor_history` record. Relocated from the deleted pipeline/ic.ts (the
- * IC/weighting engine that used to consume these) -- kept only for the golden parity fixture
- * (tests/parity.test.ts, scripts/regen-golden.ts), which still ships a frozen `factor_history`
- * array and passes it through scoreSnapshot's unused historyRecords parameter.
- */
-export interface FactorRecord {
-  generated_at?: unknown;
-  forward_return_pct?: unknown;
-  factors?: unknown;
-  regime?: unknown;
-  [key: string]: unknown;
-}
-
 export function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)

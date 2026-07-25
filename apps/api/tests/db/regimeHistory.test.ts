@@ -1,10 +1,6 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  loadLatestRegimeState,
-  loadRegimeStates,
-  recordRegimeHistory,
-} from '../../src/db/regimeHistory.js';
+import { loadLatestRegimeState, recordRegimeHistory } from '../../src/db/regimeHistory.js';
 import { setupTempDb, teardownTempDb } from '../support/tempDb.js';
 
 let dir: string;
@@ -99,25 +95,6 @@ describe('recordRegimeHistory', () => {
       .prepare('SELECT fear_greed_value FROM market_regime_history WHERE run_id = ?')
       .get('run-1') as { fear_greed_value: number | null };
     expect(row.fear_greed_value).toBeNull();
-  });
-});
-
-describe('loadRegimeStates', () => {
-  it('maps generated_at -> regime_state, excluding rows with a null regime_state', () => {
-    recordRegimeHistory(db, {
-      run_id: 'run-1',
-      generated_at: '2026-07-01T00:00:00+07:00',
-      regime: { regime_state: 'risk-on' },
-    });
-    recordRegimeHistory(db, {
-      run_id: 'run-2',
-      generated_at: '2026-07-02T00:00:00+07:00',
-      regime: {},
-    });
-
-    const states = loadRegimeStates(db);
-    expect(states).toEqual({ '2026-07-01T00:00:00+07:00': 'risk-on' });
-    expect(states['2026-07-02T00:00:00+07:00']).toBeUndefined();
   });
 });
 

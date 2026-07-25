@@ -17,8 +17,6 @@ const rawEnvSchema = z.object({
   CRYPTO_DASHBOARD_REFRESH_TZ: z.string().default('Asia/Jakarta'),
   CRYPTO_DASHBOARD_RETAIN_RUNS: z.coerce.number().int().default(0),
   CRYPTO_DASHBOARD_REFRESH_TOKEN: z.string().optional(),
-  COINGLASS_API_KEY: z.string().optional(),
-  COINGECKO_API_KEY: z.string().optional(),
 });
 
 export interface DailyRefreshTime {
@@ -40,8 +38,6 @@ export interface AppEnv {
   retainRuns: number;
   /** `null` when unset — callers MUST treat that as always-deny (403), never allow-any. See `isRefreshAllowed`. */
   refreshToken: string | null;
-  coinglassApiKey: string | null;
-  coingeckoApiKey: string | null;
 }
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
@@ -57,8 +53,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     CRYPTO_DASHBOARD_REFRESH_TZ: source.CRYPTO_DASHBOARD_REFRESH_TZ,
     CRYPTO_DASHBOARD_RETAIN_RUNS: source.CRYPTO_DASHBOARD_RETAIN_RUNS,
     CRYPTO_DASHBOARD_REFRESH_TOKEN: source.CRYPTO_DASHBOARD_REFRESH_TOKEN,
-    COINGLASS_API_KEY: source.COINGLASS_API_KEY,
-    COINGECKO_API_KEY: source.COINGECKO_API_KEY,
   });
 
   const config = loadConfig(raw.CRYPTO_SCREENER_CONFIG);
@@ -78,8 +72,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     refreshTimezone: raw.CRYPTO_DASHBOARD_REFRESH_TZ,
     retainRuns: raw.CRYPTO_DASHBOARD_RETAIN_RUNS,
     refreshToken: raw.CRYPTO_DASHBOARD_REFRESH_TOKEN || null,
-    coinglassApiKey: raw.COINGLASS_API_KEY || null,
-    coingeckoApiKey: raw.COINGECKO_API_KEY || null,
   };
 }
 

@@ -23,7 +23,6 @@ function snapshot(runId: string, generatedAt: string, symbol: string): SnapshotP
     market_context: { btc_dominance_pct: 55 },
     provider_status: { coinglass: { status: 'ok' } },
     regime: { regime_state: 'risk-on' },
-    factor_weights: { mode: 'ic' },
     rows: [
       {
         symbol,

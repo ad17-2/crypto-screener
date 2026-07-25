@@ -16,7 +16,6 @@ import {
   lookupFreshness,
   lookupMetric,
   lookupOiPriceTrendState,
-  lookupProvider,
   lookupQualityFlag,
   lookupRunTrend,
   lookupSectorRotationLabel,
@@ -27,7 +26,6 @@ import {
   lookupWatchlist,
   METRIC,
   OI_PRICE_TREND_STATE,
-  PROVIDER,
   REGIME_STATE,
   RUN_TREND,
   SECTOR_ROTATION_LABEL,
@@ -127,16 +125,6 @@ const REGIME_STATES = ['btc-led', 'alts-strong', 'neutral', 'chaos', 'momentum']
 
 // apps/api/src/dashboard/freshness.ts label thresholds.
 const FRESHNESS_LABELS = ['fresh', 'aging', 'stale', 'old', 'unknown'];
-
-// apps/api/src/pipeline/collector.ts and enrichment.ts `status.<key> = ...` assignment sites.
-const PROVIDER_KEYS = [
-  'coingecko',
-  'coinglass',
-  'data_quality',
-  'derivatives_history',
-  'long_short_ratio',
-  'technicals',
-];
 
 // apps/api/src/dashboard/rows.ts `setupConfidence()` tiers (Stage E/F).
 const SETUP_CONFIDENCE_TIERS = ['A', 'B', 'C'];
@@ -254,13 +242,6 @@ describe('copy dictionaries cover every source-derived key', () => {
     for (const label of FRESHNESS_LABELS) {
       expect(FRESHNESS[label], `FRESHNESS missing "${label}"`).toBeDefined();
       assertHuman(lookupFreshness(label).label);
-    }
-  });
-
-  it('covers every provider status key', () => {
-    for (const key of PROVIDER_KEYS) {
-      expect(PROVIDER[key], `PROVIDER missing "${key}"`).toBeDefined();
-      assertHuman(lookupProvider(key).label);
     }
   });
 

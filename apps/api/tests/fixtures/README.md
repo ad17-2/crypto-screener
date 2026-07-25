@@ -50,8 +50,7 @@ The following are irreplaceable captured market data (or, for `parity.sqlite3`, 
 artifact of the deleted Python implementation) and must never be edited, deleted, or "refreshed",
 regardless of what the model does:
 
-- `parity-run.json`'s `_meta`, `config`, `input_rows`, `market_context`, and `factor_history`
-  (`factor_history` is legacy frozen shape only — `scoreSnapshot` no longer consumes it)
+- `parity-run.json`'s `_meta`, `config`, `input_rows`, and `market_context`
 - `parity.sqlite3` in its entirety (`dashboardPayload.test.ts` copies it to a temp path before
   opening -- it must never be opened read-write)
 

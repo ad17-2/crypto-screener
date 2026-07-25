@@ -13,7 +13,6 @@ export interface SnapshotPayload {
   market_context?: Record<string, unknown>;
   provider_status?: Record<string, unknown>;
   regime?: Record<string, unknown>;
-  factor_weights?: Record<string, unknown>;
   rows?: MarketRow[];
 }
 

@@ -600,43 +600,6 @@ export const METRIC: Record<string, CopyEntry> = {
 
 export const lookupMetric = makeLookup(METRIC, NOT_REPORTED);
 
-// apps/api/src/pipeline/collector.ts and enrichment.ts `status.<key> = ...`
-// assignment sites (6 hardcoded string-literal keys). Two are real external providers
-// (coingecko, coinglass); the other four are in-process checks or CoinGlass sub-checks, not
-// separate external providers.
-export const PROVIDER: Record<string, CopyEntry> = {
-  coingecko: {
-    label: 'CoinGecko',
-    definition: 'External provider: global market cap, dominance, and category data.',
-  },
-  coinglass: {
-    label: 'CoinGlass',
-    definition:
-      'External provider: the primary futures snapshot (price, open interest, funding, volume) for every tracked pair.',
-  },
-  data_quality: {
-    label: 'Data quality checks',
-    definition:
-      'Not an external provider -- a local, in-process sanity-check pass that excludes rows failing quality checks.',
-  },
-  derivatives_history: {
-    label: 'Derivatives history',
-    definition:
-      'A CoinGlass sub-check: historical open interest, funding, liquidation, and taker-flow series, distinct from the live CoinGlass snapshot.',
-  },
-  long_short_ratio: {
-    label: 'Long/short ratio',
-    definition: 'A CoinGlass sub-check: global and top-trader long/short account ratio history.',
-  },
-  technicals: {
-    label: 'Technicals',
-    definition:
-      'A CoinGlass sub-check: OHLC price history used to compute 4h technical indicators.',
-  },
-};
-
-export const lookupProvider = makeLookup(PROVIDER, NOT_REPORTED);
-
 // apps/api/src/pipeline/quality.ts `dataQualityFlags()` (13 codes). Most
 // carry a dynamic `code:value` suffix -- lookupQualityFlag() splits on the first ':' and keys on
 // the prefix, so a suffixed flag never falls through to the raw fallback. This is the single

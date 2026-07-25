@@ -16,7 +16,7 @@ export {
   labelClosedWindows,
   saveOutcomeLabelRecords,
 } from './outcomeLabels.js';
-export { loadLatestRegimeState, loadRegimeStates, recordRegimeHistory } from './regimeHistory.js';
+export { loadLatestRegimeState, recordRegimeHistory } from './regimeHistory.js';
 export { pruneOldRuns, saveSnapshot } from './runs.js';
 export { ensureSchema } from './schema.js';
 export type {

@@ -68,8 +68,9 @@ export function saveSnapshot(
 }
 
 /**
- * Deletes only from `runs` and `market_rows`. factor_history and market_regime_history must never
- * be touched here — they back the dashboard sparklines, which need the full, unpruned series.
+ * Deletes only from `runs` and `market_rows`. factor_history and market_regime_history are
+ * append-only history tables; their retention is a separate operator decision (see the CLI
+ * backfill/research tooling), not something this prune should ever touch.
  */
 export function pruneOldRuns(db: Database.Database, keep: number): PruneResult {
   if (keep <= 0) {

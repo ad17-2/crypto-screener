@@ -17,7 +17,7 @@ import { AppConfigSchema } from '../src/config/schema.js';
 import { buildDashboardPayload } from '../src/dashboard/payload.js';
 import { openDatabase } from '../src/db/client.js';
 import { scoreSnapshot } from '../src/pipeline/factors.js';
-import type { FactorRecord, MarketContext, Row } from '../src/pipeline/types.js';
+import type { MarketContext, Row } from '../src/pipeline/types.js';
 import type { Diff, JNode } from './lib/losslessJson.js';
 import { parseLossless, reconcile, serialize } from './lib/losslessJson.js';
 
@@ -63,10 +63,9 @@ interface ParityFixtureShape {
   config: unknown;
   market_context: MarketContext;
   input_rows: Row[];
-  factor_history: FactorRecord[];
 }
 
-/** Rewrites only parity-run.json's `expected` block by splicing serialized text into the original bytes; `_meta`/`config`/`input_rows`/`market_context`/`factor_history` are never touched, not even re-serialized. */
+/** Rewrites only parity-run.json's `expected` block by splicing serialized text into the original bytes; `_meta`/`config`/`input_rows`/`market_context` are never touched, not even re-serialized. */
 export function regenParity(): void {
   const origText = readFileSync(PARITY_FIXTURE_PATH, 'utf-8');
   const root = parseLossless(origText);

@@ -29,22 +29,6 @@ export function recordRegimeHistory(db: Database.Database, payload: SnapshotPayl
   );
 }
 
-export function loadRegimeStates(db: Database.Database): Record<string, string> {
-  const rows = db
-    .prepare(`
-      SELECT generated_at, regime_state
-      FROM market_regime_history
-      WHERE regime_state IS NOT NULL
-    `)
-    .all() as Array<{ generated_at: string; regime_state: string }>;
-
-  const result: Record<string, string> = {};
-  for (const row of rows) {
-    result[row.generated_at] = row.regime_state;
-  }
-  return result;
-}
-
 export function loadLatestRegimeState(db: Database.Database): RegimeStateSummary | null {
   const row = db
     .prepare(`

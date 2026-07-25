@@ -21,8 +21,6 @@ describe('loadEnv', () => {
     expect(env.refreshTimezone).toBe('Asia/Jakarta');
     expect(env.retainRuns).toBe(0);
     expect(env.refreshToken).toBeNull();
-    expect(env.coinglassApiKey).toBeNull();
-    expect(env.coingeckoApiKey).toBeNull();
     expect(env.dashboardLimit).toBe(12);
     expect(env.dbPath).toBe(env.config.storage_path);
   });

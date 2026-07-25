@@ -90,37 +90,12 @@ CREATE TABLE IF NOT EXISTS market_regime_history (
 
 CREATE INDEX IF NOT EXISTS idx_market_regime_history_time
     ON market_regime_history(generated_at);
-
--- priority/factor_score are legacy: still readable on old rows, no longer written (see
--- ensureSchema's ensureColumn calls below for the columns that replaced them).
--- Retired: no longer written by application code; table/index kept as-is for existing databases.
-CREATE TABLE IF NOT EXISTS recommendations (
-    run_id TEXT NOT NULL,
-    generated_at TEXT NOT NULL,
-    symbol TEXT NOT NULL,
-    watchlist TEXT NOT NULL,
-    priority REAL,
-    factor_score REAL,
-    round_trip_cost_pct REAL,
-    PRIMARY KEY (run_id, symbol, watchlist),
-    FOREIGN KEY (run_id) REFERENCES runs(run_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_recommendations_symbol_time
-    ON recommendations(symbol, generated_at);
 `;
 
 export function ensureSchema(db: Database.Database): void {
   db.exec(DDL);
   ensureColumn(db, 'runs', 'regime_json', "TEXT NOT NULL DEFAULT '{}'");
   ensureColumn(db, 'runs', 'factor_weights_json', "TEXT NOT NULL DEFAULT '{}'");
-  // Layer 4 scoreboard columns. `priority`/`factor_score` above are no longer written (superseded
-  // by `signal_value`, the value of whichever score field actually drove the call) but are kept,
-  // not dropped -- old rows still carry them.
-  ensureColumn(db, 'recommendations', 'side', 'TEXT');
-  ensureColumn(db, 'recommendations', 'score_field', 'TEXT');
-  ensureColumn(db, 'recommendations', 'signal_value', 'REAL');
-  ensureColumn(db, 'recommendations', 'size_multiplier', 'REAL');
   // Fear & Greed Index (alternative.me), lifted from market_context.fear_greed_value -- see
   // db/regimeHistory.ts recordRegimeHistory(). Old rows keep NULL.
   ensureColumn(db, 'market_regime_history', 'fear_greed_value', 'REAL');
