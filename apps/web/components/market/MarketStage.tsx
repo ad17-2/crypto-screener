@@ -5,6 +5,7 @@ import { lookupBias, lookupMetric, lookupRegimeState } from '@/lib/copy';
 import { fmtNum } from '@/lib/format';
 import { parseMacroEvents, selectMacroBanner } from '@/lib/macro-events';
 import { num, pct, signedPct, str } from '@/lib/payload';
+import { coingeckoGlobalUnavailable } from '@/lib/provider-status';
 import { marketVerdict, regimeState, sieveStages } from '@/lib/verdict';
 import { Sieve } from './Sieve';
 
@@ -34,6 +35,7 @@ export function MarketStage({
 }: MarketStageProps) {
   const verdict = marketVerdict({ regime, market_context: marketContext, validation });
   const stages = sieveStages({ provider_status: providerStatus, run, quality, watchlists });
+  const coingeckoUnavailable = coingeckoGlobalUnavailable(providerStatus);
   const macroBanner = selectMacroBanner(parseMacroEvents(marketContext), new Date());
   const briefing = parseBriefing(marketContext);
 
@@ -96,6 +98,7 @@ export function MarketStage({
           label="Market cap 24h"
           value={signedPct(marketCapChange, 2)}
           metricKey="change_24h"
+          unavailable={coingeckoUnavailable}
           tone={
             marketCapChange === null
               ? undefined
@@ -110,11 +113,13 @@ export function MarketStage({
           label="BTC dominance"
           value={pct(num(marketContext, 'btc_dominance_pct'), 2)}
           metricKey="btc_dominance"
+          unavailable={coingeckoUnavailable}
         />
         <StatTile
           label="ETH dominance"
           value={pct(num(marketContext, 'eth_dominance_pct'), 2)}
           metricKey="eth_dominance"
+          unavailable={coingeckoUnavailable}
         />
         <StatTile
           label="Volatility"
@@ -176,11 +181,15 @@ function StatTile({
   value,
   tone,
   metricKey,
+  unavailable,
 }: {
   label: string;
   value: string;
   tone?: 'pos' | 'neg' | 'warn' | undefined;
   metricKey?: string;
+  /** True when the source provider failed for this run -- see coingeckoGlobalUnavailable. Renders
+   *  a quiet note so a bare "-" isn't mistaken for a genuine null/zero value. */
+  unavailable?: boolean;
 }) {
   const metric = metricKey ? lookupMetric(metricKey) : null;
   return (
@@ -190,6 +199,11 @@ function StatTile({
         {metric ? <InfoTip term={label} definition={metric.definition} /> : null}
       </span>
       <div className="stat-value">{value}</div>
+      {unavailable ? (
+        <div className="text-ash text-[11px]" title="The data provider didn't return this in time">
+          unavailable this run
+        </div>
+      ) : null}
     </div>
   );
 }

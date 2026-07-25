@@ -1,4 +1,33 @@
-import { buildUrl, fetchWithRetry429, parseJsonResponse } from './http.js';
+import type { HttpResponse, Retry429Options } from './http.js';
+import { buildUrl, fetchWithRetry429, parseJsonResponse, sleep } from './http.js';
+
+// CoinGecko's error_code 10010 nominally means "wrong root URL for your key tier" -- but a
+// production incident (2026-07-25, run 20260725-133739) showed it firing for a transient
+// quota/throttle condition too: the identical /global call, same key, same root URL, returned 200
+// seconds later. So it's treated as retryable, matched on the structured error_code alone -- never
+// the message string, which is CoinGecko's wording to change, not ours to depend on.
+const COINGECKO_THROTTLE_ERROR_CODE = 10010;
+
+// Small and hardcoded rather than threaded through CoinGeckoClientOptions/config: this pipeline
+// runs on a ~27-minute budget, so a 400 retry has to stay short and bounded no matter what the
+// existing (and deliberately unlimited, see retry429MaxAttempts default below) 429 retry is
+// configured to do.
+const THROTTLE_RETRY_MAX_ATTEMPTS = 2;
+const THROTTLE_RETRY_DELAY_SECONDS = 2;
+
+function isCoinGeckoThrottleError(response: HttpResponse): boolean {
+  if (response.status !== 400) return false;
+  try {
+    const body: unknown = JSON.parse(response.text);
+    return (
+      typeof body === 'object' &&
+      body !== null &&
+      (body as Record<string, unknown>).error_code === COINGECKO_THROTTLE_ERROR_CODE
+    );
+  } catch {
+    return false;
+  }
+}
 
 export interface CoinGeckoClient {
   globalData(): Promise<Record<string, unknown>>;
@@ -53,17 +82,30 @@ export class CoinGeckoHttpClient implements CoinGeckoClient {
       headers['x-cg-demo-api-key'] = this.apiKey;
     }
 
-    const response = await fetchWithRetry429(
-      url,
-      { timeoutSeconds: this.timeoutSeconds, headers },
-      {
-        enabled: this.retry429,
-        initialDelaySeconds: this.retry429InitialDelaySeconds,
-        maxDelaySeconds: this.retry429MaxDelaySeconds,
-        jitterSeconds: this.retry429JitterSeconds,
-        maxAttempts: this.retry429MaxAttempts,
-      },
-    );
+    const requestOptions = { timeoutSeconds: this.timeoutSeconds, headers };
+    const retry429Options: Retry429Options = {
+      enabled: this.retry429,
+      initialDelaySeconds: this.retry429InitialDelaySeconds,
+      maxDelaySeconds: this.retry429MaxDelaySeconds,
+      jitterSeconds: this.retry429JitterSeconds,
+      maxAttempts: this.retry429MaxAttempts,
+    };
+
+    let response = await fetchWithRetry429(url, requestOptions, retry429Options);
+
+    // shouldRetry429 (http.ts) can't express this: it retries on status code alone, and this
+    // client's 429 retry is deliberately unlimited, which is the wrong bound for a status that is
+    // normally a genuine client error. So a 10010-flavored 400 gets its own small, separately
+    // bounded retry layered on top, rather than folding into fetchWithRetry429's policy.
+    for (
+      let attempt = 0;
+      attempt < THROTTLE_RETRY_MAX_ATTEMPTS && isCoinGeckoThrottleError(response);
+      attempt += 1
+    ) {
+      await sleep(THROTTLE_RETRY_DELAY_SECONDS);
+      response = await fetchWithRetry429(url, requestOptions, retry429Options);
+    }
+
     return parseJsonResponse(path, response);
   }
 

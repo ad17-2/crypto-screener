@@ -88,3 +88,79 @@ describe('CoinGeckoHttpClient 429 retry', () => {
     expect(result).toEqual({});
   });
 });
+
+describe('CoinGeckoHttpClient 400/10010 throttle retry', () => {
+  const fetchMock = vi.fn();
+  const throttleBody = {
+    error_code: 10010,
+    error_message:
+      'If you are using Pro API key, please change your root URL from api.coingecko.com to pro-api.coingecko.com',
+  };
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  function buildClient(overrides: Partial<CoinGeckoClientOptions> = {}): CoinGeckoHttpClient {
+    return new CoinGeckoHttpClient({
+      // Near-zero so the (separate) 429 retry delay never blocks these tests.
+      retry429InitialDelaySeconds: 0,
+      retry429MaxDelaySeconds: 0,
+      retry429JitterSeconds: 0,
+      ...overrides,
+    });
+  }
+
+  async function flushDelay() {
+    // THROTTLE_RETRY_DELAY_SECONDS (coingecko.ts) is a plain sleep(), not gated by any retry429
+    // config -- advance real time under fake timers to release it.
+    await vi.advanceTimersByTimeAsync(2000);
+  }
+
+  it('retries a 400 carrying error_code 10010 and returns data once it succeeds', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(400, throttleBody))
+      .mockResolvedValueOnce(fakeResponse(200, { data: { active_cryptocurrencies: 1 } }));
+
+    const client = buildClient();
+    const promise = client.globalData();
+    await flushDelay();
+    const result = await promise;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ active_cryptocurrencies: 1 });
+  });
+
+  it('does not retry a 400 without error_code 10010, failing fast', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(400, { error_code: 10011, error_message: 'some other client error' }),
+    );
+
+    const client = buildClient();
+    await expect(client.globalData()).rejects.toThrow(/HTTP 400/);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws once the bounded 10010 retry (at most twice) is exhausted', async () => {
+    fetchMock.mockResolvedValue(fakeResponse(400, throttleBody));
+
+    const client = buildClient();
+    // Attach the rejection assertion synchronously, before the awaits below let the delayed
+    // retries run -- otherwise the eventual rejection is briefly unhandled and vitest warns.
+    const rejection = expect(client.globalData()).rejects.toThrow(/HTTP 400/);
+    await flushDelay();
+    await flushDelay();
+    await rejection;
+
+    // 1 initial call + at most 2 retries.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
