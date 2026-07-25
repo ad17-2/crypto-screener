@@ -1,11 +1,7 @@
 import { Header } from '@/components/layout/Header';
 import { ReloadButton } from '@/components/layout/ReloadButton';
-import {
-  BreadthRotationStage,
-  CoreReadStage,
-  MarketStage,
-  WeeklyReviewStage,
-} from '@/components/market';
+import { BreadthRotationStage, CoreReadStage, MarketStage } from '@/components/market';
+import { GoldenPocketWatchStage } from '@/components/market/GoldenPocketWatchStage';
 import { WatchlistWorkbench } from '@/components/watchlist';
 import { getDashboard } from '@/lib/api';
 import { btcRunPrice } from '@/lib/btc-pulse';
@@ -87,7 +83,14 @@ export default async function Page({ searchParams }: PageProps) {
 
       <BreadthRotationStage marketContext={payload.market_context} />
 
-      <WeeklyReviewStage weeklyReview={payload.weekly_review} />
+      {/*
+        Took over this slot from WeeklyReviewStage, which showed a 7-day retrospective that was
+        stale 6 days out of 7. WeeklyReviewStage.tsx and lib/weekly-review.ts are deliberately kept
+        (unrendered) so restoring it is a one-line change, and the API keeps computing and
+        persisting weekly_review: its cohorts only became populated on 2026-07-18 when
+        watchlist_side started being stamped, so the history is worth accruing even unrendered.
+      */}
+      <GoldenPocketWatchStage longRows={payload.sections.long} shortRows={payload.sections.short} />
 
       <CoreReadStage rows={payload.sections.core} />
 
