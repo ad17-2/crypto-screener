@@ -80,9 +80,18 @@ const COLUMNS: ColumnDef[] = [
  * overflowing. The combined minimum track width is 814px + 64px of gaps + 24px padding = 902px,
  * just above the 900px breakpoint where the layout collapses to the 2-column card form -- so
  * these minimums never apply on a screen that still shows this header.
+ *
+ * 24H is the one exception where BODY content, not the header, was the binding constraint:
+ * `minmax(68px,0.60fr)` (narrowed from 0.62fr by 21d57b0 while fixing a header-overlap bug) was too
+ * tight for a 2-digit move like "▼ -15.54%" to stay on one line, so the arrow wrapped onto its own
+ * row. Its floor moves to 84px (comfortably above the ~80px that needs) funded by taking the
+ * identical 16px/0.16fr off Setup, whose body content already wraps by design -- unlike a numeric
+ * cell, where a wrap reads as a layout bug rather than an intentional multi-line badge stack. Both
+ * totals above are preserved exactly (814px combined minimums, 7.30 combined fr), so every other
+ * column's rendered width, and its header-overlap margin, is unaffected by this swap.
  */
 const GRID_COLUMNS =
-  'grid-cols-[minmax(92px,0.92fr)_minmax(150px,1.38fr)_minmax(68px,0.60fr)_minmax(80px,0.70fr)_minmax(80px,0.70fr)_minmax(80px,0.72fr)_minmax(88px,0.76fr)_minmax(88px,0.76fr)_minmax(88px,0.76fr)] max-[900px]:grid-cols-2';
+  'grid-cols-[minmax(92px,0.92fr)_minmax(134px,1.22fr)_minmax(84px,0.76fr)_minmax(80px,0.70fr)_minmax(80px,0.70fr)_minmax(80px,0.72fr)_minmax(88px,0.76fr)_minmax(88px,0.76fr)_minmax(88px,0.76fr)] max-[900px]:grid-cols-2';
 
 export interface SideMeta {
   label: string;
@@ -342,7 +351,13 @@ function SymbolCell({ row }: { row: DashboardRow }) {
   const flagged = row.data_quality_flags.length > 0 || row.is_trusted === false;
   return (
     <td className="watch-cell left watch-symbol" data-label="Coin">
-      <span className="inline-flex items-center gap-1.5">
+      {/* flex-wrap, not nowrap: "Strengthening"/"Weakening" (RunTrendBadge) run wider than the
+          Coin track's guaranteed floor for anything but the shortest symbols -- unlike a header
+          `<th>` (see GRID_COLUMNS's doc), this flex row has no fixed alignment edge pinning
+          overflow off-screen, so without wrap it would just spill visually into Setup. Wrapping to
+          a second line is the brief-sanctioned fallback; it only ever engages for that rare
+          combination, since holding (the common case) renders no badge at all. */}
+      <span className="inline-flex items-center flex-wrap gap-1.5">
         {href !== '#' ? (
           <a
             className="symbol-link"
@@ -368,14 +383,13 @@ function SymbolCell({ row }: { row: DashboardRow }) {
   );
 }
 
-const RUN_TREND_CLASS: Record<'pos' | 'neg' | 'neutral', string> = {
+const RUN_TREND_CLASS: Record<'pos' | 'neg', string> = {
   pos: 'setup-badge pos',
   neg: 'setup-badge neg',
-  neutral: 'setup-badge neutral',
 };
 
 /** Shared with SelectedCoinRail -- same reuse pattern as sideMeta/FightsBtcChip below. Renders
- *  nothing for 'new' (see runTrendTone's own doc) or when run_trend is absent. */
+ *  nothing for 'new' or 'holding' (see runTrendTone's own doc) or when run_trend is absent. */
 export function RunTrendBadge({ row }: { row: DashboardRow }) {
   const tone = runTrendTone(row.run_trend);
   if (tone === null) return null;

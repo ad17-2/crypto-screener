@@ -176,14 +176,15 @@ export function divergenceLine(
  * definition come from lib/copy.ts's lookupRunTrend, same as setup_confidence/cvd_absorption_state.
  * This only decides whether/how to color a badge for it. 'new' deliberately maps to null (no chip):
  * it's the identical condition new_to_list's own NEW chip already flags (see
- * apps/api/src/dashboard/runDiff.ts runTrend()) -- a second badge would just repeat it.
+ * apps/api/src/dashboard/runDiff.ts runTrend()) -- a second badge would just repeat it. 'holding'
+ * also maps to null: it's the majority state on any given run (the score is essentially unchanged,
+ * inside normal run-over-run noise), so a badge announcing that on most rows would just read as
+ * noise sitting next to the symbol -- same absent-unless-notable convention sizeMultiplierChip's
+ * near-neutral band uses below. Don't restore a chip for it without solving that noise problem.
  */
-export function runTrendTone(
-  runTrend: DashboardRow['run_trend'],
-): 'pos' | 'neg' | 'neutral' | null {
+export function runTrendTone(runTrend: DashboardRow['run_trend']): 'pos' | 'neg' | null {
   if (runTrend === 'strengthening') return 'pos';
   if (runTrend === 'weakening') return 'neg';
-  if (runTrend === 'holding') return 'neutral';
   return null;
 }
 

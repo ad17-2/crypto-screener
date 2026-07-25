@@ -210,14 +210,17 @@ describe('divergenceLine', () => {
 });
 
 describe('runTrendTone', () => {
-  it('maps strengthening/weakening/holding to pos/neg/neutral', () => {
+  it('maps strengthening/weakening to pos/neg', () => {
     expect(runTrendTone('strengthening')).toBe('pos');
     expect(runTrendTone('weakening')).toBe('neg');
-    expect(runTrendTone('holding')).toBe('neutral');
   });
 
   it("returns null for 'new' -- new_to_list's own NEW chip already covers that condition", () => {
     expect(runTrendTone('new')).toBeNull();
+  });
+
+  it("returns null for 'holding' -- it's the majority state on any given run, and a badge for it on most rows would just be noise next to the symbol", () => {
+    expect(runTrendTone('holding')).toBeNull();
   });
 
   it('returns null when run_trend is absent (old payload, non-directional row, or suppressed)', () => {
