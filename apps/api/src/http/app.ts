@@ -5,6 +5,7 @@ import type { RefreshRuntime } from '../refresh/runtime.js';
 import { btcPulseRoute } from './routes/btcPulse.js';
 import { dashboardRoute } from './routes/dashboard.js';
 import { healthRoute } from './routes/health.js';
+import { klinesRoute } from './routes/klines.js';
 import { refreshRoute } from './routes/refresh.js';
 
 /** No `listen()` here (see server.ts) so tests can drive this with supertest; no static UI routes — apps/web owns the UI. */
@@ -31,6 +32,7 @@ export function createApp(deps: AppDeps): Express {
   app.get('/health', healthRoute(deps));
   app.get('/api/dashboard', dashboardRoute(deps));
   app.get('/api/btc-pulse', btcPulseRoute());
+  app.get('/api/klines', klinesRoute());
   app.post('/api/refresh', refreshRoute(deps));
 
   return app;

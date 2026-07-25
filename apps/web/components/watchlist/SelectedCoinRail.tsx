@@ -21,6 +21,7 @@ import {
   tradingViewUrl,
 } from '@/lib/dashboard-row';
 import { fmtNum, fmtPct, fmtPrice, fmtUsd, numeric, ordinal, qualityTone } from '@/lib/format';
+import { CoinChart } from './CoinChart';
 import { FightsBtcChip, RunTrendBadge, SetupConfidenceBadge, sideMeta } from './WatchlistTable';
 
 export interface SelectedCoinRailProps {
@@ -81,6 +82,15 @@ export function SelectedCoinRail({ row }: SelectedCoinRailProps) {
 
         <DetailSection title="Chart detail (4h)">
           <ChartDetailBlock row={row} />
+        </DetailSection>
+        {/*
+          The one section that opens by default. The rest of this rail is collapsed because it is
+          reference detail you go looking for; the chart is the thing this feature exists to save a
+          trip to TradingView for, and behind a click it would cost two clicks to see a chart
+          against one to reach TradingView via the symbol link -- worse than what it replaces.
+        */}
+        <DetailSection title="Price chart" defaultOpen>
+          <CoinChart row={row} />
         </DetailSection>
         <DetailSection title="Levels (4h)">
           <LevelsBlock row={row} />
@@ -357,9 +367,17 @@ function ReasonStack({ row }: { row: DashboardRow }) {
   );
 }
 
-function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+function DetailSection({
+  title,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
   return (
-    <details className="detail-section border-t border-line pt-2.5">
+    <details className="detail-section border-t border-line pt-2.5" open={defaultOpen}>
       <summary className="label flex items-center gap-2.5 cursor-pointer list-none">
         {title}
       </summary>
