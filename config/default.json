@@ -132,7 +132,8 @@
   },
   "factors": {
     "forward_return_hours": 24,
-    "ic_min_cross_section": 5
+    "ic_min_cross_section": 5,
+    "prefer_screener_sector_momentum": true
   },
   "report": {
     "limit": 12,

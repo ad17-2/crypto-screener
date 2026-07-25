@@ -209,6 +209,12 @@ const FactorsConfigSchema = z
     ic_min_cross_section: z.number().int().default(5),
     // See pipeline/factors.ts#residualiseOiPriceSignal; off compares against the raw, collinear factor.
     residualise_collinear_factors: z.boolean().default(true),
+    // Breadth's category-momentum input (market.ts's breadthSummary, 0.14 weight): when true
+    // (default), prefer screenerSectorRotation()'s screener-aligned sector medians (the screener's
+    // own ~70-coin universe) over the legacy CoinGecko-global-category score. Falls back to the
+    // CoinGecko path automatically whenever screener sector data is unavailable or empty,
+    // regardless of this flag -- see breadthSummary's category_momentum_source.
+    prefer_screener_sector_momentum: z.boolean().default(true),
     regime: RegimeConfigSchema.default(() => RegimeConfigSchema.parse({})),
   })
   .strict();

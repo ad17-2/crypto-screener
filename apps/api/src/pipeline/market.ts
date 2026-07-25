@@ -116,20 +116,48 @@ function ethBtcPerformancePct(rows: Row[]): number | null {
 export function marketStructureSummary(
   rows: Row[],
   marketContext: MarketContext,
+  screenerSectors: ScreenerSectorRotationEntry[] = [],
+  preferScreenerSectors = true,
 ): { breadth: Record<string, unknown>; sector_rotation: Record<string, unknown> } {
   const trusted = trustedRows(rows);
   return {
-    breadth: breadthSummary(trusted, marketContext),
+    breadth: breadthSummary(trusted, marketContext, screenerSectors, preferScreenerSectors),
     sector_rotation: sectorRotationSummary(marketContext),
   };
 }
 
-function breadthSummary(rows: Row[], marketContext: MarketContext): Record<string, unknown> {
+function breadthSummary(
+  rows: Row[],
+  marketContext: MarketContext,
+  screenerSectors: ScreenerSectorRotationEntry[],
+  preferScreenerSectors: boolean,
+): Record<string, unknown> {
   const priceChanges = numericValues(rows.map((row) => row.price_change_24h_pct));
   const oiChanges = numericValues(rows.map((row) => row.oi_change_24h_pct));
   const fundingValues = numericValues(rows.map((row) => row.funding_rate_pct));
   const weightedReturn = volumeWeightedReturn(rows);
+
+  // The breadth score's category-momentum input (0.14 weight below): screenerSectorRotation()'s
+  // screener-aligned sector medians (the screener's own ~70-coin universe) when available and
+  // preferred (config factors.prefer_screener_sector_momentum, default true), else the legacy
+  // CoinGecko-global-category score. Falls back cleanly -- never a misleading 0 -- when either or
+  // both sources are unavailable/empty; category_momentum_source below always says which one
+  // actually fed the weight, mirroring the briefing's used_tools field, so a silent switch between
+  // the two never becomes undiagnosable.
+  const screenerScore = screenerSectorMomentumScore(screenerSectors);
   const categoryScore = categoryMomentumScore(marketContext);
+  let categoryMomentumSource: 'screener_sectors' | 'coingecko_categories' | 'none';
+  let categoryScoreUsed: number | null;
+  if (preferScreenerSectors && screenerScore !== null) {
+    categoryScoreUsed = screenerScore;
+    categoryMomentumSource = 'screener_sectors';
+  } else if (categoryScore !== null) {
+    categoryScoreUsed = categoryScore;
+    categoryMomentumSource = 'coingecko_categories';
+  } else {
+    categoryScoreUsed = null;
+    categoryMomentumSource = 'none';
+  }
 
   if (priceChanges.length === 0) {
     return {
@@ -165,8 +193,8 @@ function breadthSummary(rows: Row[], marketContext: MarketContext): Record<strin
     weightedReturnScore * 0.18,
     oiConfirmationScore * 0.1,
   ];
-  if (categoryScore !== null) {
-    scoreParts.push(categoryScore * 0.14);
+  if (categoryScoreUsed !== null) {
+    scoreParts.push(categoryScoreUsed * 0.14);
   }
   const score = clamp(
     scoreParts.reduce((sum, value) => sum + value, 0),
@@ -188,7 +216,8 @@ function breadthSummary(rows: Row[], marketContext: MarketContext): Record<strin
     volume_weighted_return_24h_pct: weightedReturn !== null ? pyRound(weightedReturn, 3) : null,
     oi_expander_pct: oiExpanderPct !== null ? pyRound(oiExpanderPct, 2) : null,
     avg_funding_rate_pct: fundingValues.length > 0 ? pyRound(mean(fundingValues), 5) : null,
-    category_momentum_score: categoryScore !== null ? pyRound(categoryScore, 3) : null,
+    category_momentum_score: categoryScoreUsed !== null ? pyRound(categoryScoreUsed, 3) : null,
+    category_momentum_source: categoryMomentumSource,
   };
 }
 
@@ -300,6 +329,23 @@ function categoryMomentumScore(marketContext: MarketContext): number | null {
 
 function categoryChanges(categories: unknown[]): number[] {
   return numericValues(categories.map((item) => asRecord(item).market_cap_change_24h_pct));
+}
+
+/**
+ * Screener-aligned analogue of categoryMomentumScore above -- same scaling and clamp, applied to
+ * screenerSectorRotation()'s per-sector median residuals instead of CoinGecko's global category
+ * changes, so the two are directly comparable and the 0.14 weight breadthSummary applies to
+ * whichever one is used still means the same thing. Per-sector median residuals were measured live
+ * 2026-07-25 at roughly -2.9% to +0.5% (see config/schema.ts's providers.coingecko.sectors
+ * comment) -- well inside the single-digit-percent range /4.0 was sized for, so this does not
+ * saturate: a worst-case all-sectors-at--2.9% mean still only clamps to -0.725, not -1.0.
+ */
+function screenerSectorMomentumScore(entries: ScreenerSectorRotationEntry[]): number | null {
+  if (entries.length === 0) {
+    return null;
+  }
+  const values = entries.map((entry) => entry.median_residual_change_24h_pct);
+  return clamp(mean(values) / 4.0, -1.0, 1.0);
 }
 
 function breadthLabel(score: number, advancerPct: number): string {

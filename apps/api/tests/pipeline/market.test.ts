@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { screenerSectorRotation } from '../../src/pipeline/market.js';
-import type { Row } from '../../src/pipeline/types.js';
+import {
+  marketStructureSummary,
+  type ScreenerSectorRotationEntry,
+  screenerSectorRotation,
+} from '../../src/pipeline/market.js';
+import type { MarketContext, Row } from '../../src/pipeline/types.js';
 
 function row(symbol: string, residual: number | null, isTrusted = true): Row {
   const built: Row = { symbol, is_trusted: isTrusted };
@@ -136,5 +140,73 @@ describe('screenerSectorRotation', () => {
       // median([5, -6, -2]) = -2
       { sector: 'AI', median_residual_change_24h_pct: -2, n: 3 },
     ]);
+  });
+});
+
+describe('marketStructureSummary breadth category-momentum source', () => {
+  function priceRow(symbol: string, change: number): Row {
+    return { symbol, price_change_24h_pct: change };
+  }
+
+  // Enough rows (and a nonzero price_change_24h_pct on each) for breadthSummary to take its 'ok'
+  // path, not the 'empty' early return -- the category-momentum fields only appear on 'ok'.
+  const rows: Row[] = [priceRow('BTC', 1), priceRow('ETH', 2), priceRow('SOL', -1)];
+
+  // categoryMomentumScore's legacy CoinGecko path: mean(2, -1) / 4.0 = 0.125.
+  const categoryContext: MarketContext = {
+    categories: {
+      leaders: [{ market_cap_change_24h_pct: 2 }],
+      laggards: [{ market_cap_change_24h_pct: -1 }],
+    },
+  };
+
+  // Live magnitudes measured 2026-07-25 (see config/schema.ts's providers.coingecko.sectors
+  // comment): per-sector median residuals sit around -2.9% to +0.5%.
+  const screenerSectors: ScreenerSectorRotationEntry[] = [
+    { sector: 'Layer 1', median_residual_change_24h_pct: -0.91, n: 30 },
+    { sector: 'AI', median_residual_change_24h_pct: 0.46, n: 11 },
+    { sector: 'DeFi', median_residual_change_24h_pct: -2.89, n: 19 },
+    { sector: 'Layer 2', median_residual_change_24h_pct: -2.78, n: 4 },
+  ];
+
+  it('scales/clamps screenerSectorRotation output the same way categoryMomentumScore does, and prefers it by default', () => {
+    const result = marketStructureSummary(rows, categoryContext, screenerSectors, true);
+
+    // mean(-0.91, 0.46, -2.89, -2.78) = -1.53; /4.0 = -0.3825 -- comfortably inside [-1, 1], so the
+    // /4.0 divisor sized for single-digit percentages does not saturate on these magnitudes.
+    expect(result.breadth.category_momentum_score).toBe(-0.383);
+    expect(result.breadth.category_momentum_source).toBe('screener_sectors');
+  });
+
+  it('falls back to the CoinGecko category score when screener sectors are empty', () => {
+    const result = marketStructureSummary(rows, categoryContext, [], true);
+
+    expect(result.breadth.category_momentum_score).toBe(0.125);
+    expect(result.breadth.category_momentum_source).toBe('coingecko_categories');
+  });
+
+  it('uses the CoinGecko category score when the config switch prefers it, even with screener data present', () => {
+    const result = marketStructureSummary(rows, categoryContext, screenerSectors, false);
+
+    expect(result.breadth.category_momentum_score).toBe(0.125);
+    expect(result.breadth.category_momentum_source).toBe('coingecko_categories');
+  });
+
+  it('yields null, not 0, when both sources are absent, and omits the term from the weighted score', () => {
+    const withScreener = marketStructureSummary(rows, categoryContext, screenerSectors, true);
+    const withNeither = marketStructureSummary(rows, {}, [], true);
+
+    expect(withNeither.breadth.category_momentum_score).toBeNull();
+    expect(withNeither.breadth.category_momentum_source).toBe('none');
+    // Confirms the 0.14 weight is actually omitted, not zeroed in: the same price/OI inputs score
+    // differently once a category-momentum term contributes to the weighted sum.
+    expect(withNeither.breadth.score).not.toBe(withScreener.breadth.score);
+  });
+
+  it('defaults to preferring screener sectors and falls back correctly when the optional args are omitted', () => {
+    const result = marketStructureSummary(rows, categoryContext);
+
+    expect(result.breadth.category_momentum_score).toBe(0.125);
+    expect(result.breadth.category_momentum_source).toBe('coingecko_categories');
   });
 });
